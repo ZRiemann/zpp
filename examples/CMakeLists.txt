@@ -1,0 +1,5 @@
+add_subdirectory(folly)
+add_subdirectory(nng)
+add_subdirectory(core)
+add_subdirectory(taskflow)
+add_subdirectory(hpx)

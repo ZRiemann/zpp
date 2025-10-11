@@ -39,3 +39,64 @@
 
 # debug information files
 *.dwo
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# Z.Riemann add
+GPATH
+GRTAGS
+GTAGS
+Makefile
+
+build
+cpm_cache
+build_debug
+cpm_cache_debug
+cbuild
+
+*.org_archive
+*.bin
+*~
+*.#*
+*.out
+*.log
+*.spv
+.vscode
+*logs
+
+# rust
+target
+*.lock
+*.pb.h
+*.pb.cc
+
+#node.js
+node_modules
+
+#zig
+zig-cache
+
+# org-mode
+## latex
+ltximg
+**/dist
+
+# python
+**/__pycache__
+**/*.pyc
+**/*.csv
+.vscode/
+.github/

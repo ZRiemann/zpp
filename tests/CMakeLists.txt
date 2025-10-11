@@ -1,0 +1,5 @@
+add_subdirectory(uni_svr)
+add_subdirectory(thread_pool)
+add_subdirectory(STL)
+add_subdirectory(unit_tests)
+add_subdirectory(coro)

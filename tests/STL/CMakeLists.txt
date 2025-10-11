@@ -1,0 +1,2 @@
+add_subdirectory(fifo_test)
+add_subdirectory(pressure_spsc)

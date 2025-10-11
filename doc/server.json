@@ -1,0 +1,146 @@
+{
+    "server":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"server.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },
+    "zpp_hpx_basic":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"zpp_hpx_basic.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },
+    "example_hpx_taskflow":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"example_hpx_taskflow.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },
+    "example_hpx_basic":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"seexample_hpx_basicrver.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },
+    "folly_server":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"server.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },"zpp_core":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"zpp_core.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },"zpp_taskflow":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"zpp_taskflow.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },
+    "uni_svr":{
+        "some_confs": 1,
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"server.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },
+    "test_folly":{
+        "some_confs": 0,
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"test_folly.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },
+    "thread_pool_benchmark":{
+        "some_confs": 1,
+        "thread_num": 3,
+        "task_num": 10000000,
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"thread_pool_benchmark.log",
+            "max_size":32,
+            "rotats":3
+        }
+    },
+    "nng_net":{
+        "pub":"ipc://@test_nng_pub_sub"
+    },
+    "engine":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"engine.log",
+            "max_size":32,
+            "rotats":3
+        },
+        "nng_engine":{
+            "task_threads": 32,
+            "task_threads_max": 38,
+            "expire_threads": 1,
+            "expire_threads_max": 2,
+            "poller_threads": 2,
+            "poller_threads_max": 4,
+            "resolver_threads": 1,
+            "aios": 1024
+        }
+    },
+    "nng_pub":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"nng_pub.log",
+            "max_size":32,
+            "rotats":3
+        },
+        "nng_engine":{
+            "task_threads": 32,
+            "task_threads_max": 38,
+            "expire_threads": 1,
+            "expire_threads_max": 2,
+            "poller_threads": 2,
+            "poller_threads_max": 4,
+            "resolver_threads": 1,
+            "aios": 1024
+        }
+    },
+    "nng_sub":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"nng_sub.log",
+            "max_size":32,
+            "rotats":3
+        }
+    }
+
+}

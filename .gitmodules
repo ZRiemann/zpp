@@ -1,0 +1,3 @@
+[submodule "cmake_util"]
+	path = cmake_util
+	url = https://github.com/ZRiemann/cmake_util.git
