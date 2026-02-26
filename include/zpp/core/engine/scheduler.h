@@ -1,7 +1,7 @@
 #pragma once
 
 #include <zpp/namespace.h>
-#include <zpp/STL/fifo.h>
+#include <zpp/STL/mpmc.hpp>
 #include <zpp/system/atomic_bit.h>
 
 #define ENABLE_SCHEDULER_LOG 0
@@ -22,7 +22,7 @@ template<typename T, typename U = uint64_t>
 class scheduler{
     struct thr_ctx{
         int tid{-1};
-        mpsc<T*>* que{nullptr};
+        mpmc<T*>* que{nullptr};
         std::mutex mtx;
         std::condition_variable_any cv;
     };
@@ -34,7 +34,7 @@ public:
         bool valid;
         size_t num{_thr_num};
         for(size_t i = 0; i < _thr_num; ++i){
-            _ctxs[i].que = new mpsc<T*>(valid, 8192, 8);
+            _ctxs[i].que = new mpmc<T*>(8192, 8);
             if(!valid){
                 // memory insufficient
                 delete _ctxs[i].que;

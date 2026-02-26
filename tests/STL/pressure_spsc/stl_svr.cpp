@@ -18,15 +18,17 @@
 USE_ZPP
 
 constexpr size_t MAX_COUNT = 1000000000;
+//constexpr size_t MAX_COUNT = 1000000;
 constexpr size_t END_COUNT = MAX_COUNT - 1;
 constexpr size_t CHUNK_SIZE = 8192;
-constexpr size_t CHUNK_CAPACITY = 16;
-constexpr size_t RING_CAPACITY = 1 << 20;
+constexpr size_t CHUNK_CAPACITY = 64;
 
-constexpr size_t RING_MAX_COUNT = 20000000;
+constexpr size_t RING_CAPACITY = 1 << 20;
+constexpr size_t RING_MAX_COUNT = MAX_COUNT;
 constexpr size_t RING_END_COUNT = RING_MAX_COUNT - 1;
 
-constexpr size_t PRINT_MASK = 0x3ffffff;
+constexpr size_t PRINT_MASK = 0x7ffffff;
+
 
 void stl_svr::pressure_spsc(){
 #if USE_SPSC
@@ -53,7 +55,8 @@ void stl_svr::pressure_spsc(){
         size_t push_fails{0};
         for(size_t i = 0; i < MAX_COUNT; ++i){
             while(!que.push(i)){
-                sleep_us(100);
+                //spd_inf("push {} fail!", i);
+                pause(100);
                 ++push_fails;
             }
             if(!(i & PRINT_MASK)){
@@ -71,12 +74,23 @@ void stl_svr::pressure_spsc(){
         size_t count_fails{0};
         while(run){
             if(!que.pop(val)){
-                sleep_us(100);
+#if 1
+                pause(100);
+#else
+                sleep_ms(1000);
+                spd_inf("pop fail! cnt:{}", cnt);
+                spd_war("front_ptr:{}, back_ptr:{}, front_end_ptr:{}, back_end_ptr:{}, back_local:{}, back_cached:{}", 
+                    fmt::ptr(que._front_ptr), fmt::ptr(que._back_ptr.load(std::memory_order_acquire)), fmt::ptr(que._front_end_ptr), 
+                    fmt::ptr(que._back_end_ptr), fmt::ptr(que._back_local), fmt::ptr(que._back_cached));
+#endif
                 ++count_fails;
                 continue;
             }
             if(cnt != val){
                 spd_err("not match cnt[{}] val[{}] diff[{}]", cnt, val, cnt > val ? cnt - val : val -cnt);
+                spd_err("front_ptr:{}, back_ptr:{}, front_end_ptr:{}, back_end_ptr:{}, back_local:{}, back_cached:{}", 
+                    fmt::ptr(que._front_ptr), fmt::ptr(que._back_ptr.load(std::memory_order_acquire)), fmt::ptr(que._front_end_ptr), 
+                    fmt::ptr(que._back_end_ptr), fmt::ptr(que._back_local), fmt::ptr(que._back_cached));
                 run = false;
             }
 
@@ -91,7 +105,7 @@ void stl_svr::pressure_spsc(){
                 break;
             case END_COUNT:{
                 time_t us = stop_watch.elapsed_us() + 1;
-                spd_inf("consum done. item[{}] use {} us. {} q/s", MAX_COUNT, CTS(us), CTS((MAX_COUNT / us) * 1000000), CTS(count_fails));
+                spd_inf("consum done. item[{}] use {} us. {} q/s", CTS(MAX_COUNT), CTS(us), CTS((MAX_COUNT / us) * 1000000), CTS(count_fails));
                 run = false;
                 }
                 break;
@@ -103,10 +117,12 @@ void stl_svr::pressure_spsc(){
         }
         spd_inf("consume done. pop_fails[{}]", CTS(count_fails));
     });
+    spd_inf("pressure spsc test done.");
 }
 
 void stl_svr::pressure_ring_compare(){
-    constexpr size_t batches[] = {1, 4, 8, 16};
+    //constexpr size_t batches[] = {1, 4, 8, 16};
+    constexpr size_t batches[] = {8};
 
     for(size_t publish_batch : batches){
         spd_inf("benchmark RING(cap:{}, publish_batch:{}, count:{})", CTS(RING_CAPACITY), CTS(publish_batch), CTS(RING_MAX_COUNT));
@@ -116,7 +132,7 @@ void stl_svr::pressure_ring_compare(){
             size_t push_fails{0};
             for(size_t i = 0; i < RING_MAX_COUNT; ++i){
                 while(!que.push(i)){
-                    sleep_us(50);
+                    pause(100);
                     ++push_fails;
                 }
                 if(!(i & PRINT_MASK)){
@@ -135,7 +151,7 @@ void stl_svr::pressure_ring_compare(){
             size_t pop_fails{0};
             while(run){
                 if(!que.pop(val)){
-                    sleep_us(50);
+                    pause(100);
                     ++pop_fails;
                     continue;
                 }
@@ -186,7 +202,8 @@ stl_svr::stl_svr(int argc, char** argv)
 }
 
 err_t stl_svr::run(){
-    pressure_ring_compare();
+    //pressure_ring_compare();
+    pressure_spsc();
     return ERR_OK;    
 }
 

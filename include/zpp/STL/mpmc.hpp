@@ -3,6 +3,7 @@
 #include <zpp/namespace.h>
 #include <zpp/types.h>
 #include <zpp/error.h>
+#include <zpp/system/spin.h>
 #include <zpp/core/memory/aligned_malloc.hpp>
 #include <atomic>
 #include <cstdlib>
@@ -11,23 +12,23 @@
 
 NSB_ZPP
 
-constexpr std::size_t SPSC_CHUNK_ALIGMENT = 64;
+constexpr std::size_t MPMC_CHUNK_ALIGMENT = 64;
 
 template<typename T>
-class spsc{
+class mpmc{
 public:
-    struct alignas(SPSC_CHUNK_ALIGMENT) chunk{
+    struct alignas(MPMC_CHUNK_ALIGMENT) chunk{
         chunk* next;
         T data[0];
     };
 public: // constructors & destructors
-    spsc(spsc&& other) = delete;
-    spsc(spsc& other) = delete;
+    mpmc(mpmc&& other) = delete;
+    mpmc(mpmc& other) = delete;
 
     /**
      * @brief 动态内存分配，适合读写速度匹配；
      */
-    spsc(std::size_t chunk_size, std::size_t chunk_capacity)
+    mpmc(std::size_t chunk_size, std::size_t chunk_capacity)
         : _chunk_size(chunk_size > 0 ? chunk_size : 1)
         , _chunk_capacity(chunk_capacity > 2 ? chunk_capacity : 2)
         , _chunk_num(0)
@@ -55,9 +56,9 @@ public: // constructors & destructors
      * @brief 静态内存分配，避免内存分配开销，提高读写效率；
      * @note 读速度不小与写速度的一半，否则可能出现读写不匹配导致的性能问题；
      */
-    spsc(std::size_t capacity)
-        :spsc(capacity / 2, 2){}
-    ~spsc(){
+    mpmc(std::size_t capacity)
+        :mpmc(capacity / 2, 2){}
+    ~mpmc(){
         aligned_free(_spare_chunk.exchange(nullptr));
         chunk *chk = _front_chunk;
         chunk *chk_next{nullptr};
@@ -78,8 +79,46 @@ public: // constructors & destructors
         size -= _back_end_ptr - _back_ptr.load(std::memory_order_acquire);
         return size;
     }
-public: // Consume
+public:
+    inline bool push(T t) noexcept {
+        _spin_p.lock();
+        if(_full()){
+            _spin_p.unlock();
+            return false;
+        }
+        *_back_local = t;
+        push();
+        _spin_p.unlock();
+        return true;
+    }
+
+    inline bool pop(T& t) noexcept {
+        _spin_c.lock();
+        if(_empty()){
+            _spin_c.unlock();
+            return false;
+        }
+        t = *_front_ptr;
+        pop();
+        _spin_c.unlock();
+        return true;
+    }
+
     inline bool empty() noexcept {
+        _spin_c.lock();
+        bool ret = _empty();
+        _spin_c.unlock();
+        return ret;
+    }
+
+    inline bool full() noexcept {
+        _spin_p.lock();
+        bool ret = _full();
+        _spin_p.unlock();
+        return ret;
+    }
+private: // Consume
+    inline bool _empty() noexcept {
         if(_front_ptr != _back_cached){
             try_move_next_chunk();
             return false;
@@ -97,17 +136,8 @@ public: // Consume
     inline void pop() noexcept {
         ++_front_ptr;
     }
-
-    inline bool pop(T& t) noexcept {
-        if(empty()){
-            return false;
-        }
-        t = *_front_ptr;
-        pop();
-        return true;
-    }
-public: // Produce
-    inline bool full() noexcept {
+private: // Produce
+    inline bool _full() noexcept {
         if(_back_local < _back_end_ptr){
             return false;
         }
@@ -128,14 +158,6 @@ public: // Produce
         _back_ptr.store(_back_local, std::memory_order_release);
     }
 
-    inline bool push(T t) noexcept {
-        if(full()){
-            return false;
-        }
-        *_back_local = t;
-        push();
-        return true;
-    }
 #if 0
     inline void print_status() {
         spd_inf("front_ptr:{}, back_ptr:{}, front_end_ptr:{}, back_end_ptr:{}, back_local:{}, back_cached:{}\n"
@@ -155,7 +177,7 @@ private: // help functions
         if(_chunk_num.load(std::memory_order_acquire) >= _chunk_capacity){
             return nullptr;
         }
-        chk = static_cast<chunk*>(aligned_malloc(sizeof(chunk) + sizeof(T) * _chunk_size, SPSC_CHUNK_ALIGMENT));
+        chk = static_cast<chunk*>(aligned_malloc(sizeof(chunk) + sizeof(T) * _chunk_size, MPMC_CHUNK_ALIGMENT));
         if(chk){
             _chunk_num.fetch_add(1, std::memory_order_release);
         }
@@ -199,6 +221,7 @@ public:
 
     T* _front_ptr;
     T* _front_end_ptr;
+    spin _spin_c; // 消费者锁，保护消费者访问核心变量
 
     char _padding[64]; // 强制隔离消费者和生产者的核心变量
 
@@ -206,6 +229,7 @@ public:
     std::atomic<T*> _back_ptr; // P->C 发布指针，release/acquire 同步
     mutable T* _back_cached; // 仅消费者线程访问，减少 acquire 读取频率
     T* _back_end_ptr;
+    spin _spin_p; // 生产者锁，保护生产者访问核心变量
 };
 
 NSE_ZPP

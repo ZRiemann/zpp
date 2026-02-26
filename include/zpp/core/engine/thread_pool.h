@@ -57,7 +57,7 @@ public:
                 for(;;){
                     scheduler._idels.set_bit(idel_bit); // 标记空闲
                     std::unique_lock<std::mutex> lock(mtx);
-                    cv.wait_for(lock, token, std::chrono::microseconds(scheduler._timeout),[&que]{ return que.not_empty(); });
+                    cv.wait_for(lock, token, std::chrono::microseconds(scheduler._timeout),[&que]{ return !que.empty(); });
                     //cv.wait(lock, token,[&que]{ return que.not_empty(); }); // 会卡死
                     if (!token.stop_requested()) {
                         lock.unlock();
