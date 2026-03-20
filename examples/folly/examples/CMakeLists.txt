@@ -13,7 +13,6 @@ target_link_libraries(folly_examples PRIVATE
 
 target_include_directories(folly_examples PRIVATE
     ${PROJECT_SOURCE_DIR}/include
-    ${FOLLY_INCLUDE_DIRS}
     #${Boost_INCLUDE_DIRS}
 )
 

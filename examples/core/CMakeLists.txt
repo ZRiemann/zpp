@@ -10,7 +10,6 @@ target_link_libraries(zpp_core PRIVATE
 
 target_include_directories(zpp_core PRIVATE
     ${PROJECT_SOURCE_DIR}/include
-    ${FOLLY_INCLUDE_DIRS}
 )
 
 add_run_target(zpp_core ARGS 

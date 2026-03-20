@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.15)
 
 project(zpp VERSION 0.1.0)
 
+option(ZPP_USE_CONAN "Use Conan-provided dependencies and disable CPM fallbacks" OFF)
+option(ZPP_BUILD_TESTS "Build zpp tests" ON)
+option(ZPP_BUILD_EXAMPLES "Build zpp examples" ON)
+option(ZPP_BUILD_HPX_EXAMPLES "Build zpp HPX examples" ON)
+
 include(./cmake_util/common.cmake)
 
 # Append User define options
@@ -11,8 +16,11 @@ include(./cmake_util/common.cmake)
 
 # find packages
 find_package(Threads REQUIRED)
-find_package(folly REQUIRED)
-message(STATUS "Found folly: ${FOLLY_INCLUDE_DIRS} ${FOLLY_LIBRARIES}")
+if(ZPP_USE_CONAN)
+    find_package(OpenSSL QUIET CONFIG)
+endif()
+find_package(folly CONFIG REQUIRED)
+message(STATUS "Found folly target: Folly::folly")
 include(./cmake_util/find_package/gtest.cmake)
 
 #set(RAPIDJSON_ROOT "~/tmp" CACHE PATH "RapidJSON include root") # 指定用户目录，不使用CPM下载
@@ -23,7 +31,9 @@ include(./cmake_util/find_package/spdlog.cmake)
 
 include(./cmake_util/find_package/nng.cmake)
 
-set(TASKFLOW_ROOT "~/git/taskflow" CACHE PATH "TASKFLOW_ROOT include root")
+if(NOT ZPP_USE_CONAN AND NOT DEFINED TASKFLOW_ROOT)
+    set(TASKFLOW_ROOT "~/git/taskflow" CACHE PATH "TASKFLOW_ROOT include root")
+endif()
 include(./cmake_util/find_package/taskflow.cmake)
 
 #include(./cmake_util/find_package/CUDA.cmake)
@@ -46,7 +56,12 @@ elseif(UNIX)
     message(STATUS "System: Unix")
 endif()
 
-add_subdirectory(tests)
 add_subdirectory(src)
-add_subdirectory(examples)
+if(ZPP_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
+
+if(ZPP_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
