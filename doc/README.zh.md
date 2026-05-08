@@ -3,23 +3,21 @@
 zpp(ZetaX plus plus) 是一个 C++ 库。
 zpp 致力于提高开发效率，集成了 cmake_util、spdlog 日志库以及若干第三方库。
 
-## cbuild 使用说明
+## 使用 zeta_forge 构建
 
-仓库使用 `cbuild` 作为标准构建入口（脚本位于仓库根目录）。常用示例：
+zpp 现在作为 `zeta_forge` 工作区的一部分统一管理。推荐使用 `zeta_forge/zbuild.py zpp` 作为标准构建入口，由 zeta_forge 统一提供 Conan/CMake toolchain，并协调 zpp 与其它第三方库的版本和依赖路径。
 
-- `./cbuild r r v`：第一个 `r` 表示 Release（`d` 表示 Debug）；第二个 `r` 表示删除现有 `build` 或 `build_debug` 目录并重新构建；第三个 `v` 表示传递给 CMake 的 `VERBOSE=1`（显示详细编译命令）。
+在 `zeta_forge` 仓库根目录执行：
 
-- `./cbuild run <exe>`：运行由 `CMakeLists.txt` 中 `add_run_target()` 定义的可执行目标 `<exe>`。例如：`./cbuild run my_example` 会执行 `my_example` 的运行目标（前提是该目标存在且已构建）。
+```bash
+cd ~/git/zeta_forge
+./zbuild.py zpp --rebuild
+```
 
-更多使用说明和脚本内部参数请查看 `cbuild` 顶部注释或联系维护者。
+常用选项：
 
-## cbuild 使用说明
+- `./zbuild.py zpp --rebuild --no-tests`：不构建 zpp 测试。
+- `./zbuild.py zpp --rebuild --no-examples`：不构建 zpp 示例。
+- `./zbuild.py zpp --rebuild --install`：构建并安装到 zeta_forge 配置的安装前缀。
 
-仓库使用 `cbuild` 作为标准构建入口（脚本位于仓库根目录）。常用示例：
-
-- `./cbuild r r v`：第一个 `r` 表示 Release（`d` 表示 Debug）；第二个 `r` 表示删除现有 `build` 或 `build_debug` 目录并重新构建；第三个 `v` 表示传递给 CMake 的 `VERBOSE=1`（显示详细编译命令）。
-
-- `./cbuild run <exe>`：运行由 `CMakeLists.txt` 中 `add_run_target()` 定义的可执行目标 `<exe>`。例如：`./cbuild run my_example` 会执行 `my_example` 的运行目标（前提是该目标存在且已构建）。
-
-更多使用说明和脚本内部参数请查看 `cbuild` 顶部注释或联系维护者。
-
+旧的 `cbuild` helper 不再作为 zpp 推荐入口。它会执行独立 CMake 配置，可能拿不到 zeta_forge/Conan 提供的 `fmt`、`GTest`、`spdlog` 等依赖包路径。
