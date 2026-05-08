@@ -15,6 +15,7 @@ add_executable(gtest_tsc
     timestamp_counter_test.cpp
     timestamp_stc_test.cpp
     timestamp_chorno_test.cpp
+    json_hpp_test.cpp
 )
 
 target_link_libraries(gtest_tsc PRIVATE
