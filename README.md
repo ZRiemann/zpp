@@ -3,18 +3,26 @@
 zpp (ZetaX plus plus) is a C++ library.
 zpp aims to improve development efficiency and integrates cmake_util, the spdlog logging library, and several other third-party libraries.
 
-This repository is managed as part of the larger `zeta_forge` workspace. The recommended build entry is `zeta_forge/zbuild.py zpp`, which provides the shared Conan/CMake toolchain and keeps zpp's third-party dependency versions aligned with the rest of the workspace.
+This repository can be built inside the larger `zeta_forge` workspace or as a standalone checkout. In both cases it reuses the shared Conan/CMake build library from `zeta_forge`.
 
 See the Chinese translation in the `doc` directory: [中文 README](doc/README.zh.md).
 
-## Build With zeta_forge
+## Build
 
-Run builds from the `zeta_forge` repository root:
+From the `zeta_forge` repository root:
 
 ```bash
 cd ~/git/zeta_forge
 ./zbuild.py zpp --rebuild
 ```
+
+From this `zpp` checkout, including a standalone clone:
+
+```bash
+./zbuild.py --rebuild
+```
+
+The standalone entrypoint locates the shared build library with `ZETA_FORGE_ROOT`, then `$ZETAX_ROOT/zeta_forge`, then nearby workspace paths. `ZETAX_ROOT` is the top-level ZetaX workspace root, while `ZETA_FORGE_ROOT` points directly at the `zeta_forge` repository.
 
 Common options:
 
