@@ -1,3 +1,5 @@
+include("${ZETA_CMAKE_UTIL_DIR}/find_package/taskflow.cmake")
+
 file(GLOB_RECURSE SVR_SOURCES CONFIGURE_DEPENDS "*.cpp")
 add_executable(zpp_taskflow
     ${SVR_SOURCES}

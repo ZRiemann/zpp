@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(zpp VERSION 0.2.0)
+project(zpp VERSION 0.2.1)
 
 option(ZPP_USE_CONAN "Use Conan-provided dependencies and disable CPM fallbacks" OFF)
+option(ZPP_BUILD_FOLLY_MODULE "Build zpp folly module" OFF)
+option(ZPP_BUILD_NNG_MODULE "Build zpp nng module" OFF)
+option(ZPP_BUILD_TASKFLOW_MODULE "Build zpp taskflow examples/module support" OFF)
 option(ZPP_BUILD_TESTS "Build zpp tests" ON)
 option(ZPP_BUILD_EXAMPLES "Build zpp examples" ON)
 option(ZPP_BUILD_HPX_EXAMPLES "Build zpp HPX examples" ON)
@@ -32,11 +35,6 @@ include("${ZETA_CMAKE_UTIL_DIR}/common.cmake")
 
 # find packages
 find_package(Threads REQUIRED)
-if(ZPP_USE_CONAN)
-    find_package(OpenSSL REQUIRED CONFIG)
-endif()
-find_package(folly CONFIG REQUIRED)
-message(STATUS "Found folly target: Folly::folly")
 if(ZPP_BUILD_TESTS)
     include("${ZETA_CMAKE_UTIL_DIR}/find_package/gtest.cmake")
 endif()
@@ -46,10 +44,6 @@ include("${ZETA_CMAKE_UTIL_DIR}/find_package/rapidjson.cmake")
 
 #set(SPDLOG_ROOT "~/tmp" CACHE PATH "SPDLOG include root")
 include("${ZETA_CMAKE_UTIL_DIR}/find_package/spdlog.cmake")
-
-include("${ZETA_CMAKE_UTIL_DIR}/find_package/nng.cmake")
-
-include("${ZETA_CMAKE_UTIL_DIR}/find_package/taskflow.cmake")
 
 #include("${ZETA_CMAKE_UTIL_DIR}/find_package/CUDA.cmake")
 #include("${ZETA_CMAKE_UTIL_DIR}/find_package/grpc.cmake")

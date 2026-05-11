@@ -1,3 +1,5 @@
+include("${ZETA_CMAKE_UTIL_DIR}/find_package/nng.cmake")
+
 file(GLOB_RECURSE ZPP_NNG_SOURCES CONFIGURE_DEPENDS "*.cpp" "*.c")
 add_library(zpp_nng STATIC
     ${ZPP_NNG_SOURCES}

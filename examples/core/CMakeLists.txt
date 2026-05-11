@@ -4,7 +4,7 @@ add_executable(zpp_core
 )
 
 target_link_libraries(zpp_core PRIVATE
-    zpp::folly
+    zpp::zpp
     cxx_options
 )
 

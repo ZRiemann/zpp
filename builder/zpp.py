@@ -14,6 +14,9 @@ class ZppBuildArgs(CommonBuildArgs):
     build_tests: bool
     build_examples: bool
     build_hpx_examples: bool
+    build_folly_module: bool
+    build_nng_module: bool
+    build_taskflow_module: bool
 
 
 class ZppBuilder(CMakeProjectBuilder):
@@ -71,7 +74,7 @@ class ZppBuilder(CMakeProjectBuilder):
                 f"zeta_forge cmake_util not found: {self.cmake_util_dir}\n"
                 "Ensure $ZETAX_ROOT/zeta_forge/cmake_util exists before building zpp."
             )
-        if not self.taskflow_source_dir.is_dir():
+        if self.typed_args.build_taskflow_module and not self.taskflow_source_dir.is_dir():
             raise RuntimeError(
                 f"Taskflow source directory not found: {self.taskflow_source_dir}\n"
                 "Set ZETA_TASKFLOW_SRC_DIR to a local checkout or initialize the zeta_forge submodule with: git -C \"$ZETAX_ROOT/zeta_forge\" submodule update --init --recursive 3rd/taskflow"
@@ -103,8 +106,11 @@ class ZppBuilder(CMakeProjectBuilder):
         ]
 
     def configure_command(self) -> list[object]:
-        cmake_prefix_path = ";".join([str(self.repo_config.install_prefix), str(self.folly_conan_generators_dir)])
-        return [
+        cmake_prefix_paths = [str(self.repo_config.install_prefix)]
+        if self.typed_args.build_folly_module:
+            cmake_prefix_paths.append(str(self.folly_conan_generators_dir))
+
+        command: list[object] = [
             "cmake",
             "-S",
             self.source_dir,
@@ -116,19 +122,29 @@ class ZppBuilder(CMakeProjectBuilder):
             f"-DCMAKE_BUILD_TYPE={self.args.build_type}",
             "-DCMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release",
             f"-DCMAKE_TOOLCHAIN_FILE={self.conan_toolchain_file}",
-            f"-DCMAKE_PREFIX_PATH={cmake_prefix_path}",
+            f"-DCMAKE_PREFIX_PATH={';'.join(cmake_prefix_paths)}",
             f"-DCMAKE_INSTALL_PREFIX={self.repo_config.install_prefix}",
             f"-DCMAKE_CXX_STANDARD={self.repo_config.cxx_standard}",
-            f"-Dfolly_DIR={self.folly_cmake_dir}",
-            f"-DOpenSSL_DIR={self.folly_conan_generators_dir}",
             f"-DZETA_CMAKE_UTIL_DIR={self.cmake_util_dir}",
             f"-DRAPIDJSON_ROOT={self.rapidjson_source_dir / 'include'}",
-            f"-DTASKFLOW_ROOT={self.taskflow_source_dir}",
             "-DZPP_USE_CONAN=ON",
+            f"-DZPP_BUILD_FOLLY_MODULE={cmake_bool(self.typed_args.build_folly_module)}",
+            f"-DZPP_BUILD_NNG_MODULE={cmake_bool(self.typed_args.build_nng_module)}",
+            f"-DZPP_BUILD_TASKFLOW_MODULE={cmake_bool(self.typed_args.build_taskflow_module)}",
             f"-DZPP_BUILD_TESTS={cmake_bool(self.typed_args.build_tests)}",
             f"-DZPP_BUILD_EXAMPLES={cmake_bool(self.typed_args.build_examples)}",
             f"-DZPP_BUILD_HPX_EXAMPLES={cmake_bool(self.typed_args.build_hpx_examples)}",
         ]
+        if self.typed_args.build_folly_module:
+            command.extend(
+                [
+                    f"-Dfolly_DIR={self.folly_cmake_dir}",
+                    f"-DOpenSSL_DIR={self.folly_conan_generators_dir}",
+                ]
+            )
+        if self.typed_args.build_taskflow_module:
+            command.append(f"-DTASKFLOW_ROOT={self.taskflow_source_dir}")
+        return command
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -136,6 +152,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-tests", action="store_true")
     parser.add_argument("--no-examples", action="store_true")
     parser.add_argument("--with-hpx-examples", action="store_true")
+    parser.add_argument("--with-folly", action="store_true")
+    parser.add_argument("--with-nng", action="store_true")
+    parser.add_argument("--with-taskflow", action="store_true")
     return parser
 
 
@@ -148,6 +167,9 @@ def parse_args(argv: list[str] | None = None) -> ZppBuildArgs:
         build_tests=not namespace.no_tests,
         build_examples=not namespace.no_examples,
         build_hpx_examples=namespace.with_hpx_examples,
+        build_folly_module=namespace.with_folly,
+        build_nng_module=namespace.with_nng,
+        build_taskflow_module=namespace.with_taskflow,
     )
 
 

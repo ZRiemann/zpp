@@ -3,6 +3,41 @@
 
 * Release History
 
+** v0.2.1 - 2026-05-11
+*** 发布定位摘要
+- 将 zpp 改造为面向开源用户的轻量默认构建：默认只构建 core 核心模块。
+- =folly=、=nng=、=taskflow= 等重依赖改为可选模块，默认关闭。
+- 依赖查找下沉到真正编译对应模块的 CMake 子目录中，顶层 =CMakeLists.txt= 不再强制查找。
+
+*** 变更内容
+- 新增 CMake 选项：=ZPP_BUILD_FOLLY_MODULE=、=ZPP_BUILD_NNG_MODULE=、=ZPP_BUILD_TASKFLOW_MODULE=（默认 OFF）。
+- 顶层 =CMakeLists.txt= 只保留 core 必需依赖：=Threads=、=rapidjson=、=spdlog=。
+- 移除顶层强制 =find_package(folly)=、=find_package(nng)=、=find_package(taskflow)=。
+- 依赖查找下沉：
+  - =folly= 依赖查找移到 =src/folly/CMakeLists.txt=，仅在 =ZPP_BUILD_FOLLY_MODULE=ON= 时执行。
+  - =nng= 依赖查找移到 =src/nng/CMakeLists.txt=，仅在 =ZPP_BUILD_NNG_MODULE=ON= 时执行。
+  - =taskflow= 依赖查找移到 =examples/taskflow/CMakeLists.txt= 和 =examples/hpx/taskflow/CMakeLists.txt=，仅在 =ZPP_BUILD_TASKFLOW_MODULE=ON= 时执行。
+- =src/CMakeLists.txt= 改为条件编译：folly、nng 模块仅在对应选项启用时添加。
+- =examples/CMakeLists.txt= 改为条件编译：folly、nng、taskflow examples 按对应选项启用。
+- =examples/hpx/CMakeLists.txt= 改为条件编译：HPX taskflow examples 需同时满足 =ZPP_BUILD_HPX_EXAMPLES=ON= 和 =ZPP_BUILD_TASKFLOW_MODULE=ON=。
+- =tests/CMakeLists.txt= 改为条件编译：coro 测试（依赖 folly）仅在 =ZPP_BUILD_FOLLY_MODULE=ON= 时编译。
+- =tests/unit_tests/CMakeLists.txt= 改为条件编译：folly 单元测试仅在 =ZPP_BUILD_FOLLY_MODULE=ON= 时编译。
+- =builder/zpp.py= 新增 CLI 选项：=--with-folly=、=--with-nng=、=--with-taskflow=（默认关闭）。
+- =builder/zpp.py= 条件化 CMake 变量：=CMAKE_PREFIX_PATH=、=folly_DIR=、=OpenSSL_DIR=、=TASKFLOW_ROOT= 仅在对应模块启用时注入。
+
+*** 兼容性与升级说明
+- Core 默认构建路径：=./zbuild.py --rebuild= 只构建 zpp::zpp 核心库，无需额外依赖（folly/nng/taskflow）。
+- 启用可选模块：=./zbuild.py --rebuild --with-folly --with-nng --with-taskflow= 构建所有模块。
+- =ZPP_BUILD_EXAMPLES=ON= 不自动启用可选模块；未启用模块的示例自动跳过编译。
+- 既有 =ZETA_ZPP_SRC_DIR=、=ZETA_TASKFLOW_SRC_DIR= 等变量覆盖逻辑保持兼容。
+
+*** 验证
+- Core 默认构建：=./zbuild.py --BUILD_TYPE=Debug --no-tests --no-examples --rebuild= 通过，不执行 =find_package(folly)=、=find_package(nng)=、=find_package(taskflow)=。
+- Folly 单模块：=./zbuild.py --BUILD_TYPE=Debug --with-folly --no-tests --no-examples --rebuild= 通过。
+- NNG 单模块：=./zbuild.py --BUILD_TYPE=Debug --with-nng --no-tests --no-examples --rebuild= 通过。
+- Taskflow 单模块：=./zbuild.py --BUILD_TYPE=Debug --with-taskflow --no-tests --no-examples --rebuild= 通过。
+- 组合模块：=./zbuild.py --BUILD_TYPE=Debug --with-folly --with-nng --with-taskflow --no-tests --no-examples --rebuild= 通过。
+
 ** v0.2.0 - 2026-05-11
 *** 发布定位摘要
 - zpp 从遗留自带 CMake helper/submodule 构建模式迁移为独立 ZetaX 项目。

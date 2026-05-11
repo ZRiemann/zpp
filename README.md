@@ -23,7 +23,21 @@ zpp-specific build logic lives in `builder/zpp.py`; the common build lifecycle s
 The legacy `cmake_util` submodule has been removed; zpp now consumes `zeta_forge/cmake_util` through the build entrypoint.
 Current project version is recorded in `VERSION`.
 
-Common options:
+### Build Modules
+
+By default, zpp builds only the `core` module. Optional modules are available via builder flags:
+
+- `--with-folly`: Enable folly module and related examples/tests.
+- `--with-nng`: Enable nng (nanomsg) module and examples.
+- `--with-taskflow`: Enable taskflow examples.
+
+Example builds all optional modules:
+
+```bash
+./zbuild.py --rebuild --with-folly --with-nng --with-taskflow
+```
+
+### Common Options
 
 - `./zbuild.py --rebuild --no-tests` builds without zpp tests.
 - `./zbuild.py --rebuild --no-examples` builds without zpp examples.

@@ -21,7 +21,21 @@ cd ~/git/zpp
 zpp 特有构建逻辑位于 `builder/zpp.py`；公共构建生命周期仍由 `zeta_forge.cmake_builder.CMakeProjectBuilder` 执行。
 遗留的 `cmake_util` submodule 已移除；zpp 现在通过构建入口接入 `zeta_forge/cmake_util`。
 
-常用选项：
+### 可选模块
+
+zpp 默认只构建 core 模块。可选模块通过 builder 参数启用：
+
+- `--with-folly`：启用 folly 模块及相关示例/测试。
+- `--with-nng`：启用 nng (nanomsg) 模块及示例。
+- `--with-taskflow`：启用 taskflow 示例。
+
+示例：同时构建所有可选模块：
+
+```bash
+./zbuild.py --rebuild --with-folly --with-nng --with-taskflow
+```
+
+### 常用选项
 
 - `./zbuild.py --rebuild --no-tests`：不构建 zpp 测试。
 - `./zbuild.py --rebuild --no-examples`：不构建 zpp 示例。

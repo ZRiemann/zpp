@@ -1,3 +1,9 @@
+if(ZPP_USE_CONAN)
+	find_package(OpenSSL REQUIRED CONFIG)
+endif()
+find_package(folly CONFIG REQUIRED)
+message(STATUS "Found folly target: Folly::folly")
+
 file(GLOB_RECURSE ZPP_FOLLY_SOURCES CONFIGURE_DEPENDS "*.cpp")
 add_library(zpp_folly STATIC
 	${ZPP_FOLLY_SOURCES}
@@ -31,4 +37,3 @@ install(EXPORT zpp_follyTargets
 	DESTINATION lib/cmake/zpp_folly
 	FILE zpp_follyTargets.cmake
 )
-
