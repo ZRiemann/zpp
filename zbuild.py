@@ -20,9 +20,6 @@ def _expand_path(raw_path: str) -> Path:
 
 def _find_forge_root(start: Path) -> Path:
     candidates: list[Path] = []
-    forge_root_raw = os.environ.get("ZETA_FORGE_ROOT")
-    if forge_root_raw:
-        candidates.append(_expand_path(forge_root_raw))
 
     zetax_root_raw = os.environ.get("ZETAX_ROOT")
     if zetax_root_raw:
@@ -43,8 +40,8 @@ def _find_forge_root(start: Path) -> Path:
 
     raise RuntimeError(
         "Unable to locate zeta_forge root. "
-        "Set ZETA_FORGE_ROOT=/path/to/zeta_forge or load ZETAX_ROOT so "
-        "$ZETAX_ROOT/zeta_forge is available."
+        "Set ZETAX_ROOT=/path/to/workspace and ensure "
+        "$ZETAX_ROOT/zeta_forge exists, or place zpp next to zeta_forge."
     )
 
 
@@ -52,7 +49,7 @@ SCRIPT_PATH = Path(__file__).resolve()
 FORGE_ROOT = _find_forge_root(SCRIPT_PATH.parent)
 sys.path.insert(0, str(FORGE_ROOT / "common"))
 
-from zeta_forge.projects.zpp import cli
+from builder.zpp import cli
 
 
 if __name__ == "__main__":

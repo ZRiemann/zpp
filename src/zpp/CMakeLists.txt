@@ -44,7 +44,7 @@ install(EXPORT zppTargets
 include(CMakePackageConfigHelpers)
 
 # 设定版本信息
-set(zpp_VERSION 1.0.0)
+set(zpp_VERSION ${PROJECT_VERSION})
 
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/zppConfigVersion.cmake

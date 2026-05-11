@@ -1,0 +1,35 @@
+#+STARTUP: indent
+#+TITLE: zpp Release History
+
+* Release History
+
+** v0.2.0 - 2026-05-11
+*** 发布定位摘要
+- zpp 从遗留自带 CMake helper/submodule 构建模式迁移为独立 ZetaX 项目。
+- zpp 自己维护项目级 =builder/zpp.py= 和 =builder/conanfile.py=，公共构建生命周期复用 =zeta_forge=。
+- =cmake_util= submodule 停止作为 zpp 依赖，CMake helper 改由 =$ZETAX_ROOT/zeta_forge/cmake_util= 提供。
+
+*** 变更内容
+- 新增轻量 =zbuild.py=，通过 =$ZETAX_ROOT/zeta_forge= 或兄弟目录定位 zeta_forge 公共库。
+- 新增 =builder/zpp.py=，继承 =zeta_forge.cmake_builder.CMakeProjectBuilder=，注入 zpp 源码目录、Conan 配方、CMake 选项、测试/示例开关。
+- 新增 =builder/conanfile.py=，维护 zpp 项目私有 Conan 依赖。
+- 移除 =cmake_util= submodule 和旧 =.gitmodules= 绑定。
+- =CMakeLists.txt= 改为通过 =ZETA_CMAKE_UTIL_DIR= 引入公共 CMake helper，并优先使用 zeta_forge 注入的依赖环境。
+- Debug zpp 构建可消费 forge 已部署的 Release folly 依赖配置，通过 =CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release= 映射 imported targets。
+- zpp CMake project version 与安装包版本统一为 =0.2.0=，仓库根新增 =VERSION=。
+
+*** 兼容性与升级说明
+- 推荐命令为 =cd $ZETAX_ROOT/zpp && ./zbuild.py --rebuild=。
+- 旧 =cmake_util= submodule 和 =cbuild= 路径不再作为推荐构建方式维护。
+- 构建前应确保 =$ZETAX_ROOT/zeta_forge= 存在，并且基础依赖已按 zeta_forge 工具链准备。
+- 如需覆盖源码路径，可继续使用 =ZETA_ZPP_SRC_DIR=、=ZETA_TASKFLOW_SRC_DIR=、=ZETA_RAPIDJSON_SRC_DIR= 等变量。
+
+*** 验证
+- =python3 -m py_compile zbuild.py builder/zpp.py= 通过。
+- =./zbuild.py --help= 通过。
+- =./zbuild.py --BUILD_TYPE=Debug --no-tests --no-examples --rebuild= 通过，完成 Conan install、CMake configure 和静态库构建。
+
+** v0.1.0 - 2026-05-11
+*** 发布定位摘要
+- zpp 作为独立 ZetaX 项目接入 zeta_forge 的初始基线。
+- 该版本未作为独立 release 发布，后续迁移和版本记录整理并入 v0.2.0。

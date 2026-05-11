@@ -1,33 +1,32 @@
 # zpp
 
 zpp (ZetaX plus plus) is a C++ library.
-zpp aims to improve development efficiency and integrates cmake_util, the spdlog logging library, and several other third-party libraries.
+zpp aims to improve development efficiency and integrates the spdlog logging library and several other third-party libraries.
 
-This repository can be built inside the larger `zeta_forge` workspace or as a standalone checkout. In both cases it reuses the shared Conan/CMake build library from `zeta_forge`.
+This repository is built as an independent ZetaX project. It owns its zpp-specific builder and Conan recipe under `builder/`, while reusing the shared Conan/CMake build framework and CMake helper modules from `zeta_forge`.
 
 See the Chinese translation in the `doc` directory: [中文 README](doc/README.zh.md).
+Release history: [release_history.org](release_history.org).
 
 ## Build
 
-From the `zeta_forge` repository root:
+From this `zpp` checkout:
 
 ```bash
-cd ~/git/zeta_forge
-./zbuild.py zpp --rebuild
-```
-
-From this `zpp` checkout, including a standalone clone:
-
-```bash
+cd ~/git/zpp
 ./zbuild.py --rebuild
 ```
 
-The standalone entrypoint locates the shared build library with `ZETA_FORGE_ROOT`, then `$ZETAX_ROOT/zeta_forge`, then nearby workspace paths. `ZETAX_ROOT` is the top-level ZetaX workspace root, while `ZETA_FORGE_ROOT` points directly at the `zeta_forge` repository.
+The entrypoint locates the shared build framework with `$ZETAX_ROOT/zeta_forge`, then nearby workspace paths. `ZETAX_ROOT` is the top-level ZetaX workspace root; with the standard layout, `zpp` and `zeta_forge` are sibling checkouts under it.
+
+zpp-specific build logic lives in `builder/zpp.py`; the common build lifecycle still runs through `zeta_forge.cmake_builder.CMakeProjectBuilder`.
+The legacy `cmake_util` submodule has been removed; zpp now consumes `zeta_forge/cmake_util` through the build entrypoint.
+Current project version is recorded in `VERSION`.
 
 Common options:
 
-- `./zbuild.py zpp --rebuild --no-tests` builds without zpp tests.
-- `./zbuild.py zpp --rebuild --no-examples` builds without zpp examples.
-- `./zbuild.py zpp --rebuild --install` builds and installs zpp into the configured zeta_forge install prefix.
+- `./zbuild.py --rebuild --no-tests` builds without zpp tests.
+- `./zbuild.py --rebuild --no-examples` builds without zpp examples.
+- `./zbuild.py --rebuild --install` builds and installs zpp into the configured zeta_forge install prefix.
 
 The old `cbuild` helper is no longer the recommended entry for zpp. It runs a standalone CMake configure and may miss dependency paths that are provided by zeta_forge, such as the Conan-generated `fmt`, `GTest`, and `spdlog` package files.
