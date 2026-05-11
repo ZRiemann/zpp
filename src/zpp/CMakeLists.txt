@@ -52,9 +52,35 @@ write_basic_package_version_file(
     COMPATIBILITY SameMajorVersion
 )
 
-# 最简单的 Config 文件（可手写或更复杂地生成）
-# 这里的 zppConfig.cmake 主要作用是导入导出的 targets
+# Config 文件负责先恢复 zpp PUBLIC 依赖目标，再导入导出的 targets。
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/zppConfig.cmake
+"include(CMakeFindDependencyMacro)\n"
+"find_dependency(Threads)\n"
+"\n"
+"if(NOT TARGET rapidjson::rapidjson)\n"
+"  find_package(RapidJSON QUIET CONFIG)\n"
+"  if(TARGET rapidjson AND NOT TARGET rapidjson::rapidjson)\n"
+"    add_library(rapidjson::rapidjson INTERFACE IMPORTED)\n"
+"    set_target_properties(rapidjson::rapidjson PROPERTIES INTERFACE_LINK_LIBRARIES rapidjson)\n"
+"  elseif(NOT TARGET rapidjson::rapidjson AND DEFINED RAPIDJSON_INCLUDE_DIRS AND NOT \"\${RAPIDJSON_INCLUDE_DIRS}\" STREQUAL \"\")\n"
+"    add_library(rapidjson::rapidjson INTERFACE IMPORTED)\n"
+"    set_target_properties(rapidjson::rapidjson PROPERTIES INTERFACE_INCLUDE_DIRECTORIES \"\${RAPIDJSON_INCLUDE_DIRS}\")\n"
+"  elseif(DEFINED ENV{ZETAX_ROOT} AND EXISTS \"\$ENV{ZETAX_ROOT}/zeta_forge/cmake_util/find_package/rapidjson.cmake\")\n"
+"    include(\"\$ENV{ZETAX_ROOT}/zeta_forge/cmake_util/find_package/rapidjson.cmake\")\n"
+"  endif()\n"
+"  if(NOT TARGET rapidjson::rapidjson)\n"
+"    message(FATAL_ERROR \"zpp requires rapidjson::rapidjson\")\n"
+"  endif()\n"
+"endif()\n"
+"\n"
+"if(NOT TARGET spdlog::spdlog)\n"
+"  find_dependency(spdlog CONFIG)\n"
+"  if(TARGET spdlog::spdlog_header_only AND NOT TARGET spdlog::spdlog)\n"
+"    add_library(spdlog::spdlog INTERFACE IMPORTED)\n"
+"    set_target_properties(spdlog::spdlog PROPERTIES INTERFACE_LINK_LIBRARIES spdlog::spdlog_header_only)\n"
+"  endif()\n"
+"endif()\n"
+"\n"
 "include(\"\${CMAKE_CURRENT_LIST_DIR}/zppTargets.cmake\")\n"
 )
 

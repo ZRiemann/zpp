@@ -4,7 +4,7 @@
 #include <csignal>
 #include <iostream>
 
-#include <zpp/json.h>
+#include <zpp/json.hpp>
 #include <zpp/spdlog.h>
 #include "spdguard.h"
 #include <zpp/core/server.h>
@@ -74,16 +74,16 @@ server::server(int argc, char** argv)
         std::string name{"server.log"};
         int rotats = 3;
         int max_size = 32;
-        json svr_conf(conf);
-        json spd_conf(conf);
-        if(ERR_OK == conf.get_member(argv[2], svr_conf) &&
-            ERR_OK == svr_conf.get_member("spd", spd_conf)){
-            spd_conf.get_bool("async", async);
-            spd_conf.get_bool("console", console);
-            spd_conf.get_bool("rotate_on_open", rotate_on_open);
-            spd_conf.get_string("name", name);
-            spd_conf.get_int("rotats", rotats);
-            spd_conf.get_int("max_size", max_size);
+        json_view svr_conf;
+        json_view spd_conf;
+        if(ERR_OK == conf.member(argv[2], svr_conf) &&
+            ERR_OK == svr_conf.member("spd", spd_conf)){
+            spd_conf.get("async", async);
+            spd_conf.get("console", console);
+            spd_conf.get("rotate_on_open", rotate_on_open);
+            spd_conf.get("name", name);
+            spd_conf.get("rotats", rotats);
+            spd_conf.get("max_size", max_size);
             
         }else{
             std::cout << "Waring: NOT find spd config item: " << argv[2] << std::endl;

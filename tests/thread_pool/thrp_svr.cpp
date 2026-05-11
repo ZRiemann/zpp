@@ -4,7 +4,7 @@
 #include <iostream>
 #include <zpp/system/sleep.h>
 #include <zpp/core/monitor.h>
-#include <zpp/json.h>
+#include <zpp/json.hpp>
 #include <zpp/system/stopwatch/stopwatch_tsc.h>
 #include "common.h"
 
@@ -37,10 +37,10 @@ err_t thrp_svr::configure(){
     if(ERR_OK != conf.load_file(_argv[1])){
         exit(-1);
     }else{
-        json svr_conf(conf);
-        if(ERR_OK == conf.get_member(_argv[2], svr_conf)){
-            svr_conf.get_int("thread_num", _thr_num);
-            svr_conf.get_int("task_num", _task_num);
+        json_view svr_conf;
+        if(ERR_OK == conf.member(_argv[2], svr_conf)){
+            svr_conf.get("thread_num", _thr_num);
+            svr_conf.get("task_num", _task_num);
         }
     }
 #elif defined USE_CQUE_AOP_CLASS

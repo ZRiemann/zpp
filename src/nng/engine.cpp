@@ -1,6 +1,6 @@
 #include <zpp/nng/engine.h>
 #include <zpp/error.h>
-#include <zpp/json.h>
+#include <zpp/json.hpp>
 #include <zpp/spdlog.h>
 #include <zpp/nng/aio.h>
 
@@ -16,35 +16,35 @@ engine::engine(int argc, char** argv)
     }
     json doc;
     doc.load_file(_argv[1]);
-    json conf(doc);
-    json conf_engine(doc);
-    if (ERR_OK == doc.get_member(_argv[2], conf) &&
-        ERR_OK == conf.get_member("nng_engine", conf_engine)) {
+    json_view conf;
+    json_view conf_engine;
+    if (ERR_OK == doc.member(_argv[2], conf) &&
+        ERR_OK == conf.member("nng_engine", conf_engine)) {
         rapidjson::StringBuffer sbuf;
         spd_inf("nng_engine: {}", conf_engine.to_string(sbuf, true));
         // fill nng_init_params from configuration (defaults to 0 == use library defaults)
         nng_init_params params = {0};
         int tmp = 0;
 
-        if (conf_engine.get_int("task_threads", tmp) == ERR_OK) {
+        if (conf_engine.get("task_threads", tmp) == ERR_OK) {
             params.num_task_threads = (int16_t)tmp;
         }
-        if (conf_engine.get_int("task_threads_max", tmp) == ERR_OK) {
+        if (conf_engine.get("task_threads_max", tmp) == ERR_OK) {
             params.max_task_threads = (int16_t)tmp;
         }
-        if (conf_engine.get_int("expire_threads", tmp) == ERR_OK) {
+        if (conf_engine.get("expire_threads", tmp) == ERR_OK) {
             params.num_expire_threads = (int16_t)tmp;
         }
-        if (conf_engine.get_int("expire_threads_max", tmp) == ERR_OK) {
+        if (conf_engine.get("expire_threads_max", tmp) == ERR_OK) {
             params.max_expire_threads = (int16_t)tmp;
         }
-        if (conf_engine.get_int("poller_threads", tmp) == ERR_OK) {
+        if (conf_engine.get("poller_threads", tmp) == ERR_OK) {
             params.num_poller_threads = (int16_t)tmp;
         }
-        if (conf_engine.get_int("poller_threads_max", tmp) == ERR_OK) {
+        if (conf_engine.get("poller_threads_max", tmp) == ERR_OK) {
             params.max_poller_threads = (int16_t)tmp;
         }
-        if (conf_engine.get_int("resolver_threads", tmp) == ERR_OK) {
+        if (conf_engine.get("resolver_threads", tmp) == ERR_OK) {
             params.num_resolver_threads = (int16_t)tmp;
         }
 

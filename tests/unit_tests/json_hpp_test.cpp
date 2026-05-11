@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <string>
+#include <utility>
 
 #include <zpp/json.hpp>
 
@@ -45,7 +46,7 @@ TEST(JsonHppTest, BuildObjectArrayAndNestedValues) {
 
     ASSERT_EQ(z::ERR_OK, doc.set("obj", obj)); // obj is still valid after being copied into arr
     ASSERT_EQ(z::ERR_OK, arr.push(std::move(obj))); // Move obj into arr, obj becomes invalid
-    ASSERT_EQ(z::ERR_OK, doc.set("arr", arr));
+    ASSERT_EQ(z::ERR_OK, doc.set("arr", std::move(arr)));
 
     std::string name;
     ASSERT_EQ(z::ERR_OK, doc.member("obj").get("name", name));
@@ -94,7 +95,7 @@ TEST(JsonHppTest, IteratesArraysWithRangeFor) {
     ASSERT_EQ(z::ERR_OK, numbers.push(1));
     ASSERT_EQ(z::ERR_OK, numbers.push(2));
     ASSERT_EQ(z::ERR_OK, numbers.push(3));
-    ASSERT_EQ(z::ERR_OK, doc.set("numbers", numbers));
+    ASSERT_EQ(z::ERR_OK, doc.set("numbers", std::move(numbers)));
 
     int sum = 0;
     for(auto item : doc.member("numbers")){
@@ -112,7 +113,7 @@ TEST(JsonHppTest, IteratesArraysWithRangeFor) {
         ASSERT_EQ(z::ERR_OK, item.set("id", i));
         ASSERT_EQ(z::ERR_OK, items.push(item));
     }
-    ASSERT_EQ(z::ERR_OK, doc.set("items", items));
+    ASSERT_EQ(z::ERR_OK, doc.set("items", std::move(items)));
 
     int count = 0;
     for(auto item : doc.member("items")){
@@ -161,7 +162,7 @@ TEST(JsonHppTest, RemovesObjectMembersAndArrayItems) {
     ASSERT_EQ(z::ERR_OK, arr.push(1));
     ASSERT_EQ(z::ERR_OK, arr.push(2));
     ASSERT_EQ(z::ERR_OK, arr.push(3));
-    ASSERT_EQ(z::ERR_OK, doc.set("numbers", arr));
+    ASSERT_EQ(z::ERR_OK, doc.set("numbers", std::move(arr)));
 
     auto numbers = doc.member("numbers");
     ASSERT_EQ(z::ERR_OK, numbers.remove(1));

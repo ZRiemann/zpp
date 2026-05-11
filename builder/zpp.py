@@ -65,6 +65,14 @@ class ZppBuilder(CMakeProjectBuilder):
     def folly_cmake_dir(self) -> Path:
         return self.repo_config.install_prefix / "lib" / "cmake" / "folly"
 
+    @property
+    def hpx_conan_compat_packages_dir(self) -> Path:
+        return self.repo_config.builder_dir / "hpx" / "cmake" / "conan_compat" / "packages"
+
+    @property
+    def hpx_asio_config_file(self) -> Path:
+        return self.hpx_conan_compat_packages_dir / "AsioConfig.cmake"
+
     def validate(self) -> None:
         super().validate()
         if not self.conanfile.is_file():
@@ -86,6 +94,13 @@ class ZppBuilder(CMakeProjectBuilder):
             )
         if self.typed_args.build_hpx_examples and not self.typed_args.build_examples:
             raise RuntimeError("--with-hpx-examples requires examples to be enabled")
+        if self.typed_args.build_hpx_examples and not self.hpx_asio_config_file.is_file():
+            raise RuntimeError(
+                f"HPX Asio compatibility config not found: {self.hpx_asio_config_file}\n"
+                "Build/install HPX through zeta_forge first, for example: "
+                "git -C \"$ZETAX_ROOT/zeta_forge\" submodule update --init --recursive 3rd/hpx && "
+                "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
+            )
 
     def conan_input_files(self) -> list[Path]:
         return [self.conanfile]
@@ -112,6 +127,8 @@ class ZppBuilder(CMakeProjectBuilder):
         cmake_prefix_paths = [str(self.repo_config.install_prefix)]
         if self.typed_args.build_folly_module:
             cmake_prefix_paths.append(str(self.folly_conan_generators_dir))
+        if self.typed_args.build_hpx_examples:
+            cmake_prefix_paths.append(str(self.hpx_conan_compat_packages_dir))
 
         command: list[object] = [
             "cmake",
@@ -148,6 +165,8 @@ class ZppBuilder(CMakeProjectBuilder):
             )
         if self.typed_args.build_taskflow_module:
             command.append(f"-DTASKFLOW_ROOT={self.taskflow_source_dir}")
+        if self.typed_args.build_hpx_examples:
+            command.append(f"-DAsio_DIR={self.hpx_conan_compat_packages_dir}")
         return command
 
 

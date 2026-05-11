@@ -21,9 +21,7 @@ add_executable(nng_sub
 )
 
 target_link_libraries(nng_sub PRIVATE
-    zpp_nng zpp
-    nng::nng
-    Threads::Threads
+    zpp::zpp_nng
     cxx_options
 )
 

@@ -14,7 +14,6 @@ uni_svr::uni_svr(int argc, char** argv)
 
 err_t uni_svr::run(){
     spd_err("{}", str_err(ERR_TIMEOUT));
-    z::test_json();
     z::test_system();
     z::test_timestamp_counter();
     return ERR_OK;    

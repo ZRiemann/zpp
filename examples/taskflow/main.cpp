@@ -29,7 +29,7 @@ public:
     void example_pipeline();
     void example_pipeline_async(); // Deprecated: use example_pipeline_event_driven
     void example_pipeline_event_driven();
-    void example_pipeline_driver();
+    //void example_pipeline_driver(); // deprecated: use example_pipeline_event_driven or example_pipeline_mpsc
     void example_pipeline_mpsc();
 private:
     tf::Executor _executor;
@@ -318,6 +318,7 @@ void server::example_pipeline_event_driven(){
     spd_inf("reactive pipeline done.");
 }
 
+# if 0
 void server::example_pipeline_driver(){
     spd_inf("================================================================================");
     spd_inf("example_pipeline_driver (encapsulated reactive)...");
@@ -383,7 +384,7 @@ void server::example_pipeline_driver(){
     driver->wait_done();
     spd_inf("driver pipeline done.");
 }
-
+#endif
 void server::example_pipeline_mpsc(){
     spd_inf("================================================================================");
     spd_inf("example_pipeline_mpsc (specialized mpsc)...");
@@ -847,7 +848,7 @@ err_t server::run(){
     example_pipeline();
     example_pipeline_async();
     example_pipeline_event_driven();
-    example_pipeline_driver();
+    //example_pipeline_driver();
     example_pipeline_mpsc();
     spd_inf("run done.");
     return ERR_OK;

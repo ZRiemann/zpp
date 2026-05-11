@@ -3,6 +3,32 @@
 
 * Release History
 
+** v0.3.1 - 2026-05-11
+*** 发布定位摘要
+- 完成旧 =zpp/json.h= 到成熟 =zpp/json.hpp= API 的迁移，并硬删除旧头文件。
+- 按补丁版本发布，zpp 从 =v0.3.0= 升级到 =v0.3.1=；fortune 项目版本保持不变。
+
+*** 变更内容
+- zpp core、nng engine、thread_pool 测试服务中的配置读取改用 =json.hpp= 的 =member=、=get=、=size=、=at= 接口。
+- fortune quotations 配置读取改用 =json.hpp=，并将消息队列配置入口类型改为 =z::json_doc*=。
+- 删除旧 =include/zpp/json.h=，旧的 =tests/uni_svr/test_json.cpp= 和 =test_json()= 入口同步移除。
+- zpp package config 在导入 targets 前恢复 =Threads=、=rapidjson::rapidjson=、=spdlog::spdlog= 等 PUBLIC 依赖目标，降低下游显式依赖顺序要求。
+- =zbuild.py --with-hpx-examples= 现在会向 CMake 注入 zeta_forge HPX 的 =AsioConfig.cmake= 兼容路径，避免 =find_package(HPX)= 阶段找不到 Asio。
+- folly/nng examples 改为链接 =zpp::folly= / =zpp::zpp_nng= 模块目标，由 zpp 模块传递第三方依赖，避免兄弟目录看不到局部 imported target。
+
+*** 兼容性与升级说明
+- 旧 =json.h= 不再保留兼容 shim；应用必须包含 =<zpp/json.hpp>= 并使用新接口。
+- 构造/插入临时 JSON 子对象时优先使用右值 =set/push=，需要继续复用源对象时才使用拷贝语义。
+- =rapidjson= 仍是 =json.hpp= 的底层依赖，不从 zpp core 依赖中移除。
+
+*** 验证
+- 静态扫描确认无 zpp/fortune 直接包含 =zpp/json.h= 的生产代码残留。
+- =json_hpp_test.cpp= 继续覆盖解析、构建、move 插入、遍历、删除和非 object JSON 文件加载场景。
+- =./zbuild.py --BUILD_TYPE Debug --rebuild= 通过。
+- =./build/Debug/tests/unit_tests/gtest_tsc= 通过，13 个测试全部通过。
+- =./zbuild.py --BUILD_TYPE Debug --with-nng --no-tests --no-examples --rebuild= 通过。
+- =./zbuild.py --rebuild --with-hpx-examples --with-folly --with-nng --with-taskflow= 通过。
+
 ** v0.3.0 - 2026-05-11
 *** 发布定位摘要
 - =z::json= 新增删除接口，公开 API 能力从配置读取/构建扩展到 object member 和 array item 删除。

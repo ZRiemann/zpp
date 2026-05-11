@@ -38,7 +38,6 @@ int main(int argc, char **argv){
 
  NSB_ZPP
 
-class json;
 class spdguard;
 
 class server{

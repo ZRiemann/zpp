@@ -4,10 +4,7 @@ add_executable(folly_examples
 )
 
 target_link_libraries(folly_examples PRIVATE
-    zpp::zpp
-    Folly::folly
-    #Boost::boost
-    Threads::Threads
+    zpp::folly
     cxx_options
 )
 
