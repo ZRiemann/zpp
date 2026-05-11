@@ -90,6 +90,9 @@ class ZppBuilder(CMakeProjectBuilder):
     def conan_input_files(self) -> list[Path]:
         return [self.conanfile]
 
+    def configure_dependencies(self) -> list[Path]:
+        return [*super().configure_dependencies(), self.script_path, Path(__file__)]
+
     def conan_install_command(self) -> list[object]:
         return [
             "conan",
@@ -112,6 +115,8 @@ class ZppBuilder(CMakeProjectBuilder):
 
         command: list[object] = [
             "cmake",
+            "-U",
+            "CMAKE_MAP_IMPORTED_CONFIG_DEBUG",
             "-S",
             self.source_dir,
             "-B",
@@ -120,7 +125,6 @@ class ZppBuilder(CMakeProjectBuilder):
             "Ninja",
             "-Wno-dev",
             f"-DCMAKE_BUILD_TYPE={self.args.build_type}",
-            "-DCMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release",
             f"-DCMAKE_TOOLCHAIN_FILE={self.conan_toolchain_file}",
             f"-DCMAKE_PREFIX_PATH={';'.join(cmake_prefix_paths)}",
             f"-DCMAKE_INSTALL_PREFIX={self.repo_config.install_prefix}",

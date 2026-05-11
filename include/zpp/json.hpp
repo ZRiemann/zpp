@@ -240,6 +240,19 @@ public:
         return set_value(key, val);
     }
 
+    /**
+     * @brief Set an object member from another json wrapper by deep-copying its value.
+     *
+     * This overload always performs a deep copy via RapidJSON `CopyFrom()`, even when
+     * `data` refers to a temporary object. Use the rvalue overload when the source json
+     * value is no longer needed and you want to avoid the extra copy when allocators match.
+     *
+     * @tparam JV Source json wrapper value type.
+     * @param key Object member name to update or insert.
+     * @param data Source json value to copy from.
+     * @return ERR_OK on success, or ERR_NOT_SUPPORT when the destination has no allocator
+     *         or the source json is invalid.
+     */
     template<class JV>
     err_t set(const std::string &key, const json<JV> &data){
         if(!has_allocator() || !data.valid()){
@@ -250,6 +263,21 @@ public:
         return set_value(key, copy);
     }
 
+    /**
+     * @brief Set an object member from an rvalue json value, preferring move semantics.
+     *
+     * When the source and destination share the same allocator, this overload moves the
+     * underlying RapidJSON value into the destination member without a deep copy. If the
+     * allocators differ, it falls back to a deep copy to keep ownership safe.
+     *
+     * Prefer this overload over the const-reference overload when performance matters and
+     * the source json value is no longer needed after the call.
+     *
+     * @param key Object member name to update or insert.
+     * @param data Source json value to move from.
+     * @return ERR_OK on success, or ERR_NOT_SUPPORT when the destination has no allocator
+     *         or the source json is invalid.
+     */
     err_t set(const std::string &key, json<rapidjson::Value> &&data){
         if(!has_allocator() || !data.valid()){
             return ERR_NOT_SUPPORT;
@@ -423,6 +451,18 @@ public:
         return push_value(val);
     }
 
+    /**
+     * @brief Append another json wrapper value to the array by deep-copying it.
+     *
+     * This overload always performs a deep copy via RapidJSON `CopyFrom()`, even when
+     * `data` refers to a temporary object. Use the rvalue overload when the source json
+     * value is no longer needed and you want to avoid the extra copy when allocators match.
+     *
+     * @tparam JV Source json wrapper value type.
+     * @param data Source json value to copy from.
+     * @return ERR_OK on success, or ERR_NOT_SUPPORT when the destination has no allocator
+     *         or the source json is invalid.
+     */
     template<class JV>
     err_t push(const json<JV> &data){
         if(!has_allocator() || !data.valid()){
@@ -433,6 +473,20 @@ public:
         return push_value(copy);
     }
 
+    /**
+     * @brief Append an rvalue json value to the array, preferring move semantics.
+     *
+     * When the source and destination share the same allocator, this overload moves the
+     * underlying RapidJSON value into the array without a deep copy. If the allocators
+     * differ, it falls back to a deep copy to keep ownership safe.
+     *
+     * Prefer this overload over the const-reference overload when performance matters and
+     * the source json value is no longer needed after the call.
+     *
+     * @param data Source json value to move from.
+     * @return ERR_OK on success, or ERR_NOT_SUPPORT when the destination has no allocator
+     *         or the source json is invalid.
+     */
     err_t push(json<rapidjson::Value> &&data){
         if(!has_allocator() || !data.valid()){
             return ERR_NOT_SUPPORT;
@@ -443,6 +497,29 @@ public:
         rapidjson::Value copy;
         copy.CopyFrom(data.v, allocator());
         return push_value(copy);
+    }
+
+    err_t remove(const std::string &key){
+        if(!valid() || !value().IsObject()){
+            return ERR_NOT_SUPPORT;
+        }
+        auto itr = value().FindMember(key.c_str());
+        if(itr == value().MemberEnd()){
+            return ERR_NOT_EXIST;
+        }
+        value().EraseMember(itr);
+        return ERR_OK;
+    }
+
+    err_t remove(size_t index){
+        if(!valid() || !value().IsArray()){
+            return ERR_NOT_SUPPORT;
+        }
+        if(index >= value().Size()){
+            return ERR_OUT_OF_RANGE;
+        }
+        value().Erase(value().Begin() + (rapidjson::SizeType)index);
+        return ERR_OK;
     }
 
     size_t size() const{

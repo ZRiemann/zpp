@@ -41,9 +41,10 @@ TEST(JsonHppTest, BuildObjectArrayAndNestedValues) {
     z::json arr(doc);
     ASSERT_EQ(z::ERR_OK, arr.push(1));
     ASSERT_EQ(z::ERR_OK, arr.push("x"));
-    ASSERT_EQ(z::ERR_OK, arr.push(obj));
+    ASSERT_EQ(z::ERR_OK, arr.push(obj)); // Deep copy obj into arr
 
-    ASSERT_EQ(z::ERR_OK, doc.set("obj", obj));
+    ASSERT_EQ(z::ERR_OK, doc.set("obj", obj)); // obj is still valid after being copied into arr
+    ASSERT_EQ(z::ERR_OK, arr.push(std::move(obj))); // Move obj into arr, obj becomes invalid
     ASSERT_EQ(z::ERR_OK, doc.set("arr", arr));
 
     std::string name;
@@ -54,8 +55,10 @@ TEST(JsonHppTest, BuildObjectArrayAndNestedValues) {
     ASSERT_EQ(z::ERR_OK, doc.member("obj").get("enabled", enabled));
     EXPECT_TRUE(enabled);
 
-    EXPECT_EQ(3u, doc.member("arr").size());
+    EXPECT_EQ(4u, doc.member("arr").size());
     ASSERT_EQ(z::ERR_OK, doc.member("arr").at(2).get("name", name));
+    EXPECT_EQ("abc", name);
+    ASSERT_EQ(z::ERR_OK, doc.member("arr").at(3).get("name", name));
     EXPECT_EQ("abc", name);
 }
 
@@ -139,6 +142,39 @@ TEST(JsonHppTest, IteratesArraysWithRangeFor) {
 
     auto non_array = doc.member("items").at(0);
     EXPECT_EQ(non_array.begin_array(), non_array.end_array());
+}
+
+TEST(JsonHppTest, RemovesObjectMembersAndArrayItems) {
+    z::json doc;
+
+    ASSERT_EQ(z::ERR_OK, doc.set("name", "abc"));
+    ASSERT_EQ(z::ERR_OK, doc.set("count", 2));
+    EXPECT_EQ(2u, doc.size());
+    EXPECT_EQ(z::ERR_OK, doc.remove("count"));
+    EXPECT_EQ(1u, doc.size());
+
+    int count = 0;
+    EXPECT_EQ(z::ERR_NOT_EXIST, doc.get("count", count));
+    EXPECT_EQ(z::ERR_NOT_EXIST, doc.remove("missing"));
+
+    z::json arr(doc);
+    ASSERT_EQ(z::ERR_OK, arr.push(1));
+    ASSERT_EQ(z::ERR_OK, arr.push(2));
+    ASSERT_EQ(z::ERR_OK, arr.push(3));
+    ASSERT_EQ(z::ERR_OK, doc.set("numbers", arr));
+
+    auto numbers = doc.member("numbers");
+    ASSERT_EQ(z::ERR_OK, numbers.remove(1));
+    EXPECT_EQ(2u, numbers.size());
+
+    int value = 0;
+    ASSERT_EQ(z::ERR_OK, numbers.at(0).get(value));
+    EXPECT_EQ(1, value);
+    ASSERT_EQ(z::ERR_OK, numbers.at(1).get(value));
+    EXPECT_EQ(3, value);
+    EXPECT_EQ(z::ERR_OUT_OF_RANGE, numbers.remove(2));
+    EXPECT_EQ(z::ERR_NOT_SUPPORT, doc.remove(0));
+    EXPECT_EQ(z::ERR_NOT_SUPPORT, numbers.remove("name"));
 }
 
 TEST(JsonHppTest, LoadFileSupportsNonObjectJson) {

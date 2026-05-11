@@ -3,6 +3,32 @@
 
 * Release History
 
+** v0.3.0 - 2026-05-11
+*** 发布定位摘要
+- =z::json= 新增删除接口，公开 API 能力从配置读取/构建扩展到 object member 和 array item 删除。
+- 按语义化版本约定，本次接口增加从 =v0.2.x= 升级到 =v0.3.0=。
+- 修复 zpp Debug 构建中 Conan imported target 被错误映射到 Release 配置的问题。
+
+*** 变更内容
+- =z::json::remove(const std::string &key)=：删除 object 中指定 key 的 member。
+- =z::json::remove(size_t index)=：删除 array 中指定 index 的 item，并保持后续元素前移。
+- 删除接口错误码约定：
+  - 当前 json value 不是对应 object/array 时返回 =ERR_NOT_SUPPORT=。
+  - object key 不存在时返回 =ERR_NOT_EXIST=。
+  - array index 越界时返回 =ERR_OUT_OF_RANGE=。
+- =json_hpp_test.cpp= 新增 object member 删除、array item 删除、missing key、越界和类型不支持场景覆盖。
+- =builder/zpp.py= 移除错误的 =CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release= 全局映射，并在 configure 时清理旧 cache 中的 =CMAKE_MAP_IMPORTED_CONFIG_DEBUG=。
+- =builder/zpp.py= 将 =zbuild.py= 和 =builder/zpp.py= 纳入 configure dependency，构建脚本变更后会触发重新 configure。
+
+*** 兼容性与升级说明
+- 既有 =set=、=get=、=member=、=at=、=push=、迭代接口保持兼容。
+- 新增删除接口不会改变缺失值读取行为，删除后继续通过 =get/member/at= 按既有错误码返回。
+- Debug 构建现在消费 Debug Conan 依赖配置，不再依赖 Release imported target 映射。
+
+*** 验证
+- =./zbuild.py --BUILD_TYPE Debug= 通过。
+- =./build/Debug/tests/unit_tests/gtest_tsc= 通过，13 个测试全部通过。
+
 ** v0.2.1 - 2026-05-11
 *** 发布定位摘要
 - 将 zpp 改造为面向开源用户的轻量默认构建：默认只构建 core 核心模块。
