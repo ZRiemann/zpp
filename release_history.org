@@ -3,6 +3,17 @@
 
 * Release History
 
+** v0.5.0 - 2026-05-13
+*** 发布定位摘要
+- 新增项目运行入口 CLI，统一列出并执行 =add_run_target= 预置命令。
+- 按功能版本发布，zpp 从 =v0.4.1= 升级到 =v0.5.0=。
+
+*** 变更内容
+- =zbuild.py= 新增 =runs= / =run <name>= 子命令，复用 =zeta_forge.run_targets= 扫描并执行项目内 =add_run_target(...)= 运行入口。
+- =runs= 输出运行入口名称和对应 CMake 命令，保持列表简洁可读。
+- =run <name>= 直接执行已有 build tree 中已经编译好的二进制文件及其预置参数，不自动 configure，也不调用 =cmake --build=。
+- zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.5.0=。
+
 ** v0.4.1 - 2026-05-13
 *** 发布定位摘要
 - 优化 zpp 日志宏的关闭级别成本，保持 =spd_inf= 等历史入口兼容。

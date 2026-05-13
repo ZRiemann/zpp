@@ -7,6 +7,13 @@ from pathlib import Path
 
 from zeta_forge.cmake_builder import CMakeProjectBuilder, CommonBuildArgs, cmake_bool, common_build_argument_parser
 from zeta_forge.config import load_repo_config
+from zeta_forge.run_targets import (
+    build_type_parser,
+    discover_run_targets,
+    find_run_target,
+    print_run_targets,
+    run_existing_target,
+)
 
 
 @dataclass(frozen=True)
@@ -178,6 +185,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--with-folly", action="store_true")
     parser.add_argument("--with-nng", action="store_true")
     parser.add_argument("--with-taskflow", action="store_true")
+    parser.epilog = (
+        "Run entry commands:\n"
+        "  ./zbuild.py runs\n"
+        "  ./zbuild.py run zpp_core\n"
+        "  ./zbuild.py run --BUILD_TYPE=Debug zpp_core"
+    )
+    parser.formatter_class = argparse.RawDescriptionHelpFormatter
     return parser
 
 
@@ -196,13 +210,47 @@ def parse_args(argv: list[str] | None = None) -> ZppBuildArgs:
     )
 
 
-def main(script_path: Path, *, argv: list[str] | None = None, source_dir_default: Path | None = None) -> int:
+def _project_source_defaults(source_dir_default: Path | None) -> dict[str, Path]:
     project_source_defaults = {}
     if source_dir_default is not None:
         project_source_defaults["ZETA_ZPP_SRC_DIR"] = source_dir_default
+    return project_source_defaults
+
+
+def _build_dir(script_path: Path, build_type: str) -> Path:
+    return script_path.resolve().parent / "build" / build_type
+
+
+def run_entries(script_path: Path, argv: list[str], *, source_dir_default: Path | None = None) -> int:
+    parser = build_type_parser("./zbuild.py runs", "List zpp add_run_target entries")
+    namespace = parser.parse_args(argv)
+    repo_config = load_repo_config(script_path, project_source_defaults=_project_source_defaults(source_dir_default))
+    source_dir = repo_config.source_dir("ZETA_ZPP_SRC_DIR")
+    build_dir = _build_dir(script_path, namespace.build_type)
+    print_run_targets(discover_run_targets(source_dir, build_dir))
+    return 0
+
+
+def run_entry(script_path: Path, argv: list[str], *, source_dir_default: Path | None = None) -> int:
+    parser = build_type_parser("./zbuild.py run", "Run a zpp add_run_target entry from an existing build tree")
+    parser.add_argument("name", help="Run entry name, for example zpp_core")
+    namespace = parser.parse_args(argv)
+    repo_config = load_repo_config(script_path, project_source_defaults=_project_source_defaults(source_dir_default))
+    source_dir = repo_config.source_dir("ZETA_ZPP_SRC_DIR")
+    build_dir = _build_dir(script_path, namespace.build_type)
+    target = find_run_target(discover_run_targets(source_dir, build_dir), namespace.name)
+    return run_existing_target(target)
+
+
+def main(script_path: Path, *, argv: list[str] | None = None, source_dir_default: Path | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "runs":
+        return run_entries(script_path, argv[1:], source_dir_default=source_dir_default)
+    if argv and argv[0] == "run":
+        return run_entry(script_path, argv[1:], source_dir_default=source_dir_default)
 
     args = parse_args(argv)
-    repo_config = load_repo_config(script_path, project_source_defaults=project_source_defaults)
+    repo_config = load_repo_config(script_path, project_source_defaults=_project_source_defaults(source_dir_default))
     ZppBuilder(script_path=script_path, repo_config=repo_config, args=args).run()
     return 0
 

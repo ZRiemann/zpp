@@ -41,4 +41,16 @@ zpp 默认只构建 core 模块。可选模块通过 builder 参数启用：
 - `./zbuild.py --rebuild --no-examples`：不构建 zpp 示例。
 - `./zbuild.py --rebuild --install`：构建并安装到 zeta_forge 配置的安装前缀。
 
+### 运行入口
+
+zpp 可以列出并执行各个 `CMakeLists.txt` 中通过 `add_run_target(...)` 预置的运行入口：
+
+```bash
+./zbuild.py runs
+./zbuild.py run zpp_core
+./zbuild.py run --BUILD_TYPE=Debug zpp_core
+```
+
+`runs` 会输出运行入口名称和对应的 CMake 命令。`run` 会直接执行所选构建类型下已经编译好的二进制文件及其预置参数，不自动 configure，也不调用 `cmake --build`。
+
 旧的 `cbuild` helper 不再作为 zpp 推荐入口。它会执行独立 CMake 配置，可能拿不到 zeta_forge/Conan 提供的 `fmt`、`GTest`、`spdlog` 等依赖包路径。

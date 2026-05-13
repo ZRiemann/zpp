@@ -43,4 +43,19 @@ Example builds all optional modules:
 - `./zbuild.py --rebuild --no-examples` builds without zpp examples.
 - `./zbuild.py --rebuild --install` builds and installs zpp into the configured zeta_forge install prefix.
 
+### Run Entries
+
+zpp can list and execute the runnable entries declared with `add_run_target(...)`
+in its `CMakeLists.txt` files:
+
+```bash
+./zbuild.py runs
+./zbuild.py run zpp_core
+./zbuild.py run --BUILD_TYPE=Debug zpp_core
+```
+
+`runs` prints each run entry and the equivalent CMake command. `run` directly
+executes the already built binary with its configured arguments for the selected
+build type; it does not configure the project or call `cmake --build`.
+
 The old `cbuild` helper is no longer the recommended entry for zpp. It runs a standalone CMake configure and may miss dependency paths that are provided by zeta_forge, such as the Conan-generated `fmt`, `GTest`, and `spdlog` package files.
