@@ -150,6 +150,7 @@ private: // help functions
     inline chunk* alloc_chunk() noexcept {
         chunk *chk = _spare_chunk.exchange(nullptr, std::memory_order_acquire);
         if(chk){
+            chk->next = nullptr;
             return chk;
         }
         if(_chunk_num.load(std::memory_order_acquire) >= _chunk_capacity){
@@ -157,12 +158,14 @@ private: // help functions
         }
         chk = static_cast<chunk*>(aligned_malloc(sizeof(chunk) + sizeof(T) * _chunk_size, SPSC_CHUNK_ALIGMENT));
         if(chk){
+            chk->next = nullptr;
             _chunk_num.fetch_add(1, std::memory_order_release);
         }
         return chk;
     }
 
     inline void free_chunk(chunk* chk) noexcept {
+        chk->next = nullptr;
         chunk* spare = _spare_chunk.exchange(chk, std::memory_order_release);
         if(spare){
             aligned_free(spare);

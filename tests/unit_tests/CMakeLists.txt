@@ -5,6 +5,7 @@ add_executable(gtest_tsc
     json_hpp_test.cpp
     logging_test.cpp
     logging_active_level_test.cpp
+    stl_queue_test.cpp
 )
 
 target_link_libraries(gtest_tsc PRIVATE

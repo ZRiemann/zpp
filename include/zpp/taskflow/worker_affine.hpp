@@ -32,9 +32,9 @@ public:
         unsigned core = w.id() % (std::thread::hardware_concurrency() - 1);
         CPU_SET(core, &cpuset);
         pthread_setaffinity_np(w.thread().native_handle(), sizeof(cpuset), &cpuset);
-        spd_inf("[worker {} tid:{}] bound to core:{}", w.id(), z::tid::id(), core);
+        spd_inf("[worker {} tid:{:02}] bound to core:{}", w.id(), z::tid::id(), core);
 #else
-        spd_inf("[worker {} tid:{}]", w.id(), z::tid::id());
+        spd_inf("[worker {} tid:{:02}]", w.id(), z::tid::id());
 #endif
 }
 
@@ -43,7 +43,7 @@ public:
         catch(const std::exception& e) {
             spd_err("[worker {}] exception: {}", w.id(), e.what());
         }
-        spd_inf("[worker {} tid:{}] cleanup", w.id(), z::tid::id());
+        spd_inf("[worker {} tid:{:02}] cleanup", w.id(), z::tid::id());
   }
 
 private:

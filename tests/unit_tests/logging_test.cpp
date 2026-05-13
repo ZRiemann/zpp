@@ -4,9 +4,11 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <thread>
 
 #include <zpp/spd_log.h>
 #include <zpp/spdlog.h>
+#include <zpp/system/tid.h>
 
 namespace {
 
@@ -30,6 +32,12 @@ z::log::config file_config(const std::filesystem::path& path)
     cfg.pattern = "%L %v";
     cfg.flush_interval = std::chrono::seconds(0);
     return cfg;
+}
+
+std::string short_tid(int tid)
+{
+    const auto text = std::to_string(tid);
+    return text.size() == 1 ? "0" + text : text;
 }
 
 } // namespace
@@ -79,6 +87,72 @@ TEST(LoggingTest, RuntimeLevelShortCircuitsDisabledArguments)
     const auto content = read_file(path);
     EXPECT_EQ(content.find("debug"), std::string::npos);
     EXPECT_NE(content.find("W warn 1"), std::string::npos);
+    std::filesystem::remove(path);
+}
+
+TEST(LoggingTest, PatternThreadIdUsesZppShortThreadId)
+{
+    const auto path = std::filesystem::current_path() / "zpp_logging_short_tid_test.log";
+    std::filesystem::remove(path);
+    auto cfg = file_config(path);
+    cfg.pattern = "%t %v";
+
+    const int main_tid = z::tid::id();
+    int worker_tid = -1;
+
+    z::log::init(cfg);
+    spd_inf("main");
+    std::thread worker([&] {
+        worker_tid = z::tid::id();
+        spd_inf("worker");
+    });
+    worker.join();
+    z::log::shutdown();
+
+    const auto content = read_file(path);
+    EXPECT_NE(content.find(short_tid(main_tid) + " main"), std::string::npos);
+    EXPECT_NE(content.find(short_tid(worker_tid) + " worker"), std::string::npos);
+    std::filesystem::remove(path);
+}
+
+TEST(LoggingTest, AsyncPatternThreadIdUsesCallingThreadId)
+{
+    const auto path = std::filesystem::current_path() / "zpp_logging_async_short_tid_test.log";
+    std::filesystem::remove(path);
+    auto cfg = file_config(path);
+    cfg.async = true;
+    cfg.pattern = "%t %v";
+
+    int worker_tid = -1;
+
+    z::log::init(cfg);
+    std::thread worker([&] {
+        worker_tid = z::tid::id();
+        spd_inf("worker_async");
+    });
+    worker.join();
+    z::log::shutdown();
+
+    const auto content = read_file(path);
+    EXPECT_NE(content.find(short_tid(worker_tid) + " worker_async"), std::string::npos);
+    std::filesystem::remove(path);
+}
+
+TEST(LoggingTest, PrintfWrapperPatternThreadIdUsesZppShortThreadId)
+{
+    const auto path = std::filesystem::current_path() / "zpp_logging_printf_short_tid_test.log";
+    std::filesystem::remove(path);
+    auto cfg = file_config(path);
+    cfg.pattern = "%t %v";
+
+    const int main_tid = z::tid::id();
+
+    z::log::init(cfg);
+    spd2war("printf %d", 7);
+    z::log::shutdown();
+
+    const auto content = read_file(path);
+    EXPECT_NE(content.find(short_tid(main_tid) + " printf 7"), std::string::npos);
     std::filesystem::remove(path);
 }
 

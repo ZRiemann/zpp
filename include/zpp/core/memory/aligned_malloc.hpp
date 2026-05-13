@@ -8,6 +8,10 @@
  */
 #include <zpp/namespace.h>
 #include <zpp/system/os.h>
+
+#include <cerrno>
+#include <cstdlib>
+
 NSB_ZPP
 
 #if (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || \

@@ -9,7 +9,7 @@
             "rotats":3,
             "queue_size": 8192,
             "flush_interval_sec": 2,
-            "pattern":"%d %H:%M:%S.%f %t %^%L%$ %v\t%g:%#"
+            "pattern":"%d %H:%M:%S.%f %t %^%L%$: %v\t%g:%#"
         }
     },
     "zpp_hpx_basic":{
@@ -61,7 +61,8 @@
             "console":true,
             "name":"zpp_taskflow.log",
             "max_size":32,
-            "rotats":3
+            "rotats":3,
+            "pattern":"%d %H:%M:%S.%f %t %^%L%$: %v\t%g:%#"
         }
     },
     "uni_svr":{

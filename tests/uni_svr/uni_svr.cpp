@@ -13,7 +13,7 @@ uni_svr::uni_svr(int argc, char** argv)
 }
 
 err_t uni_svr::run(){
-    spd_err("{}", str_err(ERR_TIMEOUT));
+    spd_inf("error string example: {}", str_err(ERR_TIMEOUT));
     z::test_system();
     z::test_timestamp_counter();
     return ERR_OK;    
@@ -24,7 +24,7 @@ err_t uni_svr::on_timer(){
     return ERR_OK;
 }
 err_t uni_svr::timer(){
-    sleep(1000);
+    z::sleep_ms(1000);
     return ERR_END;
 }
 #define SVR_NAME uni_svr

@@ -1,15 +1,16 @@
 #pragma once
 
 #include <atomic>
+#include <cstddef>
 #include <functional>
 #include <thread>
+#include <utility>
 
 #include <taskflow/taskflow.hpp>
 #include <taskflow/algorithm/pipeline.hpp>
 
+#include <zpp/STL/mpmc.hpp>
 #include <zpp/namespace.h>
-#include <zpp/STL/spsc.hpp>
-#include <zpp/system/spin.h>
 #include <zpp/spdlog.h>
 
 NSB_TASKFLOW
@@ -19,7 +20,7 @@ class pipeline_mpsc {
 public:
     pipeline_mpsc(tf::Executor& executor, tf::Taskflow& taskflow, size_t capacity)
         : _executor(executor), _taskflow(taskflow), _valid(false)
-        , _spsc(capacity/2, 2), _is_running(false){}
+        , _queue(capacity / 2, 2), _is_running(false){}
 
     virtual ~pipeline_mpsc() {
         wait_done();
@@ -27,15 +28,7 @@ public:
 
     template<typename U>
     bool submit(U&& item) noexcept{
-        bool ret{false};
-
-        _spin.lock();
-        if(!_spsc.full()){
-            _spsc.back() = std::forward<U>(item);
-            _spsc.push();
-            ret = true;
-        }
-        _spin.unlock();
+        bool ret = _queue.push(std::forward<U>(item));
         bool expected = false;
         if(_is_running.compare_exchange_strong(expected, true)) {
             _run();            
@@ -44,8 +37,9 @@ public:
     }
 
     bool is_finished() noexcept {
-        std::unique_lock<z::spin> lock(_spin);
-        return !_is_running.load(std::memory_order_acquire) && _spsc.empty();
+        return !_is_running.load(std::memory_order_acquire)
+            && _active_runs.load(std::memory_order_acquire) == 0
+            && _queue.empty();
     }
 
     void wait_done() {
@@ -59,15 +53,15 @@ public:
         return tf::Pipe{
             tf::PipeType::SERIAL,
             [this, handler = std::forward<Handler>(handler)](tf::Pipeflow& pf) mutable {
-                if(!_spsc.empty()){
+                T data;
+                if(_queue.pop(data)){
                     try{
-                        handler(pf, std::move(_spsc.front()));
+                        handler(pf, std::move(data));
                     }catch(std::exception &e){
                         spd_err("execption:{}", e.what());
                     }catch(...){
                         spd_err("unknown exception");
                     }
-                    _spsc.pop();
                 } else {
                     pf.stop();
                 }
@@ -77,26 +71,29 @@ public:
 
 private:
     void _run() {
+        _active_runs.fetch_add(1, std::memory_order_acq_rel);
         _executor.run(_taskflow, [this](){
-            if(!_spsc.empty()){
+            if(!_queue.empty()){
                 _run();
+                _active_runs.fetch_sub(1, std::memory_order_acq_rel);
                 return;
             }
             _is_running.store(false, std::memory_order_seq_cst);
             bool expected = false;
             // potential lost wakeup check
-            if(!_spsc.empty() && _is_running.compare_exchange_strong(expected, true)) {
+            if(!_queue.empty() && _is_running.compare_exchange_strong(expected, true)) {
                 _run();
             }
+            _active_runs.fetch_sub(1, std::memory_order_acq_rel);
         });
     }
 
     tf::Executor& _executor;
     tf::Taskflow& _taskflow;
     bool _valid;
-    z::spsc<T> _spsc;
+    z::mpmc<T> _queue;
     std::atomic<bool> _is_running;
-    mutable z::spin _spin;
+    std::atomic<std::size_t> _active_runs{0};
 };
 
 NSE_TASKFLOW

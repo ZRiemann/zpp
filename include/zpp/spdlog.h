@@ -21,6 +21,7 @@
 #include <utility>
 
 #include <spdlog/common.h>
+#include <spdlog/details/fmt_helper.h>
 #include <spdlog/spdlog.h>
 
 #include "namespace.h"
@@ -43,12 +44,15 @@ struct config {
     spdlog::level::level_enum level{spdlog::level::trace};
     spdlog::level::level_enum flush_level{spdlog::level::warn};
     std::string logger_name{"zpp"};
-    std::string pattern{"%d %H:%M:%S.%f %t %^%L%$ %v\t%g:%#"};
+    std::string pattern{"%d %H:%M:%S.%f %t %^%L%$: %v\t%g:%#"};
 };
 
 void init(const config& cfg = config{});
 void shutdown() noexcept;
 void set_level(spdlog::level::level_enum level);
+void log_preformatted(spdlog::source_loc source,
+                      spdlog::level::level_enum lvl,
+                      spdlog::string_view_t msg);
 
 } // namespace log
 NSE_ZPP
@@ -59,9 +63,21 @@ NSE_ZPP
 template <typename... Args>
 inline void spd_logx(spdlog::source_loc source,
                      spdlog::level::level_enum lvl,
-                     spdlog::format_string_t<Args...> fmt,
+                     spdlog::format_string_t<Args...> fmt_str,
                      Args&&... args) {
-    g_spd_log->log(source, lvl, fmt, std::forward<Args>(args)...);
+    spdlog::memory_buf_t buffer;
+#ifdef SPDLOG_USE_STD_FORMAT
+    fmt_lib::vformat_to(std::back_inserter(buffer),
+                        spdlog::details::to_string_view(fmt_str),
+                        fmt_lib::make_format_args(args...));
+#else
+    fmt::vformat_to(fmt::appender(buffer),
+                    spdlog::details::to_string_view(fmt_str),
+                    fmt::make_format_args(args...));
+#endif
+    z::log::log_preformatted(source,
+                             lvl,
+                             spdlog::string_view_t{buffer.data(), buffer.size()});
 }
 
 inline bool spd_should_log(spdlog::level::level_enum lvl) noexcept {

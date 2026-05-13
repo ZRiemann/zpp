@@ -3,6 +3,18 @@
 
 * Release History
 
+** v0.5.1 - 2026-05-13
+*** 发布定位摘要
+- 修复 zpp 日志短线程号、队列 chunk 生命周期和 taskflow pipeline 运行稳定性。
+- 按补丁版本发布，zpp 从 =v0.5.0= 升级到 =v0.5.1=。
+
+*** 变更内容
+- =uni_svr= 运行入口改用毫秒级等待并避免输出误导性的错误级别示例日志，执行完成后可自行退出。
+- zpp 日志宏输出的 pattern =%t= 复用 =z::tid::id()= 两位短线程号，避免显示过长的系统线程号并保持日志列对齐；直接调用原生 =g_spd_log->log(...)= 仍保留 spdlog 默认线程号语义。
+- =spsc/mpmc= 初始化和复用 chunk 时清理 =next= 链指针，避免未扩容队列析构时读取未初始化指针导致堆损坏。
+- =pipeline_mpsc= 恢复复用 =z::mpmc=，并在 =wait_done()= 中等待 Taskflow run callback 完全退出，避免局部 pipeline 提前析构。
+- zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.5.1=。
+
 ** v0.5.0 - 2026-05-13
 *** 发布定位摘要
 - 新增项目运行入口 CLI，统一列出并执行 =add_run_target= 预置命令。

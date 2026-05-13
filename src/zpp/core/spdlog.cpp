@@ -6,15 +6,19 @@
 #include <cstdarg>
 #include <cstdio>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
 #include <zpp/spd_log.h>
 #include <zpp/spdlog.h>
+#include <zpp/system/tid.h>
 
 #include <spdlog/async.h>
 #include <spdlog/async_logger.h>
 #include <spdlog/cfg/env.h>
+#include <spdlog/details/fmt_helper.h>
+#include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/null_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -22,6 +26,138 @@
 namespace {
 
 std::shared_ptr<spdlog::details::thread_pool> g_spd_pool;
+constexpr spdlog::string_view_t zpp_tid_prefix{"\x1ezpp_tid:", 9};
+constexpr char zpp_tid_suffix = '\x1f';
+
+bool read_zpp_tid_payload(spdlog::string_view_t payload,
+                          std::size_t& thread_id,
+                          spdlog::string_view_t& message)
+{
+    if (payload.size() <= zpp_tid_prefix.size() ||
+        std::char_traits<char>::compare(payload.data(), zpp_tid_prefix.data(), zpp_tid_prefix.size()) != 0) {
+        return false;
+    }
+
+    std::size_t pos = zpp_tid_prefix.size();
+    std::size_t id = 0;
+    bool has_digit = false;
+    while (pos < payload.size()) {
+        const char ch = payload.data()[pos];
+        if (ch < '0' || ch > '9') {
+            break;
+        }
+        has_digit = true;
+        id = id * 10 + static_cast<std::size_t>(ch - '0');
+        ++pos;
+    }
+
+    if (!has_digit || pos >= payload.size() || payload.data()[pos] != zpp_tid_suffix) {
+        return false;
+    }
+
+    thread_id = id;
+    message = spdlog::string_view_t{payload.data() + pos + 1, payload.size() - pos - 1};
+    return true;
+}
+
+void append_spaces(std::size_t count, spdlog::memory_buf_t& dest)
+{
+    for (std::size_t i = 0; i < count; ++i) {
+        dest.push_back(' ');
+    }
+}
+
+void append_short_thread_id(std::size_t thread_id, spdlog::memory_buf_t& dest)
+{
+    if (thread_id < 10) {
+        dest.push_back('0');
+    }
+    spdlog::details::fmt_helper::append_int(thread_id, dest);
+}
+
+void append_padded(spdlog::string_view_t text,
+                   const spdlog::details::padding_info& padding,
+                   spdlog::memory_buf_t& dest)
+{
+    if (!padding.enabled()) {
+        spdlog::details::fmt_helper::append_string_view(text, dest);
+        return;
+    }
+
+    const std::size_t content_size = text.size();
+    if (content_size >= padding.width_) {
+        const auto size = padding.truncate_ ? padding.width_ : content_size;
+        spdlog::details::fmt_helper::append_string_view(
+            spdlog::string_view_t{text.data(), size}, dest);
+        return;
+    }
+
+    const std::size_t spaces = padding.width_ - content_size;
+    if (padding.side_ == spdlog::details::padding_info::pad_side::left) {
+        append_spaces(spaces, dest);
+        spdlog::details::fmt_helper::append_string_view(text, dest);
+        return;
+    }
+
+    if (padding.side_ == spdlog::details::padding_info::pad_side::right) {
+        spdlog::details::fmt_helper::append_string_view(text, dest);
+        append_spaces(spaces, dest);
+        return;
+    }
+
+    const std::size_t left_spaces = spaces / 2;
+    append_spaces(left_spaces, dest);
+    spdlog::details::fmt_helper::append_string_view(text, dest);
+    append_spaces(spaces - left_spaces, dest);
+}
+
+class zpp_thread_id_formatter final : public spdlog::custom_flag_formatter {
+public:
+    void format(const spdlog::details::log_msg& msg, const std::tm&, spdlog::memory_buf_t& dest) override
+    {
+        std::size_t thread_id = 0;
+        spdlog::string_view_t message;
+        if (!read_zpp_tid_payload(msg.payload, thread_id, message)) {
+            thread_id = msg.thread_id;
+        }
+        spdlog::memory_buf_t formatted;
+        append_short_thread_id(thread_id, formatted);
+        append_padded(spdlog::string_view_t{formatted.data(), formatted.size()}, padinfo_, dest);
+    }
+
+    std::unique_ptr<spdlog::custom_flag_formatter> clone() const override
+    {
+        return spdlog::details::make_unique<zpp_thread_id_formatter>();
+    }
+};
+
+class zpp_payload_formatter final : public spdlog::custom_flag_formatter {
+public:
+    void format(const spdlog::details::log_msg& msg, const std::tm&, spdlog::memory_buf_t& dest) override
+    {
+        std::size_t thread_id = 0;
+        spdlog::string_view_t message;
+        if (read_zpp_tid_payload(msg.payload, thread_id, message)) {
+            append_padded(message, padinfo_, dest);
+            return;
+        }
+        append_padded(msg.payload, padinfo_, dest);
+    }
+
+    std::unique_ptr<spdlog::custom_flag_formatter> clone() const override
+    {
+        return spdlog::details::make_unique<zpp_payload_formatter>();
+    }
+};
+
+std::unique_ptr<spdlog::formatter> make_pattern_formatter(const std::string& pattern)
+{
+    auto formatter = std::make_unique<spdlog::pattern_formatter>();
+    formatter->add_flag<zpp_thread_id_formatter>('t')
+             .add_flag<zpp_payload_formatter>('v')
+             .set_pattern(pattern);
+    return formatter;
+}
 
 std::shared_ptr<spdlog::logger> make_fallback_logger()
 {
@@ -75,10 +211,10 @@ std::vector<spdlog::sink_ptr> make_sinks(const z::log::config& cfg)
     }
 
     const std::string pattern = cfg.pattern.empty()
-        ? "%d %H:%M:%S.%f %t %^%L%$ %v\t%g:%#"
+        ? "%d %H:%M:%S.%f %t %^%L%$: %v\t%g:%#"
         : cfg.pattern;
     for (auto& sink : sinks) {
-        sink->set_pattern(pattern);
+        sink->set_formatter(make_pattern_formatter(pattern));
     }
     return sinks;
 }
@@ -115,10 +251,9 @@ void trace_vprintf(int level,
         ? buffer.size() - 1
         : static_cast<std::size_t>(result);
     buffer[used] = '\0';
-    g_spd_log->log(spdlog::source_loc{file, line, fn},
-                   spd_level,
-                   "{}",
-                   std::string_view{buffer.data(), used});
+    z::log::log_preformatted(spdlog::source_loc{file, line, fn},
+                              spd_level,
+                              spdlog::string_view_t{buffer.data(), used});
 }
 
 } // namespace
@@ -169,6 +304,19 @@ void shutdown() noexcept
 void set_level(spdlog::level::level_enum level)
 {
     g_spd_log->set_level(level);
+}
+
+void log_preformatted(spdlog::source_loc source,
+                      spdlog::level::level_enum lvl,
+                      spdlog::string_view_t msg)
+{
+    spdlog::memory_buf_t payload;
+    spdlog::details::fmt_helper::append_string_view(zpp_tid_prefix, payload);
+    spdlog::details::fmt_helper::append_int(static_cast<std::size_t>(z::tid::id()), payload);
+    payload.push_back(zpp_tid_suffix);
+    spdlog::details::fmt_helper::append_string_view(msg, payload);
+
+    g_spd_log->log(source, lvl, spdlog::string_view_t{payload.data(), payload.size()});
 }
 
 bool should_trace_printf(int level) noexcept
