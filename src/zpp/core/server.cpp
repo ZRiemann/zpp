@@ -6,7 +6,6 @@
 
 #include <zpp/json.hpp>
 #include <zpp/spdlog.h>
-#include "spdguard.h"
 #include <zpp/core/server.h>
 #include <zpp/system/tsc.h>
 #include <zpp/system/system.h>
@@ -32,16 +31,17 @@ USE_ZPP
 
 server::server(){
     tsc_init();
-    
-    _spdg = new spdguard;
-    _spdg->append_console_sink();
-    _spdg->build_sync();
+
+    z::log::config log_conf;
+    log_conf.async = false;
+    log_conf.console = true;
+    log_conf.rotating_file = false;
+    z::log::init(log_conf);
 }
 
 server::server(int argc, char** argv)
     :_argc(argc)
     ,_argv(argv){
-    _spdg = new spdguard;
     if(argc < 3){
         std::cout<< "usage: " << argv[0] << " <uni-conf.json> <conf_svr_name>" <<std::endl
         << "example: " << argv[0] << " ../doc/config/server.json server" << std::endl;
@@ -74,6 +74,8 @@ server::server(int argc, char** argv)
         std::string name{"server.log"};
         int rotats = 3;
         int max_size = 32;
+        int queue_size = 8192;
+        int flush_interval_sec = 2;
         json_view svr_conf;
         json_view spd_conf;
         if(ERR_OK == conf.member(argv[2], svr_conf) &&
@@ -84,16 +86,24 @@ server::server(int argc, char** argv)
             spd_conf.get("name", name);
             spd_conf.get("rotats", rotats);
             spd_conf.get("max_size", max_size);
+            spd_conf.get("queue_size", queue_size);
+            spd_conf.get("flush_interval_sec", flush_interval_sec);
             
         }else{
             std::cout << "Waring: NOT find spd config item: " << argv[2] << std::endl;
         }
 
-        if(console){
-            _spdg->append_console_sink();
-        }
-        _spdg->append_rotating_file(name, max_size, rotats, rotate_on_open);
-        async ? _spdg->build_async() : _spdg->build_sync();
+        z::log::config log_conf;
+        log_conf.async = async;
+        log_conf.console = console;
+        log_conf.rotating_file = true;
+        log_conf.rotate_on_open = rotate_on_open;
+        log_conf.file_name = name;
+        log_conf.max_file_size_mb = max_size > 0 ? static_cast<std::size_t>(max_size) : 32;
+        log_conf.max_files = rotats > 0 ? static_cast<std::size_t>(rotats) : 3;
+        log_conf.queue_size = queue_size > 0 ? static_cast<std::size_t>(queue_size) : 8192;
+        log_conf.flush_interval = std::chrono::seconds(flush_interval_sec > 0 ? flush_interval_sec : 0);
+        z::log::init(log_conf);
 
         sys::info();
         std::string path, app_name;
@@ -106,7 +116,7 @@ server::server(int argc, char** argv)
 
 server::~server(){
     monitor_guard::print_statistic();
-    delete _spdg;
+    z::log::shutdown();
 }
 
 #include <iostream>

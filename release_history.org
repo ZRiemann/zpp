@@ -3,6 +3,21 @@
 
 * Release History
 
+** v0.4.0 - 2026-05-13
+*** 发布定位摘要
+- 重构 zpp 日志初始化封装，保留原生 spdlog 热路径性能，同时简化初始化与生命周期管理。
+- 按接口重构发布，zpp 从 =v0.3.1= 升级到 =v0.4.0=。
+
+*** 变更内容
+- 重构 zpp 日志初始化封装：保留 =g_spd_log->log(...)= 原生 spdlog 热路径，新增 =z::log::config/init/shutdown= 负责集中初始化与生命周期管理。
+- 删除私有 =spdguard= raw pointer 管理，=z::server= 改为直接通过 =z::log::config= 初始化 console/file/async 日志。
+- =<zpp/spd_log.h>= 继续作为 CUDA 友好的 printf 薄封装，不包含 spdlog/fmt 重头文件，并修复 =spd2war= 等级映射和长消息截断处理。
+- 移除未使用的历史兼容函数 =z::spd_trace=，=spd2*= 宏统一转发到 =z::log::trace_printf=。
+- zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.4.0=。
+
+*** 验证
+- 新增 =logging_test.cpp= 覆盖 fallback logger、重复 shutdown、printf warn 等级和长消息截断场景。
+
 ** v0.3.1 - 2026-05-11
 *** 发布定位摘要
 - 完成旧 =zpp/json.h= 到成熟 =zpp/json.hpp= API 的迁移，并硬删除旧头文件。

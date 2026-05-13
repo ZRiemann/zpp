@@ -1,21 +1,10 @@
 #pragma once
 
 #include <zpp/namespace.h>
-
-NSB_HPX
-
 #include <spdlog/sinks/base_sink.h>
 #include <hpx/iostream.hpp>
 
-/**
- * @file spdlog.hpp
- * @brief Custom spdlog sinks for HPX integration.
- */
-
 NSB_HPX
-
-#include <spdlog/sinks/base_sink.h>
-#include <hpx/iostream.hpp>
 
 /**
  * @class hpx_ostream_sink

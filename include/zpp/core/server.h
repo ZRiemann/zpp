@@ -38,8 +38,6 @@ int main(int argc, char **argv){
 
  NSB_ZPP
 
-class spdguard;
-
 class server{
 public:
     /**
@@ -63,7 +61,5 @@ public:
 public:
     int _argc{0}; ///< argv[1] 配置文件路径
     char** _argv{nullptr}; ///< argv[2] 服务配置项目
-protected:
-    spdguard* _spdg{nullptr};
 };
 NSE_ZPP
