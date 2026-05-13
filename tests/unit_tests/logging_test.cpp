@@ -61,6 +61,68 @@ TEST(LoggingTest, PrintfWrapperMapsWarnLevel)
     std::filesystem::remove(path);
 }
 
+TEST(LoggingTest, RuntimeLevelShortCircuitsDisabledArguments)
+{
+    const auto path = std::filesystem::current_path() / "zpp_logging_runtime_level_test.log";
+    std::filesystem::remove(path);
+    auto cfg = file_config(path);
+    cfg.level = spdlog::level::warn;
+
+    z::log::init(cfg);
+    int side_effects = 0;
+    spd_dbg("debug {}", ++side_effects);
+    EXPECT_EQ(side_effects, 0);
+    spd_war("warn {}", ++side_effects);
+    EXPECT_EQ(side_effects, 1);
+    z::log::shutdown();
+
+    const auto content = read_file(path);
+    EXPECT_EQ(content.find("debug"), std::string::npos);
+    EXPECT_NE(content.find("W warn 1"), std::string::npos);
+    std::filesystem::remove(path);
+}
+
+TEST(LoggingTest, RuntimeShortCircuitKeepsBacktraceMessages)
+{
+    const auto path = std::filesystem::current_path() / "zpp_logging_backtrace_test.log";
+    std::filesystem::remove(path);
+    auto cfg = file_config(path);
+    cfg.level = spdlog::level::err;
+
+    z::log::init(cfg);
+    spd_begin(4);
+    int side_effects = 0;
+    spd_dbg("debug {}", ++side_effects);
+    EXPECT_EQ(side_effects, 1);
+    spd_end();
+    z::log::shutdown();
+
+    const auto content = read_file(path);
+    EXPECT_NE(content.find("D debug 1"), std::string::npos);
+    std::filesystem::remove(path);
+}
+
+TEST(LoggingTest, PrintfWrapperShortCircuitsDisabledArguments)
+{
+    const auto path = std::filesystem::current_path() / "zpp_logging_printf_level_test.log";
+    std::filesystem::remove(path);
+    auto cfg = file_config(path);
+    cfg.level = spdlog::level::warn;
+
+    z::log::init(cfg);
+    int side_effects = 0;
+    spd2dbg("debug %d", ++side_effects);
+    EXPECT_EQ(side_effects, 0);
+    spd2war("warn %d", ++side_effects);
+    EXPECT_EQ(side_effects, 1);
+    z::log::shutdown();
+
+    const auto content = read_file(path);
+    EXPECT_EQ(content.find("debug"), std::string::npos);
+    EXPECT_NE(content.find("W warn 1"), std::string::npos);
+    std::filesystem::remove(path);
+}
+
 TEST(LoggingTest, PrintfWrapperTruncatesLongMessagesSafely)
 {
     const auto path = std::filesystem::current_path() / "zpp_logging_long_test.log";

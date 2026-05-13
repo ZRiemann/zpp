@@ -3,6 +3,21 @@
 
 * Release History
 
+** v0.4.1 - 2026-05-13
+*** 发布定位摘要
+- 优化 zpp 日志宏的关闭级别成本，保持 =spd_inf= 等历史入口兼容。
+- 按补丁版本发布，zpp 从 =v0.4.0= 升级到 =v0.4.1=。
+
+*** 变更内容
+- =spd_inf/spd_err/spd_war/spd_dbg/spd_trc= 遵守 =SPDLOG_ACTIVE_LEVEL=，用户显式关闭的日志级别会在编译期裁剪。
+- 日志宏增加运行时短路判断，关闭级别且未启用 backtrace 时不再求值日志参数。
+- =spd2*= printf 日志宏复用轻量级运行时短路，关闭级别时避免参数求值和 =vsnprintf= 格式化。
+- =z::server= 日志配置读取直接覆盖 =z::log::config= 默认值，减少临时配置变量并保留非法数值保护。
+- 保留 =spd_logx= 薄模板封装和 =g_spd_log->log(...)= 原生 spdlog 热路径。
+
+*** 验证
+- 新增日志单元测试覆盖运行时短路、backtrace 缓存保留、printf 短路和 =SPDLOG_ACTIVE_LEVEL= 编译期裁剪场景。
+
 ** v0.4.0 - 2026-05-13
 *** 发布定位摘要
 - 重构 zpp 日志初始化封装，保留原生 spdlog 热路径性能，同时简化初始化与生命周期管理。

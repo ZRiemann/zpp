@@ -53,6 +53,12 @@ spdlog::level::level_enum normalize_level(int level)
     }
 }
 
+bool should_log_level(spdlog::level::level_enum level) noexcept
+{
+    auto* logger = g_spd_log.get();
+    return logger && level != spdlog::level::off && (logger->should_log(level) || logger->should_backtrace());
+}
+
 std::vector<spdlog::sink_ptr> make_sinks(const z::log::config& cfg)
 {
     std::vector<spdlog::sink_ptr> sinks;
@@ -84,8 +90,13 @@ void trace_vprintf(int level,
                    const char* msg,
                    va_list args)
 {
+    const auto spd_level = normalize_level(level);
+    if (!should_log_level(spd_level)) {
+        return;
+    }
+
     if (!msg) {
-        g_spd_log->log(spdlog::source_loc{file, line, fn}, normalize_level(level), "");
+        g_spd_log->log(spdlog::source_loc{file, line, fn}, spd_level, "");
         return;
     }
 
@@ -96,7 +107,7 @@ void trace_vprintf(int level,
     va_end(args_copy);
 
     if (result < 0) {
-        g_spd_log->log(spdlog::source_loc{file, line, fn}, normalize_level(level), "[format error]");
+        g_spd_log->log(spdlog::source_loc{file, line, fn}, spd_level, "[format error]");
         return;
     }
 
@@ -105,7 +116,7 @@ void trace_vprintf(int level,
         : static_cast<std::size_t>(result);
     buffer[used] = '\0';
     g_spd_log->log(spdlog::source_loc{file, line, fn},
-                   normalize_level(level),
+                   spd_level,
                    "{}",
                    std::string_view{buffer.data(), used});
 }
@@ -158,6 +169,11 @@ void shutdown() noexcept
 void set_level(spdlog::level::level_enum level)
 {
     g_spd_log->set_level(level);
+}
+
+bool should_trace_printf(int level) noexcept
+{
+    return should_log_level(normalize_level(level));
 }
 
 void trace_printf(int level, const char* file, int line, const char* fn, const char* msg, ...)

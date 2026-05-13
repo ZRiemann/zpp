@@ -68,41 +68,39 @@ server::server(int argc, char** argv)
         exit(-1);
     }else{
         std::cout << "loading config file: " << argv[1] << " Success."<< std::endl;
-        bool async{true};
-        bool console{true};
-        bool rotate_on_open{true};
-        std::string name{"server.log"};
-        int rotats = 3;
-        int max_size = 32;
-        int queue_size = 8192;
-        int flush_interval_sec = 2;
+        z::log::config log_conf;
+        log_conf.rotating_file = true;
         json_view svr_conf;
         json_view spd_conf;
         if(ERR_OK == conf.member(argv[2], svr_conf) &&
             ERR_OK == svr_conf.member("spd", spd_conf)){
-            spd_conf.get("async", async);
-            spd_conf.get("console", console);
-            spd_conf.get("rotate_on_open", rotate_on_open);
-            spd_conf.get("name", name);
-            spd_conf.get("rotats", rotats);
-            spd_conf.get("max_size", max_size);
-            spd_conf.get("queue_size", queue_size);
-            spd_conf.get("flush_interval_sec", flush_interval_sec);
+            spd_conf.get("async", log_conf.async);
+            spd_conf.get("console", log_conf.console);
+            spd_conf.get("rotate_on_open", log_conf.rotate_on_open);
+            spd_conf.get("name", log_conf.file_name);
+            spd_conf.get("pattern", log_conf.pattern);
+
+            auto get_positive_size = [&](const char *key, std::size_t &out){
+                int value = 0;
+                if(ERR_OK == spd_conf.get(key, value) && value > 0){
+                    out = static_cast<std::size_t>(value);
+                }
+            };
+            auto get_positive_seconds = [&](const char *key, std::chrono::seconds &out){
+                int value = 0;
+                if(ERR_OK == spd_conf.get(key, value) && value > 0){
+                    out = std::chrono::seconds(value);
+                }
+            };
+            get_positive_size("rotats", log_conf.max_files);
+            get_positive_size("max_size", log_conf.max_file_size_mb);
+            get_positive_size("queue_size", log_conf.queue_size);
+            get_positive_seconds("flush_interval_sec", log_conf.flush_interval);
             
         }else{
             std::cout << "Waring: NOT find spd config item: " << argv[2] << std::endl;
         }
 
-        z::log::config log_conf;
-        log_conf.async = async;
-        log_conf.console = console;
-        log_conf.rotating_file = true;
-        log_conf.rotate_on_open = rotate_on_open;
-        log_conf.file_name = name;
-        log_conf.max_file_size_mb = max_size > 0 ? static_cast<std::size_t>(max_size) : 32;
-        log_conf.max_files = rotats > 0 ? static_cast<std::size_t>(rotats) : 3;
-        log_conf.queue_size = queue_size > 0 ? static_cast<std::size_t>(queue_size) : 8192;
-        log_conf.flush_interval = std::chrono::seconds(flush_interval_sec > 0 ? flush_interval_sec : 0);
         z::log::init(log_conf);
 
         sys::info();

@@ -64,16 +64,48 @@ inline void spd_logx(spdlog::source_loc source,
     g_spd_log->log(source, lvl, fmt, std::forward<Args>(args)...);
 }
 
-#define spd_inf(...) spd_logx(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::info, __VA_ARGS__)
-#define spd_err(...) spd_logx(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::err, __VA_ARGS__)
-#define spd_war(...) spd_logx(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::warn, __VA_ARGS__)
-#define spd_dbg(...) spd_logx(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::debug, __VA_ARGS__)
-#define spd_trc(...) spd_logx(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::trace, __VA_ARGS__)
+inline bool spd_should_log(spdlog::level::level_enum lvl) noexcept {
+    auto* logger = g_spd_log.get();
+    return logger && lvl != spdlog::level::off && (logger->should_log(lvl) || logger->should_backtrace());
+}
+
+#define spd_logx_if(lvl, ...) \
+    (spd_should_log(lvl) ? spd_logx(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, lvl, __VA_ARGS__) : (void)0)
+
+#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_INFO
+#define spd_inf(...) spd_logx_if(spdlog::level::info, __VA_ARGS__)
+#else
+#define spd_inf(...) (void)0
+#endif
+
+#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_ERROR
+#define spd_err(...) spd_logx_if(spdlog::level::err, __VA_ARGS__)
+#else
+#define spd_err(...) (void)0
+#endif
+
+#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_WARN
+#define spd_war(...) spd_logx_if(spdlog::level::warn, __VA_ARGS__)
+#else
+#define spd_war(...) (void)0
+#endif
+
+#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
+#define spd_dbg(...) spd_logx_if(spdlog::level::debug, __VA_ARGS__)
+#else
+#define spd_dbg(...) (void)0
+#endif
+
+#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_TRACE
+#define spd_trc(...) spd_logx_if(spdlog::level::trace, __VA_ARGS__)
+#else
+#define spd_trc(...) (void)0
+#endif
 
 #ifdef _DEBUG
 #define spd_mark() g_spd_log->info("{}:{}", __PRETTY_FUNCTION__, __LINE__)
 #else
-#define spd_mark()
+#define spd_mark() (void)0
 #endif
 
 #define CTS(x) fmt::format(std::locale("en_US.UTF-8"), "{:L}", (x))

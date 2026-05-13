@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(zpp VERSION 0.4.0)
+project(zpp VERSION 0.4.1)
 
 option(ZPP_USE_CONAN "Use Conan-provided dependencies and disable CPM fallbacks" OFF)
 option(ZPP_BUILD_FOLLY_MODULE "Build zpp folly module" OFF)
