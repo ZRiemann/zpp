@@ -1,6 +1,8 @@
 /**
  * @brief Application main entry with uni_server subclass
  */
+#include <memory>
+
 #include <zpp/error.h>
 #ifndef SVR_NAME
 #include <zpp/core/server.h>

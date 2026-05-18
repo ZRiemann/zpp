@@ -3,6 +3,36 @@
 
 * Release History
 
+** v0.5.2 - 2026-05-18
+*** 发布定位摘要
+- zpp 不再维护或运行自己的 Conan 配方，改为消费 =zeta_forge deps= 安装的共享依赖环境。
+- 明确职责边界：=zeta_forge= 作为唯一第三方依赖安装与配置管理入口，zpp 只消费该环境并输出自身库。
+- 关闭 zpp 构建链路中的 fallback/legacy 分支，改为失败即明确提示先完成 zeta_forge 环境配置。
+- 按补丁版本发布，zpp 从 =v0.5.1= 升级到 =v0.5.2=。
+
+*** 变更内容
+- 删除 =builder/conanfile.py=，=builder/zpp.py= 配置阶段只把 =${ZETA_INSTALL_PREFIX}/lib/cmake/zeta_deps/<BUILD_TYPE>= 加入 =CMAKE_PREFIX_PATH=。
+- 顶层 CMake 对 =RapidJSON=、=spdlog=、=GTest= 使用 =find_package(... CONFIG REQUIRED)=，找不到时提示先安装 =zeta_forge deps=。
+- =builder/zpp.py= 不再校验或注入 =ZETA_RAPIDJSON_SRC_DIR=/RAPIDJSON_ROOT=，RapidJSON 来源统一由 =zeta_forge deps= 安装的 package config 提供。
+- =builder/zpp.py= 配置阶段清理旧 build cache 中的 =CMAKE_TOOLCHAIN_FILE= 和遗留 =conan_toolchain.cmake= CMake system state，避免历史 Conan toolchain 污染当前共享依赖模式。
+- =zppConfig.cmake= 在恢复 PUBLIC 依赖 target 前自动加入安装前缀中的 =zeta_deps/<BUILD_TYPE>=，并通过 =find_dependency(RapidJSON CONFIG)= 恢复 =rapidjson::rapidjson=。
+- 顶层 =CMakeLists.txt= 移除 =ZETA_CMAKE_UTIL_DIR= 的 =$ZETAX_ROOT= fallback 自动回填逻辑。
+- 顶层 =CMakeLists.txt= 移除 =ZETA_DEPS_CMAKE_DIR= 基于 =CMAKE_INSTALL_PREFIX= 的 fallback 自动推导逻辑。
+- =builder/zpp.py= 移除历史 Conan build state 探测与自动清理分支，不再隐式迁移旧构建目录。
+- =builder/zpp.py= 配置命令移除遗留 Conan 兼容参数 =-U CMAKE_TOOLCHAIN_FILE=。
+- 导出 =zppConfig.cmake= 时，若安装前缀下缺少 =zeta_deps/<BUILD_TYPE>= 将直接失败并提示先执行 =zeta_forge/zbuild.py deps --install=。
+- =README.md= 与 =doc/README.zh.md= 同步更新为"先准备 zeta_forge 环境，再构建 zpp"的统一契约说明。
+- zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.5.2=。
+- 顶层 CMake 改为从仓库根 =VERSION= 读取并校验 =vX.Y.Z=，避免 =project(zpp VERSION ...)= 与发布版本漂移。
+
+*** 兼容性与升级说明
+- 构建 zpp 前需要先执行 =$ZETAX_ROOT/zeta_forge/zbuild.py deps --BUILD_TYPE=<type> --install=。
+- zpp 不再从自身 build tree 暴露 Conan generators，下游项目也不应引用 =zpp/build/.../conan=。
+- 推荐且默认支持的入口是 =./zbuild.py=。
+- 若使用 direct CMake，需显式传入 =-DZETA_CMAKE_UTIL_DIR= 与 =-DZETA_DEPS_CMAKE_DIR=。
+- 从旧 Conan 构建目录升级时请先清理旧 build tree（如 =rm -rf build/<BUILD_TYPE>=），避免历史缓存干扰。
+- 版本升级只需要先更新 =VERSION=，CMake project version 会在 configure 阶段自动同步。
+
 ** v0.5.1 - 2026-05-13
 *** 发布定位摘要
 - 修复 zpp 日志短线程号、队列 chunk 生命周期和 taskflow pipeline 运行稳定性。

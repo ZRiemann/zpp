@@ -1,6 +1,9 @@
-if(ZPP_USE_CONAN)
-	find_package(OpenSSL REQUIRED CONFIG)
-endif()
+# Pre-load folly's transitive dependencies before loading folly-targets.
+# folly's targets reference these, and we need them available upfront.
+find_package(OpenSSL CONFIG REQUIRED)
+find_package(LibLZMA CONFIG REQUIRED)
+find_package(ZLIB CONFIG REQUIRED)
+find_package(BZip2 CONFIG REQUIRED)
 find_package(folly CONFIG REQUIRED)
 message(STATUS "Found folly target: Folly::folly")
 

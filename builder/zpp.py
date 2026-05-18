@@ -27,7 +27,9 @@ class ZppBuildArgs(CommonBuildArgs):
 
 
 class ZppBuilder(CMakeProjectBuilder):
+    source_watch_patterns = ("CMakeLists.txt", "*.cmake", "*.cmake.in", "CMakeConfig.h.in", "VERSION")
     source_prune_dirs = ("build", "build_debug")
+    uses_conan = False
 
     @property
     def project_name(self) -> str:
@@ -46,31 +48,28 @@ class ZppBuilder(CMakeProjectBuilder):
         return self.repo_config.source_dir("ZETA_TASKFLOW_SRC_DIR")
 
     @property
-    def rapidjson_source_dir(self) -> Path:
-        return self.repo_config.source_dir("ZETA_RAPIDJSON_SRC_DIR")
-
-    @property
     def cmake_util_dir(self) -> Path:
         return self.repo_config.forge_root / "cmake_util"
-
-    @property
-    def conanfile(self) -> Path:
-        return self.script_dir / "builder" / "conanfile.py"
 
     @property
     def missing_source_hint(self) -> str:
         return "Set ZETA_ZPP_SRC_DIR to a local checkout or run from the zpp checkout with ./zbuild.py"
 
     @property
-    def folly_conan_generators_dir(self) -> Path:
-        build_type_dir = self.repo_config.builder_dir / "folly" / "build" / self.args.build_type / "conan" / "build" / self.args.build_type / "generators"
-        if build_type_dir.is_dir():
-            return build_type_dir
-        return self.repo_config.builder_dir / "folly" / "build" / "Release" / "conan" / "build" / "Release" / "generators"
+    def zeta_deps_cmake_dir(self) -> Path:
+        return self.repo_config.install_prefix / "lib" / "cmake" / "zeta_deps" / self.args.build_type
 
     @property
     def folly_cmake_dir(self) -> Path:
         return self.repo_config.install_prefix / "lib" / "cmake" / "folly"
+
+    @property
+    def hpx_cmake_dir(self) -> Path:
+        return self.repo_config.install_prefix / "lib" / "cmake" / "HPX"
+
+    @property
+    def hpx_config_file(self) -> Path:
+        return self.hpx_cmake_dir / "HPXConfig.cmake"
 
     @property
     def hpx_conan_compat_packages_dir(self) -> Path:
@@ -80,61 +79,114 @@ class ZppBuilder(CMakeProjectBuilder):
     def hpx_asio_config_file(self) -> Path:
         return self.hpx_conan_compat_packages_dir / "AsioConfig.cmake"
 
+    @property
+    def hpx_hwloc_config_file(self) -> Path:
+        return self.hpx_conan_compat_packages_dir / "HwlocConfig.cmake"
+
+    @property
+    def hpx_asio_data_file(self) -> Path:
+        return (
+            self.repo_config.builder_dir
+            / "hpx"
+            / "build"
+            / self.args.build_type
+            / "conan"
+            / "build"
+            / self.args.build_type
+            / "generators"
+            / "asio-release-x86_64-data.cmake"
+        )
+
+    @property
+    def hpx_asio_root(self) -> Path:
+        if not self.hpx_asio_data_file.is_file():
+            raise RuntimeError(
+                f"HPX Asio Conan metadata not found: {self.hpx_asio_data_file}\n"
+                "Rebuild HPX dependency metadata first, for example: "
+                "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
+            )
+
+        package_folder_prefix = 'set(asio_PACKAGE_FOLDER_RELEASE "'
+        for raw_line in self.hpx_asio_data_file.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = raw_line.strip()
+            if line.startswith(package_folder_prefix) and line.endswith('")'):
+                package_root = Path(line[len(package_folder_prefix) : -2]).resolve()
+                include_dir = package_root / "include"
+                if (include_dir / "asio.hpp").is_file():
+                    return package_root
+                raise RuntimeError(
+                    f"HPX Asio include directory is invalid: {include_dir}\n"
+                    "Re-run zeta_forge HPX build/install to refresh Conan packages."
+                )
+
+        raise RuntimeError(
+            f"Unable to parse asio_PACKAGE_FOLDER_RELEASE from: {self.hpx_asio_data_file}\n"
+            "Re-run zeta_forge HPX build/install to refresh Conan packages."
+        )
+
     def validate(self) -> None:
         super().validate()
-        if not self.conanfile.is_file():
-            raise RuntimeError(f"zpp Conan recipe not found: {self.conanfile}")
         if not (self.cmake_util_dir / "common.cmake").is_file():
             raise RuntimeError(
                 f"zeta_forge cmake_util not found: {self.cmake_util_dir}\n"
                 "Ensure $ZETAX_ROOT/zeta_forge/cmake_util exists before building zpp."
+            )
+        if not self.zeta_deps_cmake_dir.is_dir():
+            raise RuntimeError(
+                f"ZetaX dependency package configs not found: {self.zeta_deps_cmake_dir}\n"
+                "Install the shared dependency environment first with: "
+                "$ZETAX_ROOT/zeta_forge/zbuild.py deps --BUILD_TYPE="
+                f"{self.args.build_type} --install"
             )
         if self.typed_args.build_taskflow_module and not self.taskflow_source_dir.is_dir():
             raise RuntimeError(
                 f"Taskflow source directory not found: {self.taskflow_source_dir}\n"
                 "Set ZETA_TASKFLOW_SRC_DIR to a local checkout or initialize the zeta_forge submodule with: git -C \"$ZETAX_ROOT/zeta_forge\" submodule update --init --recursive 3rd/taskflow"
             )
-        if not (self.rapidjson_source_dir / "include" / "rapidjson").is_dir():
-            raise RuntimeError(
-                f"RapidJSON source directory not found or invalid: {self.rapidjson_source_dir}\n"
-                "Set ZETA_RAPIDJSON_SRC_DIR to a local checkout or initialize the zeta_forge submodule with: git -C \"$ZETAX_ROOT/zeta_forge\" submodule update --init --recursive 3rd/rapidjson"
-            )
         if self.typed_args.build_hpx_examples and not self.typed_args.build_examples:
             raise RuntimeError("--with-hpx-examples requires examples to be enabled")
-        if self.typed_args.build_hpx_examples and not self.hpx_asio_config_file.is_file():
+        if self.typed_args.build_folly_module and not (self.folly_cmake_dir / "folly-config.cmake").is_file():
             raise RuntimeError(
-                f"HPX Asio compatibility config not found: {self.hpx_asio_config_file}\n"
+                f"folly package config not found: {self.folly_cmake_dir}\n"
+                "Build/install Folly through zeta_forge first, for example: "
+                "$ZETAX_ROOT/zeta_forge/zbuild.py folly --rebuild --install"
+            )
+        if self.typed_args.build_hpx_examples and not self.hpx_config_file.is_file():
+            raise RuntimeError(
+                f"HPX package config not found: {self.hpx_config_file}\n"
                 "Build/install HPX through zeta_forge first, for example: "
                 "git -C \"$ZETAX_ROOT/zeta_forge\" submodule update --init --recursive 3rd/hpx && "
                 "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
             )
-
-    def conan_input_files(self) -> list[Path]:
-        return [self.conanfile]
+        if self.typed_args.build_hpx_examples and not self.hpx_asio_config_file.is_file():
+            raise RuntimeError(
+                f"HPX Asio compatibility package config not found: {self.hpx_asio_config_file}\n"
+                "Build/install HPX through zeta_forge first, for example: "
+                "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
+            )
+        if self.typed_args.build_hpx_examples and not self.hpx_hwloc_config_file.is_file():
+            raise RuntimeError(
+                f"HPX Hwloc compatibility package config not found: {self.hpx_hwloc_config_file}\n"
+                "Build/install HPX through zeta_forge first, for example: "
+                "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
+            )
+        if self.typed_args.build_hpx_examples:
+            _ = self.hpx_asio_root
 
     def configure_dependencies(self) -> list[Path]:
-        return [*super().configure_dependencies(), self.script_path, Path(__file__)]
-
-    def conan_install_command(self) -> list[object]:
         return [
-            "conan",
-            "install",
-            self.conanfile,
-            f"--output-folder={self.conan_root}",
-            "--build=missing",
-            "-s",
-            f"build_type={self.args.build_type}",
-            "-s",
-            f"compiler.cppstd={self.repo_config.cxx_standard}",
-            "-c",
-            "tools.cmake.cmaketoolchain:generator=Ninja",
+            self.script_path,
+            Path(__file__),
+            self.source_dir / "VERSION",
+            self.source_dir / "CMakeConfig.h.in",
         ]
 
     def configure_command(self) -> list[object]:
-        cmake_prefix_paths = [str(self.repo_config.install_prefix)]
+        cmake_prefix_paths = [str(self.zeta_deps_cmake_dir), str(self.repo_config.install_prefix)]
         if self.typed_args.build_folly_module:
-            cmake_prefix_paths.append(str(self.folly_conan_generators_dir))
+            cmake_prefix_paths.append(str(self.folly_cmake_dir))
         if self.typed_args.build_hpx_examples:
+            cmake_prefix_paths.append(str(self.hpx_cmake_dir))
             cmake_prefix_paths.append(str(self.hpx_conan_compat_packages_dir))
 
         command: list[object] = [
@@ -149,13 +201,11 @@ class ZppBuilder(CMakeProjectBuilder):
             "Ninja",
             "-Wno-dev",
             f"-DCMAKE_BUILD_TYPE={self.args.build_type}",
-            f"-DCMAKE_TOOLCHAIN_FILE={self.conan_toolchain_file}",
             f"-DCMAKE_PREFIX_PATH={';'.join(cmake_prefix_paths)}",
             f"-DCMAKE_INSTALL_PREFIX={self.repo_config.install_prefix}",
             f"-DCMAKE_CXX_STANDARD={self.repo_config.cxx_standard}",
             f"-DZETA_CMAKE_UTIL_DIR={self.cmake_util_dir}",
-            f"-DRAPIDJSON_ROOT={self.rapidjson_source_dir / 'include'}",
-            "-DZPP_USE_CONAN=ON",
+            f"-DZETA_DEPS_CMAKE_DIR={self.zeta_deps_cmake_dir}",
             f"-DZPP_BUILD_FOLLY_MODULE={cmake_bool(self.typed_args.build_folly_module)}",
             f"-DZPP_BUILD_NNG_MODULE={cmake_bool(self.typed_args.build_nng_module)}",
             f"-DZPP_BUILD_TASKFLOW_MODULE={cmake_bool(self.typed_args.build_taskflow_module)}",
@@ -167,13 +217,20 @@ class ZppBuilder(CMakeProjectBuilder):
             command.extend(
                 [
                     f"-Dfolly_DIR={self.folly_cmake_dir}",
-                    f"-DOpenSSL_DIR={self.folly_conan_generators_dir}",
                 ]
             )
         if self.typed_args.build_taskflow_module:
             command.append(f"-DTASKFLOW_ROOT={self.taskflow_source_dir}")
         if self.typed_args.build_hpx_examples:
-            command.append(f"-DAsio_DIR={self.hpx_conan_compat_packages_dir}")
+            command.extend(
+                [
+                    "-DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON",
+                    f"-DHPX_DIR={self.hpx_cmake_dir}",
+                    f"-DAsio_DIR={self.hpx_conan_compat_packages_dir}",
+                    f"-DHwloc_DIR={self.hpx_conan_compat_packages_dir}",
+                    f"-DASIO_ROOT={self.hpx_asio_root}",
+                ]
+            )
         return command
 
 
