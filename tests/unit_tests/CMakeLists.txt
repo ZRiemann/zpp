@@ -3,6 +3,7 @@ add_executable(gtest_tsc
     timestamp_stc_test.cpp
     timestamp_chorno_test.cpp
     json_hpp_test.cpp
+    hpx_server_lifecycle_test.cpp
     logging_test.cpp
     logging_active_level_test.cpp
     stl_queue_test.cpp

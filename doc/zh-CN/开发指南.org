@@ -1,0 +1,48 @@
+#+STARTUP: indent
+#+TITLE: zpp 开发指南
+
+* 开发指南
+
+[[file:./readme.org][返回文档]] | [[file:../en/development.org][English Version]]
+
+** 仓库布局
+
+- =include/zpp/=：公开头文件。
+- =src/zpp/=：core 实现。
+- =src/folly/= 与 =src/nng/=：可选模块实现。
+- =examples/=：可运行示例与 =add_run_target= 入口。
+- =tests/=：单元测试和模块测试。
+- =builder/=：zpp 特有构建入口逻辑。
+- =doc/en/=：英文主文档。
+- =doc/zh-CN/=：简体中文辅助文档。
+
+** 文档维护规则
+
+英文文档是主文档。修改用户可见行为时，先更新英文页面，再保持中文页面同步。
+
+仓库文档统一使用 Org mode：
+
+- 文档文件使用 =*.org=。
+- 代码块使用 =#+begin_src= 和 =#+end_src=。
+- 行内代码使用 =...=。
+- 文件链接优先使用 =[[file:...][label]]=。
+
+** 构建与测试
+
+Core 验证：
+
+#+begin_src sh
+./zbuild.py --BUILD_TYPE=Debug --rebuild
+./build/Debug/tests/unit_tests/gtest_tsc
+#+end_src
+
+可选模块验证：
+
+#+begin_src sh
+./zbuild.py --BUILD_TYPE=Debug --with-folly --no-examples --rebuild
+./zbuild.py --BUILD_TYPE=Debug --with-nng --no-tests --no-examples --rebuild
+./zbuild.py --BUILD_TYPE=Debug --with-taskflow --no-tests --rebuild
+./zbuild.py --BUILD_TYPE=Debug --with-hpx-examples --rebuild
+#+end_src
+
+优先运行与改动模块相关的测试。避免把无关代码和文档变更混在同一次修改中。

@@ -1,0 +1,80 @@
+#+STARTUP: indent
+#+TITLE: zpp 构建指南
+
+* 构建指南
+
+[[file:./readme.org][返回文档]] | [[file:../en/build.org][English Version]]
+
+** 推荐构建方式
+
+zpp 作为独立 ZetaX 项目构建。它只在自己的 =builder/= 目录维护 zpp 特有构建
+逻辑；共享依赖版本和 package config 由 =zeta_forge deps= 提供。
+
+在当前 =zpp= checkout 内执行：
+
+#+begin_src sh
+cd "$ZETAX_ROOT/zeta_forge"
+./zbuild.py deps --BUILD_TYPE=Debug --install
+
+cd "$ZETAX_ROOT/zpp"
+./zbuild.py --BUILD_TYPE=Debug --rebuild
+#+end_src
+
+=ZETAX_ROOT= 是 ZetaX 顶层工作区根目录；标准布局下，=zpp= 与 =zeta_forge=
+是它下面的兄弟目录。
+
+zpp 不运行 Conan。如果找不到 =spdlog=、=fmt=、=RapidJSON= 或 =GTest= package
+config，请先运行 =zeta_forge/zbuild.py deps --install= 安装共享依赖环境。
+
+** 可选模块
+
+zpp 默认构建 core 模块和示例。可选模块通过 builder 参数启用：
+
+- =--with-folly=：启用 Folly 模块及相关示例/测试。
+- =--with-nng=：启用 NNG 模块及示例。
+- =--with-taskflow=：启用 Taskflow 示例。
+- =--with-hpx-examples=：启用 HPX 示例。
+
+示例：
+
+#+begin_src sh
+./zbuild.py --rebuild --with-folly --with-nng --with-taskflow --with-hpx-examples
+#+end_src
+
+** 常用选项
+
+- =./zbuild.py --rebuild --no-tests=：不构建测试。
+- =./zbuild.py --rebuild --no-examples=：不构建示例。
+- =./zbuild.py --rebuild --install=：构建并安装到 zeta_forge 配置的安装前缀。
+
+** 运行入口
+
+zpp 可以列出并执行各个 =CMakeLists.txt= 中通过 =add_run_target(...)= 预置的运行
+入口：
+
+#+begin_src sh
+./zbuild.py runs
+./zbuild.py run zpp_core
+./zbuild.py run --BUILD_TYPE=Debug zpp_core
+#+end_src
+
+=runs= 会输出运行入口名称和对应的 CMake 命令。=run= 会直接执行所选构建类型下
+已经编译好的二进制文件及其预置参数，不自动 configure，也不调用 =cmake --build=。
+
+** 直接使用 CMake
+
+直接使用 CMake 只建议用于高级或手动场景。zpp 的 CMake 配置阶段不再对
+=ZETA_CMAKE_UTIL_DIR= 与 =ZETA_DEPS_CMAKE_DIR= 做 fallback 自动推导，必须显式传入
+依赖路径。
+
+#+begin_src sh
+cmake -S . -B build/Debug \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DZETA_CMAKE_UTIL_DIR="$ZETAX_ROOT/zeta_forge/cmake_util" \
+  -DZETA_DEPS_CMAKE_DIR="$ZETAX_ROOT/zeta_forge/install/lib/cmake/zeta_deps/Debug"
+
+cmake --build build/Debug
+#+end_src
+
+旧的 =cbuild= helper 不再作为 zpp 推荐入口。它会执行独立 CMake 配置，可能拿不到
+zeta_forge 安装的共享依赖 package config。

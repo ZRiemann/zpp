@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 import argparse
+import signal
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from zeta_forge.cmake_builder import CMakeProjectBuilder, CommonBuildArgs, cmake_bool, common_build_argument_parser
 from zeta_forge.config import load_repo_config
+from zeta_forge.process import CommandError, shell_join
 from zeta_forge.run_targets import (
+    RunTarget,
     build_type_parser,
     discover_run_targets,
     find_run_target,
     print_run_targets,
-    run_existing_target,
+    require_existing_build_tree,
+    require_existing_executable,
 )
 
 
@@ -288,6 +293,51 @@ def run_entries(script_path: Path, argv: list[str], *, source_dir_default: Path 
     return 0
 
 
+def run_target_interactive(target: RunTarget) -> int:
+    require_existing_build_tree(target.build_dir)
+    require_existing_executable(target)
+
+    args = [str(target.executable_path), *target.resolved_args]
+    print(f"==> {shell_join(args)}", flush=True)
+
+    process = subprocess.Popen(args, cwd=str(target.working_dir), text=True)
+    interrupted = False
+    try:
+        return_code = process.wait()
+    except KeyboardInterrupt:
+        interrupted = True
+        print(
+            "Interrupted; waiting for run target to exit gracefully...",
+            file=sys.stderr,
+        )
+        try:
+            process.send_signal(signal.SIGINT)
+        except ProcessLookupError:
+            pass
+
+        try:
+            return_code = process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            print(
+                "Run target did not exit after SIGINT; terminating...",
+                file=sys.stderr,
+            )
+            process.terminate()
+            try:
+                return_code = process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return_code = process.wait()
+
+    if interrupted and return_code != 0:
+        return 130
+
+    if return_code != 0:
+        raise CommandError(f"Command failed with exit code {return_code}: {shell_join(args)}")
+
+    return return_code
+
+
 def run_entry(script_path: Path, argv: list[str], *, source_dir_default: Path | None = None) -> int:
     parser = build_type_parser("./zbuild.py run", "Run a zpp add_run_target entry from an existing build tree")
     parser.add_argument("name", help="Run entry name, for example zpp_core")
@@ -296,7 +346,7 @@ def run_entry(script_path: Path, argv: list[str], *, source_dir_default: Path | 
     source_dir = repo_config.source_dir("ZETA_ZPP_SRC_DIR")
     build_dir = _build_dir(script_path, namespace.build_type)
     target = find_run_target(discover_run_targets(source_dir, build_dir), namespace.name)
-    return run_existing_target(target)
+    return run_target_interactive(target)
 
 
 def main(script_path: Path, *, argv: list[str] | None = None, source_dir_default: Path | None = None) -> int:

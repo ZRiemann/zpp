@@ -1,0 +1,68 @@
+#+STARTUP: indent
+#+TITLE: zpp HPX 封装指南
+
+* HPX 封装指南
+
+[[file:./readme.org][返回文档]] | [[file:../en/hpx.org][English Version]]
+
+** 概述
+
+=zpp/hpx= 对 HPX 做一层薄封装，让应用服务可以继续沿用 =z::server= 生命周期模型，
+同时运行在 HPX runtime 之上。
+
+推荐写法是在应用中继承 =z::zhpx::server=，定义 =SVR_NAME=，最后包含
+=<zpp/hpx/main.hpp>=：
+
+#+begin_src cpp
+class server : public z::zhpx::server {
+public:
+    server(int argc, char** argv)
+        : z::zhpx::server(argc, argv) {
+    }
+};
+
+#define SVR_NAME server
+#include <zpp/hpx/main.hpp>
+#+end_src
+
+** 生命周期
+
+=zpp/hpx/main.hpp= 会通过 =hpx::init= 启动 HPX runtime，并按以下顺序执行服务：
+
+#+begin_src text
+configure -> run -> loop -> stop -> wait_stop
+#+end_src
+
+=configure()= 或 =run()= 失败时会直接返回对应错误码，并跳过后续未启动阶段。
+=run()= 成功后，即使 =loop()= 退出，也会继续执行 =stop()= 和 =wait_stop()=；清理阶段
+失败时返回第一个清理错误码。
+
+=z::zhpx::run_server_lifecycle<Server>()= 负责集中编排生命周期。
+=z::zhpx::run_server<Server>()= 会在 server 生命周期完全结束后再 finalize HPX。
+
+** Timer 行为
+
+=z::zhpx::server= 默认每 1000ms 调用一次 cooperative timer。它使用
+=hpx::this_thread::sleep_for=，不会阻塞底层 OS worker 线程。
+
+如果需要更快响应退出或轮询，可以在派生类构造函数中调用
+=set_timer_interval(...)=。
+
+** HPX Runtime 参数
+
+HPX 线程数、scheduler、ini 等 runtime 参数仍通过 HPX 命令行传入。例如运行入口可以
+传入：
+
+#+begin_src sh
+--hpx:threads=3
+#+end_src
+
+** 构建 HPX 示例
+
+启用 HPX 示例：
+
+#+begin_src sh
+./zbuild.py --rebuild --with-hpx-examples
+#+end_src
+
+如果缺少 HPX package config，请先通过 zeta_forge 构建并安装 HPX。

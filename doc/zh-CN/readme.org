@@ -1,0 +1,45 @@
+#+STARTUP: indent
+#+TITLE: zpp 中文文档
+
+* zpp - 中文文档
+
+[[file:../../readme.org][返回主页]] | [[file:../en/readme.org][English Version]]
+
+** 项目概述
+
+zpp (ZetaX plus plus) 是一个 C++ 基础库，为 ZetaX 项目提供日志、JSON 配置、
+服务生命周期封装以及可选集成模块。
+
+当前项目版本记录在 [[file:../../VERSION][VERSION]]。英文主发布历史维护在
+[[file:../../release_history.org][release_history.org]]，中文辅助版本维护在
+[[file:./release_history.org][doc/zh-CN/release_history.org]]。
+
+** 快速开始
+
+- [[file:./构建指南.org][构建指南]]
+- [[file:./HPX封装指南.org][HPX 封装指南]]
+- [[file:./开发指南.org][开发指南]]
+
+** 构建系统
+
+推荐入口是 =./zbuild.py=。它会定位共享的 =zeta_forge= 构建框架，并使用
+=zeta_forge deps= 安装的依赖 package config。
+
+#+begin_src sh
+cd "$ZETAX_ROOT/zeta_forge"
+./zbuild.py deps --BUILD_TYPE=Debug --install
+
+cd "$ZETAX_ROOT/zpp"
+./zbuild.py --BUILD_TYPE=Debug --rebuild
+#+end_src
+
+详见 [[file:./构建指南.org][构建指南]]。
+
+** 文档语言支持
+
+- [[file:../en/readme.org][English]] - 主文档（英文）
+- [[file:./readme.org][中文]] - 辅助文档（简体中文）
+
+** 许可证
+
+详见 [[file:../../LICENSE][LICENSE]]。

@@ -1,7 +1,12 @@
 #pragma once
 
+#include <mutex>
+
 #include <zpp/namespace.h>
+
+#include <spdlog/details/null_mutex.h>
 #include <spdlog/sinks/base_sink.h>
+
 #include <hpx/iostream.hpp>
 
 NSB_HPX

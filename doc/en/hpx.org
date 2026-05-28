@@ -1,0 +1,71 @@
+#+STARTUP: indent
+#+TITLE: zpp HPX Integration Guide
+
+* HPX Integration Guide
+
+[[file:./readme.org][Back to Documentation]] | [[file:../zh-CN/HPX封装指南.org][中文版]]
+
+** Overview
+
+=zpp/hpx= is a thin wrapper over HPX that lets applications keep the familiar
+=z::server= lifecycle model while running under the HPX runtime.
+
+The recommended application shape is:
+
+#+begin_src cpp
+class server : public z::zhpx::server {
+public:
+    server(int argc, char** argv)
+        : z::zhpx::server(argc, argv) {
+    }
+};
+
+#define SVR_NAME server
+#include <zpp/hpx/main.hpp>
+#+end_src
+
+** Lifecycle
+
+=zpp/hpx/main.hpp= starts the HPX runtime through =hpx::init= and executes the
+service lifecycle in this order:
+
+#+begin_src text
+configure -> run -> loop -> stop -> wait_stop
+#+end_src
+
+If =configure()= or =run()= fails, the corresponding error code is returned and
+later startup phases are skipped. Once =run()= succeeds, =stop()= and
+=wait_stop()= still run even when =loop()= exits with an error. The lifecycle
+returns the first cleanup error code when cleanup fails.
+
+=z::zhpx::run_server_lifecycle<Server>()= contains the lifecycle orchestration.
+=z::zhpx::run_server<Server>()= calls that lifecycle and finalizes HPX only after
+the server object has finished its full lifetime.
+
+** Timer Behavior
+
+=z::zhpx::server= calls its cooperative timer every 1000ms by default. It uses
+=hpx::this_thread::sleep_for=, so it does not block underlying OS worker threads.
+
+Use =set_timer_interval(...)= in a derived server when a shorter shutdown or
+polling cadence is needed.
+
+** HPX Runtime Options
+
+HPX threads, scheduler, INI files, and related runtime options are still passed
+through the HPX command line. Example run entries can pass options such as:
+
+#+begin_src sh
+--hpx:threads=3
+#+end_src
+
+** Building HPX Examples
+
+HPX examples are enabled with:
+
+#+begin_src sh
+./zbuild.py --rebuild --with-hpx-examples
+#+end_src
+
+If HPX package configs are missing, build and install HPX through zeta_forge
+first.

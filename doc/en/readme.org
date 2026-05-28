@@ -1,0 +1,47 @@
+#+STARTUP: indent
+#+TITLE: zpp English Documentation
+
+* zpp - English Documentation
+
+[[file:../../readme.org][Back to Main]] | [[file:../zh-CN/readme.org][中文版]]
+
+** Overview
+
+zpp is a C++ utility library for ZetaX projects. It provides reusable building
+blocks around logging, JSON configuration, service lifecycle helpers, and
+optional integration modules.
+
+The project version is recorded in [[file:../../VERSION][VERSION]]. Release history is
+maintained in [[file:../../release_history.org][release_history.org]], with a
+[[file:../zh-CN/release_history.org][Chinese translation]].
+
+** Getting Started
+
+- [[file:./build.org][Build Guide]]
+- [[file:./hpx.org][HPX Integration Guide]]
+- [[file:./development.org][Development Guide]]
+
+** Build System
+
+The recommended entrypoint is =./zbuild.py=. It locates the shared
+=zeta_forge= build framework and uses dependency package configs installed by
+=zeta_forge deps=.
+
+#+begin_src sh
+cd "$ZETAX_ROOT/zeta_forge"
+./zbuild.py deps --BUILD_TYPE=Debug --install
+
+cd "$ZETAX_ROOT/zpp"
+./zbuild.py --BUILD_TYPE=Debug --rebuild
+#+end_src
+
+See [[file:./build.org][Build Guide]] for optional modules and direct CMake usage.
+
+** Documentation Languages
+
+- [[file:./readme.org][English]] - Primary documentation
+- [[file:../zh-CN/readme.org][中文]] - Secondary documentation in Simplified Chinese
+
+** License
+
+See [[file:../../LICENSE][LICENSE]].

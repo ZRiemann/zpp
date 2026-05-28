@@ -1,0 +1,66 @@
+#+STARTUP: indent
+#+TITLE: zpp
+
+* zpp - ZetaX C++ Utility Library
+
+[[file:./doc/en/readme.org][English Documentation]] | [[file:./doc/zh-CN/readme.org][中文文档]]
+
+zpp (ZetaX plus plus) is a C++ library that improves development efficiency
+through reusable infrastructure around logging, JSON configuration, service
+lifecycle helpers, and optional integration modules.
+
+This repository is built as an independent ZetaX project. It owns only
+zpp-specific build logic under =builder/=, while shared dependency versions and
+package configs are provided by =zeta_forge deps=.
+
+Current project version is recorded in [[file:./VERSION][VERSION]]. Release history
+is maintained in [[file:./release_history.org][release_history.org]], with a Chinese
+translation in [[file:./doc/zh-CN/release_history.org][doc/zh-CN/release_history.org]].
+
+** Quick Start
+
+1. Prepare shared dependencies:
+   #+begin_src sh
+   cd "$ZETAX_ROOT/zeta_forge"
+   ./zbuild.py deps --BUILD_TYPE=Debug --install
+   #+end_src
+
+2. Build zpp:
+   #+begin_src sh
+   cd "$ZETAX_ROOT/zpp"
+   ./zbuild.py --BUILD_TYPE=Debug --rebuild
+   #+end_src
+
+3. List or run entries:
+   #+begin_src sh
+   ./zbuild.py runs
+   ./zbuild.py run zpp_core
+   ./zbuild.py run --BUILD_TYPE=Debug zpp_core
+   #+end_src
+
+** Documentation
+
+- [[file:./doc/en/readme.org][English documentation]] - Primary documentation
+- [[file:./doc/zh-CN/readme.org][Chinese documentation]] - Secondary documentation in Simplified Chinese
+- [[file:./release_history.org][Release history]] | [[file:./doc/zh-CN/release_history.org][中文发布历史]]
+
+** Directory Structure
+
+- =builder/= : zpp-specific build entry logic
+- =doc/en/= : Primary English documentation
+- =doc/zh-CN/= : Secondary Simplified Chinese documentation
+- =examples/= : Runnable examples and =add_run_target= entries
+- =include/zpp/= : Public zpp headers
+- =src/= : zpp implementation modules
+- =tests/= : Unit and module tests
+
+** Key Features
+
+- Core =z::server= lifecycle and logging integration
+- =zpp/json.hpp= wrapper over RapidJSON
+- Optional Folly, NNG, Taskflow, and HPX example support
+- ZetaX build integration through =zeta_forge=
+
+** License
+
+See [[file:./LICENSE][LICENSE]].

@@ -3,203 +3,220 @@
 
 * Release History
 
+** v0.5.3 - 2026-05-28
+*** Release Positioning Summary
+- Stabilize the =zpp/hpx= thin lifecycle wrapper while keeping =z::zhpx::server= a lightweight subclass of =z::server=.
+- Fix HPX entrypoint error-code propagation and server destruction timing, leaving clear boundaries for later HPX extensions.
+
+*** Changes
+- Add =z::zhpx::run_server_lifecycle<Server>()= to centralize the =configure/run/loop/stop/wait_stop= lifecycle and return the first failure error code.
+- Add =z::zhpx::run_server<Server>()= in =zpp/hpx/main.hpp= so =hpx::finalize()= is called only after the server lifecycle has fully ended.
+- After =run()= succeeds, =stop()= and =wait_stop()= always run regardless of how =loop()= exits; when =configure()= or =run()= fails, the original error code is preserved and later unstarted phases are skipped.
+- Add configurable timer interval support to =z::zhpx::server=, keeping the default at 1000ms and continuing to use =hpx::this_thread::sleep_for= for cooperative sleep.
+- Narrow HPX includes in =zpp/hpx/server.hpp= and add direct =std::mutex= and =spdlog::details::null_mutex= includes to =zpp/hpx/spdlog.hpp=.
+- Add HPX wrapper entrypoint, error-code semantics, and timer behavior documentation.
+- Make =./zbuild.py run= wait for run targets to exit gracefully on Ctrl-C, avoiding a Python parent-process traceback before HPX/zpp services can handle the signal.
+
+*** Verification
+- Add =hpx_server_lifecycle_test.cpp= to cover =configure/run/stop/wait_stop= failure paths and the success path.
+
 ** v0.5.2 - 2026-05-18
-*** 发布定位摘要
-- zpp 不再维护或运行自己的 Conan 配方，改为消费 =zeta_forge deps= 安装的共享依赖环境。
-- 明确职责边界：=zeta_forge= 作为唯一第三方依赖安装与配置管理入口，zpp 只消费该环境并输出自身库。
-- 关闭 zpp 构建链路中的 fallback/legacy 分支，改为失败即明确提示先完成 zeta_forge 环境配置。
-- 按补丁版本发布，zpp 从 =v0.5.1= 升级到 =v0.5.2=。
+*** Release Positioning Summary
+- zpp no longer maintains or runs its own Conan recipe, and now consumes the shared dependency environment installed by =zeta_forge deps=.
+- Clarify ownership boundaries: =zeta_forge= is the only third-party dependency installation and configuration entrypoint; zpp only consumes that environment and exports its own library.
+- Close fallback and legacy branches in the zpp build path, failing with clear guidance to prepare the zeta_forge environment first.
+- Patch release from =v0.5.1= to =v0.5.2=.
 
-*** 变更内容
-- 删除 =builder/conanfile.py=，=builder/zpp.py= 配置阶段只把 =${ZETA_INSTALL_PREFIX}/lib/cmake/zeta_deps/<BUILD_TYPE>= 加入 =CMAKE_PREFIX_PATH=。
-- 顶层 CMake 对 =RapidJSON=、=spdlog=、=GTest= 使用 =find_package(... CONFIG REQUIRED)=，找不到时提示先安装 =zeta_forge deps=。
-- =builder/zpp.py= 不再校验或注入 =ZETA_RAPIDJSON_SRC_DIR=/RAPIDJSON_ROOT=，RapidJSON 来源统一由 =zeta_forge deps= 安装的 package config 提供。
-- =builder/zpp.py= 配置阶段清理旧 build cache 中的 =CMAKE_TOOLCHAIN_FILE= 和遗留 =conan_toolchain.cmake= CMake system state，避免历史 Conan toolchain 污染当前共享依赖模式。
-- =zppConfig.cmake= 在恢复 PUBLIC 依赖 target 前自动加入安装前缀中的 =zeta_deps/<BUILD_TYPE>=，并通过 =find_dependency(RapidJSON CONFIG)= 恢复 =rapidjson::rapidjson=。
-- 顶层 =CMakeLists.txt= 移除 =ZETA_CMAKE_UTIL_DIR= 的 =$ZETAX_ROOT= fallback 自动回填逻辑。
-- 顶层 =CMakeLists.txt= 移除 =ZETA_DEPS_CMAKE_DIR= 基于 =CMAKE_INSTALL_PREFIX= 的 fallback 自动推导逻辑。
-- =builder/zpp.py= 移除历史 Conan build state 探测与自动清理分支，不再隐式迁移旧构建目录。
-- =builder/zpp.py= 配置命令移除遗留 Conan 兼容参数 =-U CMAKE_TOOLCHAIN_FILE=。
-- 导出 =zppConfig.cmake= 时，若安装前缀下缺少 =zeta_deps/<BUILD_TYPE>= 将直接失败并提示先执行 =zeta_forge/zbuild.py deps --install=。
-- =README.md= 与 =doc/README.zh.md= 同步更新为"先准备 zeta_forge 环境，再构建 zpp"的统一契约说明。
-- zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.5.2=。
-- 顶层 CMake 改为从仓库根 =VERSION= 读取并校验 =vX.Y.Z=，避免 =project(zpp VERSION ...)= 与发布版本漂移。
+*** Changes
+- Remove =builder/conanfile.py=; =builder/zpp.py= now only prepends =${ZETA_INSTALL_PREFIX}/lib/cmake/zeta_deps/<BUILD_TYPE>= to =CMAKE_PREFIX_PATH= during configure.
+- Top-level CMake now uses =find_package(... CONFIG REQUIRED)= for =RapidJSON=, =spdlog=, and =GTest=, and reports that =zeta_forge deps= must be installed first when missing.
+- =builder/zpp.py= no longer validates or injects =ZETA_RAPIDJSON_SRC_DIR=/RAPIDJSON_ROOT=; RapidJSON comes only from the package config installed by =zeta_forge deps=.
+- =builder/zpp.py= clears stale =CMAKE_TOOLCHAIN_FILE= and legacy =conan_toolchain.cmake= CMake system state from old build caches to avoid historical Conan toolchain pollution.
+- =zppConfig.cmake= automatically adds the install-prefix =zeta_deps/<BUILD_TYPE>= path before restoring PUBLIC dependency targets, and restores =rapidjson::rapidjson= through =find_dependency(RapidJSON CONFIG)=.
+- Remove the =$ZETAX_ROOT= fallback auto-fill for =ZETA_CMAKE_UTIL_DIR= from the top-level =CMakeLists.txt=.
+- Remove the =CMAKE_INSTALL_PREFIX=-based fallback inference for =ZETA_DEPS_CMAKE_DIR= from the top-level =CMakeLists.txt=.
+- Remove legacy Conan build-state detection and automatic cleanup branches from =builder/zpp.py=; old build directories are no longer implicitly migrated.
+- Remove the legacy Conan compatibility =-U CMAKE_TOOLCHAIN_FILE= configure argument from =builder/zpp.py=.
+- Exported =zppConfig.cmake= now fails directly if the install prefix lacks =zeta_deps/<BUILD_TYPE>=, with guidance to run =zeta_forge/zbuild.py deps --install= first.
+- Update README documentation to describe the unified contract: prepare zeta_forge first, then build zpp.
+- Upgrade zpp CMake project version and root =VERSION= to =v0.5.2=.
+- Top-level CMake now reads and validates =vX.Y.Z= from the root =VERSION= file to prevent drift from =project(zpp VERSION ...)=.
 
-*** 兼容性与升级说明
-- 构建 zpp 前需要先执行 =$ZETAX_ROOT/zeta_forge/zbuild.py deps --BUILD_TYPE=<type> --install=。
-- zpp 不再从自身 build tree 暴露 Conan generators，下游项目也不应引用 =zpp/build/.../conan=。
-- 推荐且默认支持的入口是 =./zbuild.py=。
-- 若使用 direct CMake，需显式传入 =-DZETA_CMAKE_UTIL_DIR= 与 =-DZETA_DEPS_CMAKE_DIR=。
-- 从旧 Conan 构建目录升级时请先清理旧 build tree（如 =rm -rf build/<BUILD_TYPE>=），避免历史缓存干扰。
-- 版本升级只需要先更新 =VERSION=，CMake project version 会在 configure 阶段自动同步。
+*** Compatibility and Upgrade Notes
+- Build zpp only after running =$ZETAX_ROOT/zeta_forge/zbuild.py deps --BUILD_TYPE=<type> --install=.
+- zpp no longer exposes Conan generators from its own build tree; downstream projects should not reference =zpp/build/.../conan=.
+- The recommended and default supported entrypoint is =./zbuild.py=.
+- Direct CMake usage must explicitly pass =-DZETA_CMAKE_UTIL_DIR= and =-DZETA_DEPS_CMAKE_DIR=.
+- When upgrading from an old Conan build directory, clean the old build tree first, for example =rm -rf build/<BUILD_TYPE>=.
+- Version upgrades only need to update =VERSION=; CMake project version syncs automatically at configure time.
 
 ** v0.5.1 - 2026-05-13
-*** 发布定位摘要
-- 修复 zpp 日志短线程号、队列 chunk 生命周期和 taskflow pipeline 运行稳定性。
-- 按补丁版本发布，zpp 从 =v0.5.0= 升级到 =v0.5.1=。
+*** Release Positioning Summary
+- Fix zpp logging short thread IDs, queue chunk lifecycle, and Taskflow pipeline runtime stability.
+- Patch release from =v0.5.0= to =v0.5.1=.
 
-*** 变更内容
-- =uni_svr= 运行入口改用毫秒级等待并避免输出误导性的错误级别示例日志，执行完成后可自行退出。
-- zpp 日志宏输出的 pattern =%t= 复用 =z::tid::id()= 两位短线程号，避免显示过长的系统线程号并保持日志列对齐；直接调用原生 =g_spd_log->log(...)= 仍保留 spdlog 默认线程号语义。
-- =spsc/mpmc= 初始化和复用 chunk 时清理 =next= 链指针，避免未扩容队列析构时读取未初始化指针导致堆损坏。
-- =pipeline_mpsc= 恢复复用 =z::mpmc=，并在 =wait_done()= 中等待 Taskflow run callback 完全退出，避免局部 pipeline 提前析构。
-- zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.5.1=。
+*** Changes
+- Change the =uni_svr= run entry to millisecond-level waiting and avoid misleading error-level example logs; the entry can exit on its own when complete.
+- zpp logging macro pattern =%t= now reuses the two-digit short thread ID from =z::tid::id()=, avoiding overly long system thread IDs and preserving column alignment; direct native =g_spd_log->log(...)= calls still keep spdlog's default thread-id semantics.
+- Clear =next= links when initializing and reusing =spsc/mpmc= chunks, avoiding heap corruption from reading uninitialized pointers during queue destruction before expansion.
+- Restore =pipeline_mpsc= to reuse =z::mpmc=, and wait in =wait_done()= until the Taskflow run callback fully exits to avoid early destruction of local pipelines.
+- Upgrade zpp CMake project version and root =VERSION= to =v0.5.1=.
 
 ** v0.5.0 - 2026-05-13
-*** 发布定位摘要
-- 新增项目运行入口 CLI，统一列出并执行 =add_run_target= 预置命令。
-- 按功能版本发布，zpp 从 =v0.4.1= 升级到 =v0.5.0=。
+*** Release Positioning Summary
+- Add project run-entry CLI support to list and execute preset =add_run_target= commands.
+- Feature release from =v0.4.1= to =v0.5.0=.
 
-*** 变更内容
-- =zbuild.py= 新增 =runs= / =run <name>= 子命令，复用 =zeta_forge.run_targets= 扫描并执行项目内 =add_run_target(...)= 运行入口。
-- =runs= 输出运行入口名称和对应 CMake 命令，保持列表简洁可读。
-- =run <name>= 直接执行已有 build tree 中已经编译好的二进制文件及其预置参数，不自动 configure，也不调用 =cmake --build=。
-- zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.5.0=。
+*** Changes
+- Add =runs= and =run <name>= subcommands to =zbuild.py=, reusing =zeta_forge.run_targets= to scan and execute in-project =add_run_target(...)= entries.
+- =runs= prints run-entry names and equivalent CMake commands in a concise readable list.
+- =run <name>= directly executes already built binaries with their preset arguments from the existing build tree; it does not configure the project or call =cmake --build=.
+- Upgrade zpp CMake project version and root =VERSION= to =v0.5.0=.
 
 ** v0.4.1 - 2026-05-13
-*** 发布定位摘要
-- 优化 zpp 日志宏的关闭级别成本，保持 =spd_inf= 等历史入口兼容。
-- 按补丁版本发布，zpp 从 =v0.4.0= 升级到 =v0.4.1=。
+*** Release Positioning Summary
+- Optimize zpp logging macro cost for disabled levels while preserving historical entries such as =spd_inf=.
+- Patch release from =v0.4.0= to =v0.4.1=.
 
-*** 变更内容
-- =spd_inf/spd_err/spd_war/spd_dbg/spd_trc= 遵守 =SPDLOG_ACTIVE_LEVEL=，用户显式关闭的日志级别会在编译期裁剪。
-- 日志宏增加运行时短路判断，关闭级别且未启用 backtrace 时不再求值日志参数。
-- =spd2*= printf 日志宏复用轻量级运行时短路，关闭级别时避免参数求值和 =vsnprintf= 格式化。
-- =z::server= 日志配置读取直接覆盖 =z::log::config= 默认值，减少临时配置变量并保留非法数值保护。
-- 保留 =spd_logx= 薄模板封装和 =g_spd_log->log(...)= 原生 spdlog 热路径。
+*** Changes
+- =spd_inf/spd_err/spd_war/spd_dbg/spd_trc= now obey =SPDLOG_ACTIVE_LEVEL=, allowing explicitly disabled log levels to be compiled out.
+- Logging macros add runtime short-circuit checks so disabled levels do not evaluate log arguments when backtrace is not enabled.
+- =spd2*= printf logging macros reuse the lightweight runtime short-circuit path to avoid argument evaluation and =vsnprintf= formatting for disabled levels.
+- =z::server= logging configuration now directly overrides =z::log::config= defaults, reducing temporary configuration objects while preserving invalid-value guards.
+- Keep the thin =spd_logx= template wrapper and the native spdlog hot path through =g_spd_log->log(...)=.
 
-*** 验证
-- 新增日志单元测试覆盖运行时短路、backtrace 缓存保留、printf 短路和 =SPDLOG_ACTIVE_LEVEL= 编译期裁剪场景。
+*** Verification
+- Add logging unit tests for runtime short-circuiting, backtrace cache preservation, printf short-circuiting, and =SPDLOG_ACTIVE_LEVEL= compile-time trimming.
 
 ** v0.4.0 - 2026-05-13
-*** 发布定位摘要
-- 重构 zpp 日志初始化封装，保留原生 spdlog 热路径性能，同时简化初始化与生命周期管理。
-- 按接口重构发布，zpp 从 =v0.3.1= 升级到 =v0.4.0=。
+*** Release Positioning Summary
+- Refactor zpp logging initialization wrappers, preserving native spdlog hot-path performance while simplifying initialization and lifecycle management.
+- Interface refactor release from =v0.3.1= to =v0.4.0=.
 
-*** 变更内容
-- 重构 zpp 日志初始化封装：保留 =g_spd_log->log(...)= 原生 spdlog 热路径，新增 =z::log::config/init/shutdown= 负责集中初始化与生命周期管理。
-- 删除私有 =spdguard= raw pointer 管理，=z::server= 改为直接通过 =z::log::config= 初始化 console/file/async 日志。
-- =<zpp/spd_log.h>= 继续作为 CUDA 友好的 printf 薄封装，不包含 spdlog/fmt 重头文件，并修复 =spd2war= 等级映射和长消息截断处理。
-- 移除未使用的历史兼容函数 =z::spd_trace=，=spd2*= 宏统一转发到 =z::log::trace_printf=。
-- zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.4.0=。
+*** Changes
+- Refactor zpp logging initialization: preserve the native =g_spd_log->log(...)= spdlog hot path and add =z::log::config/init/shutdown= for centralized initialization and lifecycle management.
+- Remove private =spdguard= raw-pointer management; =z::server= now initializes console/file/async logging directly through =z::log::config=.
+- Keep =<zpp/spd_log.h>= as the CUDA-friendly printf thin wrapper without heavy spdlog/fmt headers, and fix =spd2war= level mapping plus long-message truncation.
+- Remove the unused historical compatibility function =z::spd_trace=; =spd2*= macros now forward uniformly to =z::log::trace_printf=.
+- Upgrade zpp CMake project version and root =VERSION= to =v0.4.0=.
 
-*** 验证
-- 新增 =logging_test.cpp= 覆盖 fallback logger、重复 shutdown、printf warn 等级和长消息截断场景。
+*** Verification
+- Add =logging_test.cpp= covering fallback logger behavior, repeated shutdown, printf warn level, and long-message truncation.
 
 ** v0.3.1 - 2026-05-11
-*** 发布定位摘要
-- 完成旧 =zpp/json.h= 到成熟 =zpp/json.hpp= API 的迁移，并硬删除旧头文件。
-- 按补丁版本发布，zpp 从 =v0.3.0= 升级到 =v0.3.1=；fortune 项目版本保持不变。
+*** Release Positioning Summary
+- Complete migration from the old =zpp/json.h= to the mature =zpp/json.hpp= API and hard-delete the old header.
+- Patch release from =v0.3.0= to =v0.3.1=; the fortune project version remains unchanged.
 
-*** 变更内容
-- zpp core、nng engine、thread_pool 测试服务中的配置读取改用 =json.hpp= 的 =member=、=get=、=size=、=at= 接口。
-- fortune quotations 配置读取改用 =json.hpp=，并将消息队列配置入口类型改为 =z::json_doc*=。
-- 删除旧 =include/zpp/json.h=，旧的 =tests/uni_svr/test_json.cpp= 和 =test_json()= 入口同步移除。
-- zpp package config 在导入 targets 前恢复 =Threads=、=rapidjson::rapidjson=、=spdlog::spdlog= 等 PUBLIC 依赖目标，降低下游显式依赖顺序要求。
-- =zbuild.py --with-hpx-examples= 现在会向 CMake 注入 zeta_forge HPX 的 =AsioConfig.cmake= 兼容路径，避免 =find_package(HPX)= 阶段找不到 Asio。
-- folly/nng examples 改为链接 =zpp::folly= / =zpp::zpp_nng= 模块目标，由 zpp 模块传递第三方依赖，避免兄弟目录看不到局部 imported target。
+*** Changes
+- zpp core, nng engine, and thread_pool test services now use the =json.hpp= =member=, =get=, =size=, and =at= APIs for configuration reads.
+- fortune quotations configuration reads now use =json.hpp=, and the message-queue configuration entry type changes to =z::json_doc*=.
+- Delete the old =include/zpp/json.h= header, and remove the old =tests/uni_svr/test_json.cpp= and =test_json()= entry.
+- zpp package config restores PUBLIC dependency targets such as =Threads=, =rapidjson::rapidjson=, and =spdlog::spdlog= before importing targets, reducing explicit dependency-order requirements for downstream projects.
+- =zbuild.py --with-hpx-examples= now injects the =AsioConfig.cmake= compatibility path from zeta_forge HPX to avoid =find_package(HPX)= failures caused by missing Asio.
+- Folly/NNG examples now link =zpp::folly= / =zpp::zpp_nng= module targets, letting zpp modules propagate third-party dependencies and avoiding sibling directories missing local imported targets.
 
-*** 兼容性与升级说明
-- 旧 =json.h= 不再保留兼容 shim；应用必须包含 =<zpp/json.hpp>= 并使用新接口。
-- 构造/插入临时 JSON 子对象时优先使用右值 =set/push=，需要继续复用源对象时才使用拷贝语义。
-- =rapidjson= 仍是 =json.hpp= 的底层依赖，不从 zpp core 依赖中移除。
+*** Compatibility and Upgrade Notes
+- The old =json.h= compatibility shim is not kept; applications must include =<zpp/json.hpp>= and use the new API.
+- Prefer rvalue =set/push= when constructing or inserting temporary JSON child objects; use copy semantics only when the source object must be reused.
+- =rapidjson= remains the underlying dependency of =json.hpp= and is not removed from zpp core dependencies.
 
-*** 验证
-- 静态扫描确认无 zpp/fortune 直接包含 =zpp/json.h= 的生产代码残留。
-- =json_hpp_test.cpp= 继续覆盖解析、构建、move 插入、遍历、删除和非 object JSON 文件加载场景。
-- =./zbuild.py --BUILD_TYPE Debug --rebuild= 通过。
-- =./build/Debug/tests/unit_tests/gtest_tsc= 通过，13 个测试全部通过。
-- =./zbuild.py --BUILD_TYPE Debug --with-nng --no-tests --no-examples --rebuild= 通过。
-- =./zbuild.py --rebuild --with-hpx-examples --with-folly --with-nng --with-taskflow= 通过。
+*** Verification
+- Static scan confirms no zpp/fortune production code directly includes =zpp/json.h=.
+- =json_hpp_test.cpp= continues to cover parsing, construction, move insertion, traversal, deletion, and non-object JSON file-loading scenarios.
+- =./zbuild.py --BUILD_TYPE Debug --rebuild= passed.
+- =./build/Debug/tests/unit_tests/gtest_tsc= passed; all 13 tests passed.
+- =./zbuild.py --BUILD_TYPE Debug --with-nng --no-tests --no-examples --rebuild= passed.
+- =./zbuild.py --rebuild --with-hpx-examples --with-folly --with-nng --with-taskflow= passed.
 
 ** v0.3.0 - 2026-05-11
-*** 发布定位摘要
-- =z::json= 新增删除接口，公开 API 能力从配置读取/构建扩展到 object member 和 array item 删除。
-- 按语义化版本约定，本次接口增加从 =v0.2.x= 升级到 =v0.3.0=。
-- 修复 zpp Debug 构建中 Conan imported target 被错误映射到 Release 配置的问题。
+*** Release Positioning Summary
+- Add deletion APIs to =z::json=, expanding the public API from configuration read/build support to object-member and array-item deletion.
+- Per semantic versioning, this interface addition upgrades from =v0.2.x= to =v0.3.0=.
+- Fix zpp Debug builds incorrectly mapping Conan imported targets to Release configuration.
 
-*** 变更内容
-- =z::json::remove(const std::string &key)=：删除 object 中指定 key 的 member。
-- =z::json::remove(size_t index)=：删除 array 中指定 index 的 item，并保持后续元素前移。
-- 删除接口错误码约定：
-  - 当前 json value 不是对应 object/array 时返回 =ERR_NOT_SUPPORT=。
-  - object key 不存在时返回 =ERR_NOT_EXIST=。
-  - array index 越界时返回 =ERR_OUT_OF_RANGE=。
-- =json_hpp_test.cpp= 新增 object member 删除、array item 删除、missing key、越界和类型不支持场景覆盖。
-- =builder/zpp.py= 移除错误的 =CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release= 全局映射，并在 configure 时清理旧 cache 中的 =CMAKE_MAP_IMPORTED_CONFIG_DEBUG=。
-- =builder/zpp.py= 将 =zbuild.py= 和 =builder/zpp.py= 纳入 configure dependency，构建脚本变更后会触发重新 configure。
+*** Changes
+- =z::json::remove(const std::string &key)= deletes the member for the given object key.
+- =z::json::remove(size_t index)= deletes the item at the given array index and shifts following elements forward.
+- Deletion error-code contract:
+  - Return =ERR_NOT_SUPPORT= when the current JSON value is not the corresponding object/array type.
+  - Return =ERR_NOT_EXIST= when an object key does not exist.
+  - Return =ERR_OUT_OF_RANGE= when an array index is out of range.
+- Add =json_hpp_test.cpp= scenarios for object-member deletion, array-item deletion, missing keys, out-of-range indices, and unsupported types.
+- Remove the incorrect global =CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release= mapping from =builder/zpp.py= and clear old =CMAKE_MAP_IMPORTED_CONFIG_DEBUG= cache values during configure.
+- Add =zbuild.py= and =builder/zpp.py= to configure dependencies in =builder/zpp.py= so build-script changes trigger reconfigure.
 
-*** 兼容性与升级说明
-- 既有 =set=、=get=、=member=、=at=、=push=、迭代接口保持兼容。
-- 新增删除接口不会改变缺失值读取行为，删除后继续通过 =get/member/at= 按既有错误码返回。
-- Debug 构建现在消费 Debug Conan 依赖配置，不再依赖 Release imported target 映射。
+*** Compatibility and Upgrade Notes
+- Existing =set=, =get=, =member=, =at=, =push=, and iteration APIs remain compatible.
+- New deletion APIs do not change missing-value read behavior; after deletion, =get/member/at= continue to return existing error codes.
+- Debug builds now consume Debug Conan dependency configs and no longer depend on Release imported-target mapping.
 
-*** 验证
-- =./zbuild.py --BUILD_TYPE Debug= 通过。
-- =./build/Debug/tests/unit_tests/gtest_tsc= 通过，13 个测试全部通过。
+*** Verification
+- =./zbuild.py --BUILD_TYPE Debug= passed.
+- =./build/Debug/tests/unit_tests/gtest_tsc= passed; all 13 tests passed.
 
 ** v0.2.1 - 2026-05-11
-*** 发布定位摘要
-- 将 zpp 改造为面向开源用户的轻量默认构建：默认只构建 core 核心模块。
-- =folly=、=nng=、=taskflow= 等重依赖改为可选模块，默认关闭。
-- 依赖查找下沉到真正编译对应模块的 CMake 子目录中，顶层 =CMakeLists.txt= 不再强制查找。
+*** Release Positioning Summary
+- Adapt zpp into a lightweight default build for open-source users: only core builds by default.
+- Heavy dependencies such as =folly=, =nng=, and =taskflow= become optional modules and are disabled by default.
+- Dependency lookup moves down into the CMake subdirectories that actually compile each module; the top-level =CMakeLists.txt= no longer forces those packages to be found.
 
-*** 变更内容
-- 新增 CMake 选项：=ZPP_BUILD_FOLLY_MODULE=、=ZPP_BUILD_NNG_MODULE=、=ZPP_BUILD_TASKFLOW_MODULE=（默认 OFF）。
-- 顶层 =CMakeLists.txt= 只保留 core 必需依赖：=Threads=、=rapidjson=、=spdlog=。
-- 移除顶层强制 =find_package(folly)=、=find_package(nng)=、=find_package(taskflow)=。
-- 依赖查找下沉：
-  - =folly= 依赖查找移到 =src/folly/CMakeLists.txt=，仅在 =ZPP_BUILD_FOLLY_MODULE=ON= 时执行。
-  - =nng= 依赖查找移到 =src/nng/CMakeLists.txt=，仅在 =ZPP_BUILD_NNG_MODULE=ON= 时执行。
-  - =taskflow= 依赖查找移到 =examples/taskflow/CMakeLists.txt= 和 =examples/hpx/taskflow/CMakeLists.txt=，仅在 =ZPP_BUILD_TASKFLOW_MODULE=ON= 时执行。
-- =src/CMakeLists.txt= 改为条件编译：folly、nng 模块仅在对应选项启用时添加。
-- =examples/CMakeLists.txt= 改为条件编译：folly、nng、taskflow examples 按对应选项启用。
-- =examples/hpx/CMakeLists.txt= 改为条件编译：HPX taskflow examples 需同时满足 =ZPP_BUILD_HPX_EXAMPLES=ON= 和 =ZPP_BUILD_TASKFLOW_MODULE=ON=。
-- =tests/CMakeLists.txt= 改为条件编译：coro 测试（依赖 folly）仅在 =ZPP_BUILD_FOLLY_MODULE=ON= 时编译。
-- =tests/unit_tests/CMakeLists.txt= 改为条件编译：folly 单元测试仅在 =ZPP_BUILD_FOLLY_MODULE=ON= 时编译。
-- =builder/zpp.py= 新增 CLI 选项：=--with-folly=、=--with-nng=、=--with-taskflow=（默认关闭）。
-- =builder/zpp.py= 条件化 CMake 变量：=CMAKE_PREFIX_PATH=、=folly_DIR=、=OpenSSL_DIR=、=TASKFLOW_ROOT= 仅在对应模块启用时注入。
+*** Changes
+- Add CMake options =ZPP_BUILD_FOLLY_MODULE=, =ZPP_BUILD_NNG_MODULE=, and =ZPP_BUILD_TASKFLOW_MODULE=, all defaulting to OFF.
+- Top-level =CMakeLists.txt= keeps only core required dependencies: =Threads=, =rapidjson=, and =spdlog=.
+- Remove top-level forced =find_package(folly)=, =find_package(nng)=, and =find_package(taskflow)= calls.
+- Move dependency lookup:
+  - =folly= lookup moves to =src/folly/CMakeLists.txt= and runs only when =ZPP_BUILD_FOLLY_MODULE=ON=.
+  - =nng= lookup moves to =src/nng/CMakeLists.txt= and runs only when =ZPP_BUILD_NNG_MODULE=ON=.
+  - =taskflow= lookup moves to =examples/taskflow/CMakeLists.txt= and =examples/hpx/taskflow/CMakeLists.txt=, and runs only when =ZPP_BUILD_TASKFLOW_MODULE=ON=.
+- =src/CMakeLists.txt= now adds Folly and NNG modules conditionally.
+- =examples/CMakeLists.txt= now adds Folly, NNG, and Taskflow examples conditionally.
+- =examples/hpx/CMakeLists.txt= now builds HPX Taskflow examples only when both =ZPP_BUILD_HPX_EXAMPLES=ON= and =ZPP_BUILD_TASKFLOW_MODULE=ON=.
+- =tests/CMakeLists.txt= now builds coroutine tests, which depend on Folly, only when =ZPP_BUILD_FOLLY_MODULE=ON=.
+- =tests/unit_tests/CMakeLists.txt= now builds Folly unit tests only when =ZPP_BUILD_FOLLY_MODULE=ON=.
+- Add =--with-folly=, =--with-nng=, and =--with-taskflow= CLI options to =builder/zpp.py=, all disabled by default.
+- =builder/zpp.py= now conditionally injects =CMAKE_PREFIX_PATH=, =folly_DIR=, =OpenSSL_DIR=, and =TASKFLOW_ROOT= only when the corresponding module is enabled.
 
-*** 兼容性与升级说明
-- Core 默认构建路径：=./zbuild.py --rebuild= 只构建 zpp::zpp 核心库，无需额外依赖（folly/nng/taskflow）。
-- 启用可选模块：=./zbuild.py --rebuild --with-folly --with-nng --with-taskflow= 构建所有模块。
-- =ZPP_BUILD_EXAMPLES=ON= 不自动启用可选模块；未启用模块的示例自动跳过编译。
-- 既有 =ZETA_ZPP_SRC_DIR=、=ZETA_TASKFLOW_SRC_DIR= 等变量覆盖逻辑保持兼容。
+*** Compatibility and Upgrade Notes
+- Core default build path: =./zbuild.py --rebuild= builds only the =zpp::zpp= core library without extra dependencies such as Folly, NNG, or Taskflow.
+- Enable optional modules with =./zbuild.py --rebuild --with-folly --with-nng --with-taskflow=.
+- =ZPP_BUILD_EXAMPLES=ON= does not automatically enable optional modules; examples for disabled modules are skipped automatically.
+- Existing variables such as =ZETA_ZPP_SRC_DIR= and =ZETA_TASKFLOW_SRC_DIR= remain compatible.
 
-*** 验证
-- Core 默认构建：=./zbuild.py --BUILD_TYPE=Debug --no-tests --no-examples --rebuild= 通过，不执行 =find_package(folly)=、=find_package(nng)=、=find_package(taskflow)=。
-- Folly 单模块：=./zbuild.py --BUILD_TYPE=Debug --with-folly --no-tests --no-examples --rebuild= 通过。
-- NNG 单模块：=./zbuild.py --BUILD_TYPE=Debug --with-nng --no-tests --no-examples --rebuild= 通过。
-- Taskflow 单模块：=./zbuild.py --BUILD_TYPE=Debug --with-taskflow --no-tests --no-examples --rebuild= 通过。
-- 组合模块：=./zbuild.py --BUILD_TYPE=Debug --with-folly --with-nng --with-taskflow --no-tests --no-examples --rebuild= 通过。
+*** Verification
+- Core default build: =./zbuild.py --BUILD_TYPE=Debug --no-tests --no-examples --rebuild= passed without running =find_package(folly)=, =find_package(nng)=, or =find_package(taskflow)=.
+- Folly-only module: =./zbuild.py --BUILD_TYPE=Debug --with-folly --no-tests --no-examples --rebuild= passed.
+- NNG-only module: =./zbuild.py --BUILD_TYPE=Debug --with-nng --no-tests --no-examples --rebuild= passed.
+- Taskflow-only module: =./zbuild.py --BUILD_TYPE=Debug --with-taskflow --no-tests --no-examples --rebuild= passed.
+- Combined modules: =./zbuild.py --BUILD_TYPE=Debug --with-folly --with-nng --with-taskflow --no-tests --no-examples --rebuild= passed.
 
 ** v0.2.0 - 2026-05-11
-*** 发布定位摘要
-- zpp 从遗留自带 CMake helper/submodule 构建模式迁移为独立 ZetaX 项目。
-- zpp 自己维护项目级 =builder/zpp.py= 和 =builder/conanfile.py=，公共构建生命周期复用 =zeta_forge=。
-- =cmake_util= submodule 停止作为 zpp 依赖，CMake helper 改由 =$ZETAX_ROOT/zeta_forge/cmake_util= 提供。
+*** Release Positioning Summary
+- Migrate zpp from the legacy bundled CMake helper/submodule build mode into an independent ZetaX project.
+- zpp now maintains project-level =builder/zpp.py= and =builder/conanfile.py= while reusing the shared =zeta_forge= build lifecycle.
+- =cmake_util= stops being a zpp dependency submodule; CMake helpers now come from =$ZETAX_ROOT/zeta_forge/cmake_util=.
 
-*** 变更内容
-- 新增轻量 =zbuild.py=，通过 =$ZETAX_ROOT/zeta_forge= 或兄弟目录定位 zeta_forge 公共库。
-- 新增 =builder/zpp.py=，继承 =zeta_forge.cmake_builder.CMakeProjectBuilder=，注入 zpp 源码目录、Conan 配方、CMake 选项、测试/示例开关。
-- 新增 =builder/conanfile.py=，维护 zpp 项目私有 Conan 依赖。
-- 移除 =cmake_util= submodule 和旧 =.gitmodules= 绑定。
-- =CMakeLists.txt= 改为通过 =ZETA_CMAKE_UTIL_DIR= 引入公共 CMake helper，并优先使用 zeta_forge 注入的依赖环境。
-- Debug zpp 构建可消费 forge 已部署的 Release folly 依赖配置，通过 =CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release= 映射 imported targets。
-- zpp CMake project version 与安装包版本统一为 =0.2.0=，仓库根新增 =VERSION=。
+*** Changes
+- Add lightweight =zbuild.py=, locating the zeta_forge shared Python library through =$ZETAX_ROOT/zeta_forge= or sibling workspace paths.
+- Add =builder/zpp.py=, inheriting =zeta_forge.cmake_builder.CMakeProjectBuilder= and injecting the zpp source directory, Conan recipe, CMake options, and test/example switches.
+- Add =builder/conanfile.py= for zpp project-private Conan dependencies.
+- Remove the =cmake_util= submodule and old =.gitmodules= binding.
+- Change =CMakeLists.txt= to include public CMake helpers through =ZETA_CMAKE_UTIL_DIR= and prefer dependency environments injected by zeta_forge.
+- Debug zpp builds can consume Release Folly dependencies deployed by forge through =CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release= imported-target mapping.
+- Unify zpp CMake project version and package version at =0.2.0=, and add root =VERSION=.
 
-*** 兼容性与升级说明
-- 推荐命令为 =cd $ZETAX_ROOT/zpp && ./zbuild.py --rebuild=。
-- 旧 =cmake_util= submodule 和 =cbuild= 路径不再作为推荐构建方式维护。
-- 构建前应确保 =$ZETAX_ROOT/zeta_forge= 存在，并且基础依赖已按 zeta_forge 工具链准备。
-- 如需覆盖源码路径，可继续使用 =ZETA_ZPP_SRC_DIR=、=ZETA_TASKFLOW_SRC_DIR=、=ZETA_RAPIDJSON_SRC_DIR= 等变量。
+*** Compatibility and Upgrade Notes
+- Recommended command: =cd $ZETAX_ROOT/zpp && ./zbuild.py --rebuild=.
+- The old =cmake_util= submodule and =cbuild= path are no longer maintained as recommended build methods.
+- Ensure =$ZETAX_ROOT/zeta_forge= exists and baseline dependencies are prepared through the zeta_forge toolchain before building.
+- Source path override variables such as =ZETA_ZPP_SRC_DIR=, =ZETA_TASKFLOW_SRC_DIR=, and =ZETA_RAPIDJSON_SRC_DIR= remain supported.
 
-*** 验证
-- =python3 -m py_compile zbuild.py builder/zpp.py= 通过。
-- =./zbuild.py --help= 通过。
-- =./zbuild.py --BUILD_TYPE=Debug --no-tests --no-examples --rebuild= 通过，完成 Conan install、CMake configure 和静态库构建。
+*** Verification
+- =python3 -m py_compile zbuild.py builder/zpp.py= passed.
+- =./zbuild.py --help= passed.
+- =./zbuild.py --BUILD_TYPE=Debug --no-tests --no-examples --rebuild= passed, completing Conan install, CMake configure, and static-library build.
 
 ** v0.1.0 - 2026-05-11
-*** 发布定位摘要
-- zpp 作为独立 ZetaX 项目接入 zeta_forge 的初始基线。
-- 该版本未作为独立 release 发布，后续迁移和版本记录整理并入 v0.2.0。
+*** Release Positioning Summary
+- zpp entered zeta_forge as an independent ZetaX project initial baseline.
+- This version was not released independently; later migration and version-record cleanup were folded into =v0.2.0=.

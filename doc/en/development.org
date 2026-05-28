@@ -1,0 +1,50 @@
+#+STARTUP: indent
+#+TITLE: zpp Development Guide
+
+* Development Guide
+
+[[file:./readme.org][Back to Documentation]] | [[file:../zh-CN/开发指南.org][中文版]]
+
+** Repository Layout
+
+- =include/zpp/= contains public headers.
+- =src/zpp/= contains the core implementation.
+- =src/folly/= and =src/nng/= contain optional module implementations.
+- =examples/= contains runnable examples and =add_run_target= entries.
+- =tests/= contains unit and module tests.
+- =builder/= contains zpp-specific build entry logic.
+- =doc/en/= is the primary English documentation.
+- =doc/zh-CN/= is the secondary Simplified Chinese documentation.
+
+** Documentation Rules
+
+English documentation is primary. When changing user-facing behavior, update the
+English page first and then keep the Chinese page aligned.
+
+Use Org mode for repository documentation:
+
+- Use =*.org= files for documentation.
+- Use =#+begin_src= and =#+end_src= for code blocks.
+- Use =...= for inline code.
+- Prefer links in the form =[[file:...][label]]=.
+
+** Build and Test
+
+Core verification:
+
+#+begin_src sh
+./zbuild.py --BUILD_TYPE=Debug --rebuild
+./build/Debug/tests/unit_tests/gtest_tsc
+#+end_src
+
+Optional module verification:
+
+#+begin_src sh
+./zbuild.py --BUILD_TYPE=Debug --with-folly --no-examples --rebuild
+./zbuild.py --BUILD_TYPE=Debug --with-nng --no-tests --no-examples --rebuild
+./zbuild.py --BUILD_TYPE=Debug --with-taskflow --no-tests --rebuild
+./zbuild.py --BUILD_TYPE=Debug --with-hpx-examples --rebuild
+#+end_src
+
+Use focused tests for the module being changed. Keep unrelated code and
+documentation churn out of the same change.
