@@ -45,13 +45,13 @@ NSB_ZPP
  * @endcode
  */
 class spin{
-    std::atomic_flag _flag = ATOMIC_FLAG_INIT;
+    std::atomic_flag flag_ = ATOMIC_FLAG_INIT;
 public:
     spin() = default;
     spin(const spin&) = delete;
     spin& operator= (const spin&) = delete;
     void lock() {
-        while(_flag.test_and_set(std::memory_order_acquire)){
+        while(flag_.test_and_set(std::memory_order_acquire)){
             #if defined(__x86_64__) || defined(__i386__)
                 // 指令不会导致线程让出执行周期或降低自旋锁的效率，实际上它是为了优化自旋等待而专门设计的
                 // 优化自旋等待：它向处理器发出信号，表明当前代码正在执行自旋等待循环
@@ -70,10 +70,10 @@ public:
         }
     }
     bool try_lock() {
-        return !_flag.test_and_set(std::memory_order_acquire);
+        return !flag_.test_and_set(std::memory_order_acquire);
     }
     void unlock() {
-        _flag.clear(std::memory_order_release);
+        flag_.clear(std::memory_order_release);
     }
 };
 NSE_ZPP

@@ -11,31 +11,31 @@ NSB_NNG
 class mutex{
 public:
     mutex(){
-        nng_mtx_alloc(&_mtx);
+        nng_mtx_alloc(&mtx_);
     }
     virtual ~mutex(){
-        nng_mtx_free(_mtx);
+        nng_mtx_free(mtx_);
     }
 public:
     inline void lock(){
-        nng_mtx_lock(_mtx);
+        nng_mtx_lock(mtx_);
     }
     inline void unlock(){
-        nng_mtx_unlock(_mtx);
+        nng_mtx_unlock(mtx_);
     }
 public:
-    nng_mtx* _mtx{nullptr};
+    nng_mtx* mtx_{nullptr};
 };
 
 class guard{
-    guard(mutex &m): _mtx(m){
-        _mtx.lock();
+    guard(mutex &m): mtx_(m){
+        mtx_.lock();
     }
     ~guard(){
-        _mtx.unlock();
+        mtx_.unlock();
     }
 private:
-    mutex &_mtx;
+    mutex &mtx_;
 };
 
 NSE_NNG

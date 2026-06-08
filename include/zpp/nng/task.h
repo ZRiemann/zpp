@@ -32,30 +32,30 @@ template<typename Worker>
 class task{
 public:
     task(Worker worker)
-        :_aio(&task<Worker>::aio_handle_cb, this)
-        , _worker(worker){
+        :aio_(&task<Worker>::aio_handle_cb, this)
+        , worker_(worker){
         
         }
     ~task(){
-      delete _worker; // used by nng::obj_pool::release()
+      delete worker_; // used by nng::obj_pool::release()
     }
 
     /**
      * @brief dispatch the task to nng task queue, and execute in nng task threads
-     * @warning if `_aio` not complete dispatch cause fail. Maybe have some design BUGs to FIX
+     * @warning if `aio_` not complete dispatch cause fail. Maybe have some design BUGs to FIX
      */
     inline bool dispatch(){
-        bool is_ok = _aio.start(task<Worker>::aio_cancel_cb, this);
+        bool is_ok = aio_.start(task<Worker>::aio_cancel_cb, this);
         if(is_ok){
-            _aio.finish(NNG_OK);
+            aio_.finish(NNG_OK);
         }
         return is_ok;
     }
 
     inline void handle(){
-        nng_err err = _aio.result();
-        _worker->work((int)err);
-        _worker->release(this);
+        nng_err err = aio_.result();
+        worker_->work((int)err);
+        worker_->release(this);
     }
 public:
     static void aio_handle_cb(void* h){
@@ -68,8 +68,8 @@ public:
     }
 
 public:
-    aio _aio;
-    Worker _worker;
+    aio aio_;
+    Worker worker_;
 };
 
 NSE_NNG

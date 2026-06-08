@@ -59,7 +59,7 @@ public:
     void loop();
 
 public:
-    int _argc{0}; ///< argv[1] 配置文件路径
-    char** _argv{nullptr}; ///< argv[2] 服务配置项目
+    int argc_{0}; ///< argv[1] 配置文件路径
+    char** argv_{nullptr}; ///< argv[2] 服务配置项目
 };
 NSE_ZPP

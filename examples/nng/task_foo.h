@@ -5,7 +5,7 @@
 #include <zpp/types.h>
 #include <zpp/nng/task.h>
 #include <atomic>
-#include <zpp/system/time.h>
+#include <zpp/system/timer.hpp>
 
 USE_CAMEL
 
@@ -35,7 +35,7 @@ public:
     }
 public: // test throughput
     static std::atomic_int _count;
-    static z::time _stopwatch;
+    static z::timer<> _stopwatch;
 public:
     // something others, like working context...
     static constexpr size_t capacity = 64;

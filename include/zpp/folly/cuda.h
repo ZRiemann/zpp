@@ -15,24 +15,24 @@ NSB_FOLLY
 class executor_cuda : public folly::Executor {
 public:
   executor_cuda(int device = 0) {
-    _worker = std::thread([this, device] { run(device); });
+    worker_ = std::thread([this, device] { run(device); });
   }
 
   ~executor_cuda() {
     {
-      std::lock_guard lk(_mu);
-      _stopping = true;
-      _cv.notify_all();
+      std::lock_guard lk(mu_);
+      stopping_ = true;
+      cv_.notify_all();
     }
-    if (_worker.joinable()) _worker.join();
+    if (worker_.joinable()) worker_.join();
   }
 
   void add(fn_t fn) override {
     {
-      std::lock_guard lk(_mu);
-      _tasks.push(std::move(fn));
+      std::lock_guard lk(mu_);
+      tasks_.push(std::move(fn));
     }
-    _cv.notify_one();
+    cv_.notify_one();
   }
 
   folly::Executor::KeepAlive<> get_keep_alive() {
@@ -44,15 +44,15 @@ private:
 
   void run(int device) {
     cudaSetDevice(device);
-    cudaStreamCreate(&_stream);
+    cudaStreamCreate(&stream_);
     for (;;) {
       fn_t fn;
       {
-        std::unique_lock lk(_mu);
-        _cv.wait(lk, [&] { return _stopping || !_tasks.empty(); });
-        if (_stopping && _tasks.empty()) break;
-        fn = std::move(_tasks.front());
-        _tasks.pop();
+        std::unique_lock lk(mu_);
+        cv_.wait(lk, [&] { return stopping_ || !tasks_.empty(); });
+        if (stopping_ && tasks_.empty()) break;
+        fn = std::move(tasks_.front());
+        tasks_.pop();
       }
       // execute on CUDA-thread: submit async ops or run callback
       try {
@@ -61,15 +61,15 @@ private:
         /* log */
       }
     }
-    cudaStreamDestroy(_stream);
+    cudaStreamDestroy(stream_);
   }
 
-  std::thread _worker;
-  std::mutex _mu;
-  std::condition_variable _cv;
-  std::queue<fn_t> _tasks;
-  std::atomic<bool> _stopping{false};
-  cudaStream_t _stream{nullptr};
+  std::thread worker_;
+  std::mutex mu_;
+  std::condition_variable cv_;
+  std::queue<fn_t> tasks_;
+  std::atomic<bool> stopping_{false};
+  cudaStream_t stream_{nullptr};
 };
 
 NSE_FOLLY
@@ -113,23 +113,23 @@ NSB_FOLLY
 class executor_cuda : public folly::Executor {
 public:
   executor_cuda(int device = 0) {
-    _worker = std::thread([this,device]{ run(device); });
+    worker_ = std::thread([this,device]{ run(device); });
   }
   ~executor_cuda() {
     {
-      std::lock_guard lk(_mu);
-      _stopping = true;
-      _cv.notify_all();
+      std::lock_guard lk(mu_);
+      stopping_ = true;
+      cv_.notify_all();
     }
-    if(_worker.joinable()) _worker.join();
+    if(worker_.joinable()) worker_.join();
   }
 
   void add(fn_t fn) override {
     {
-      std::lock_guard lk(_mu);
-      _tasks.push(std::move(fn));
+      std::lock_guard lk(mu_);
+      tasks_.push(std::move(fn));
     }
-    _cv.notify_one();
+    cv_.notify_one();
   }
 
   folly::Executor::KeepAlive<> get_keep_alive() {
@@ -140,27 +140,27 @@ private:
   using fn_t = std::function<void()>;
   void run(int device) {
     cudaSetDevice(device);
-    cudaStreamCreate(&_stream);
+    cudaStreamCreate(&stream_);
     for(;;) {
       fn_t fn;
       {
-        std::unique_lock lk(_mu);
-        _cv.wait(lk, [&]{ return _stopping || !_tasks.empty(); });
-        if (_stopping && _tasks.empty()) break;
-        fn = std::move(_tasks.front()); _tasks.pop();
+        std::unique_lock lk(mu_);
+        cv_.wait(lk, [&]{ return stopping_ || !tasks_.empty(); });
+        if (stopping_ && tasks_.empty()) break;
+        fn = std::move(tasks_.front()); tasks_.pop();
       }
       // execute on CUDA-thread: submit async ops or run callback
       try { fn(); } catch(...) { /* log */ }
     }
-    cudaStreamDestroy(_stream);
+    cudaStreamDestroy(stream_);
   }
 
-  std::thread _worker;
-  std::mutex _mu;
-  std::condition_variable _cv;
-  std::queue<fn_t> _tasks;
-  std::atomic<bool> _stopping{false};
-  cudaStream_t _stream{nullptr};
+  std::thread worker_;
+  std::mutex mu_;
+  std::condition_variable cv_;
+  std::queue<fn_t> tasks_;
+  std::atomic<bool> stopping_{false};
+  cudaStream_t stream_{nullptr};
 };
 
 NSE_FOLLY
@@ -272,16 +272,16 @@ public:
     folly::Executor::KeepAlive<> resume_exec;
   };
 
-  cuda_completion_poller() : _stop(false) { _thr = std::thread([this] { poll_loop(); }); }
+  cuda_completion_poller() : stop_(false) { thr_ = std::thread([this] { poll_loop(); }); }
 
   ~cuda_completion_poller() {
     {
-      std::lock_guard lk(_mu);
-      _stop = true;
-      _cv.notify_all();
+      std::lock_guard lk(mu_);
+      stop_ = true;
+      cv_.notify_all();
     }
-    if (_thr.joinable()) _thr.join();
-    for (auto &e : _entries) cudaEventDestroy(e.event);
+    if (thr_.joinable()) thr_.join();
+    for (auto &e : entries_) cudaEventDestroy(e.event);
   }
 
   struct awaiter {
@@ -302,10 +302,10 @@ public:
       ent.resume_exec = resume_exec;
 
       {
-        std::lock_guard lk(poller->_mu);
-        poller->_entries.push_back(ent);
+        std::lock_guard lk(poller->mu_);
+        poller->entries_.push_back(ent);
       }
-      poller->_cv.notify_one();
+      poller->cv_.notify_one();
     }
 
     void await_resume() noexcept {}
@@ -317,13 +317,13 @@ public:
 
 private:
   void poll_loop() {
-    std::unique_lock lk(_mu);
-    while (!_stop) {
-      _cv.wait_for(lk, std::chrono::milliseconds(1), [this] { return !_entries.empty() || _stop; });
-      if (_stop) break;
+    std::unique_lock lk(mu_);
+    while (!stop_) {
+      cv_.wait_for(lk, std::chrono::milliseconds(1), [this] { return !entries_.empty() || stop_; });
+      if (stop_) break;
 
-      auto entries = std::move(_entries);
-      _entries.clear();
+      auto entries = std::move(entries_);
+      entries_.clear();
       lk.unlock();
 
       std::vector<entry> pending;
@@ -352,16 +352,16 @@ private:
 
       lk.lock();
       if (!pending.empty()) {
-        _entries.insert(_entries.end(), std::make_move_iterator(pending.begin()), std::make_move_iterator(pending.end()));
+        entries_.insert(entries_.end(), std::make_move_iterator(pending.begin()), std::make_move_iterator(pending.end()));
       }
     }
   }
 
-  std::mutex _mu;
-  std::condition_variable _cv;
-  std::vector<entry> _entries;
-  std::thread _thr;
-  bool _stop;
+  std::mutex mu_;
+  std::condition_variable cv_;
+  std::vector<entry> entries_;
+  std::thread thr_;
+  bool stop_;
 };
 
 // Usage in a coroutine pipeline (replacement for co_reschedule_on + sync):
@@ -381,7 +381,7 @@ folly::coro::Task<void> run_pipeline_with_poller(
   //co_await folly::coro::co_reschedule_on(cpuKeep); (discarded for brevity)
   //cpu_preprocess(buf->data.data(), buf->data.size());
   co_await folly::coro::co_withExecutor(
-    _keep_cpu, []() -> folly::coro::Task<void> { co_return; }());
+    keep_cpu_, []() -> folly::coro::Task<void> { co_return; }());
 
   // 2) Submit copy + kernel on the CUDA thread/executor
   // Post to CUDA executor to perform non-blocking cudaMemcpyAsync + kernel launch,

@@ -9,21 +9,21 @@ public:
     ~pipe(){}
 
     int id(){
-        return nng_pipe_id(_pipe);
+        return nng_pipe_id(pipe_);
     }
 
     int close(){
-        return nng_pipe_close(_pipe);
+        return nng_pipe_close(pipe_);
     }
 
     nng_dialer dialer(){
-        return nng_pipe_dialer(_pipe);
+        return nng_pipe_dialer(pipe_);
     }
     nng_listener listener(){
-        return nng_pipe_listener(_pipe);
+        return nng_pipe_listener(pipe_);
     }
     nng_socket socket(){
-        return nng_pipe_socket(_pipe);
+        return nng_pipe_socket(pipe_);
     }
 
     /**
@@ -34,11 +34,11 @@ public:
     }
 #pragma region Pipe Options
     int get_bool(const char *opt, bool& val){
-        return nng_pipe_get_bool(_pipe, opt, &val);
+        return nng_pipe_get_bool(pipe_, opt, &val);
     }
     //...
 #pragma endregion
 public:
-    nng_pipe _pipe{NNG_PIPE_INITIALIZER};
+    nng_pipe pipe_{NNG_PIPE_INITIALIZER};
 };
 NSE_NNG

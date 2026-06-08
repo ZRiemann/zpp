@@ -3,6 +3,26 @@
 
 * Release History
 
+** v0.6.0 - 2026-06-08
+*** Release Positioning Summary
+- Feature release from =v0.5.3= to =v0.6.0=, expanding zpp's reusable NNG runtime and system utility surface.
+- Continue extracting downstream-agnostic NNG building blocks into the optional =zpp_nng= module.
+- Replace the legacy wall-clock helper with explicit monotonic timer and wall-time formatting utilities.
+
+*** Changes
+- Add =zpp/nng/endpoint.h= and =src/nng/endpoint.cpp= for common NNG URL transport parsing, endpoint roles, TCP URL formatting, token replacement, IPC path extraction, and stale IPC socket cleanup.
+- Refactor =zpp/nng/socket.h= into a movable RAII socket owner with protocol open helpers, socket option accessors, listen/dial wrappers, raw PUB/SUB support, and compatibility aliases for historical =pare*= methods.
+- Add =zpp/nng/runtime.h= and =src/nng/runtime.cpp= for runtime socket options, nanosecond timestamps, normal PUB publishing, and raw SUB-to-PUB event forwarding.
+- Add =zpp_nngConfig.cmake= export support so downstream projects can restore =zpp= and =nng= dependencies from installed package configs.
+- Add =zpp/system/timer.hpp= and =zpp/system/wall_time.hpp=, and remove the legacy =zpp/system/time.h= helper.
+- Extend =z::sys= with filesystem availability, machine UUID lookup, POSIX directory creation, rename, and callback-driven directory tree walking/deletion utilities.
+- Add =./zbuild.py --all=, always generate =compile_commands.json=, and make Taskflow examples prefer =Taskflow::Taskflow= config packages with =TASKFLOW_ROOT= fallback.
+- Normalize queue, engine, coroutine, NNG, Folly, and Taskflow internals to trailing-underscore member names, and fix scheduler thread-local dispatch cursor initialization.
+
+*** Verification
+- Add =gtest_nng= coverage for endpoint helpers and the new runtime socket/publisher wrappers.
+- Add timer, wall-time, legacy wall-time, system, and STL queue coverage for the new utility APIs and renamed internals.
+
 ** v0.5.3 - 2026-05-28
 *** Release Positioning Summary
 - Stabilize the =zpp/hpx= thin lifecycle wrapper while keeping =z::zhpx::server= a lightweight subclass of =z::server=.

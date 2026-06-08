@@ -28,27 +28,27 @@ public: // constructors & destructors
      * @brief 动态内存分配，适合读写速度匹配；
      */
     spsc(std::size_t chunk_size, std::size_t chunk_capacity)
-        : _chunk_size(chunk_size > 0 ? chunk_size : 1)
-        , _chunk_capacity(chunk_capacity > 2 ? chunk_capacity : 2)
-        , _chunk_num(0)
-        , _spare_chunk(nullptr)
-        , _front_chunk(nullptr)
-        , _back_chunk(nullptr)
-        , _front_ptr(nullptr)
-        , _front_end_ptr(nullptr)
-        , _back_local(nullptr)
-        , _back_ptr(nullptr)
-        , _back_cached(nullptr)
-        , _back_end_ptr(nullptr){
+        : chunk_size_(chunk_size > 0 ? chunk_size : 1)
+        , chunk_capacity_(chunk_capacity > 2 ? chunk_capacity : 2)
+        , chunk_num_(0)
+        , spare_chunk_(nullptr)
+        , front_chunk_(nullptr)
+        , back_chunk_(nullptr)
+        , front_ptr_(nullptr)
+        , front_end_ptr_(nullptr)
+        , back_local_(nullptr)
+        , back_ptr_(nullptr)
+        , back_cached_(nullptr)
+        , back_end_ptr_(nullptr){
 
         chunk* chk = alloc_chunk();
         if(chk){
-            _front_chunk = _back_chunk = chk;
-            _front_ptr = &_front_chunk->data[0];
-            _back_local = &_back_chunk->data[0];
-            _back_ptr.store(_back_local, std::memory_order_release);
-            _back_cached = _back_local;
-            _front_end_ptr = _back_end_ptr = &_back_chunk->data[_chunk_size];       
+            front_chunk_ = back_chunk_ = chk;
+            front_ptr_ = &front_chunk_->data[0];
+            back_local_ = &back_chunk_->data[0];
+            back_ptr_.store(back_local_, std::memory_order_release);
+            back_cached_ = back_local_;
+            front_end_ptr_ = back_end_ptr_ = &back_chunk_->data[chunk_size_];
         }
     }
     /**
@@ -58,8 +58,8 @@ public: // constructors & destructors
     spsc(std::size_t capacity)
         :spsc(capacity / 2, 2){}
     ~spsc(){
-        aligned_free(_spare_chunk.exchange(nullptr));
-        chunk *chk = _front_chunk;
+        aligned_free(spare_chunk_.exchange(nullptr));
+        chunk *chk = front_chunk_;
         chunk *chk_next{nullptr};
         while(chk){
             chk_next = chk->next;
@@ -70,45 +70,45 @@ public: // constructors & destructors
 
     std::size_t approx_size() const noexcept {
         std::size_t size = 0;
-        size = _chunk_num.load(std::memory_order_acquire) * _chunk_size;
-        if(_spare_chunk.load(std::memory_order_acquire)){
-            size -= _chunk_size;
+        size = chunk_num_.load(std::memory_order_acquire) * chunk_size_;
+        if(spare_chunk_.load(std::memory_order_acquire)){
+            size -= chunk_size_;
         }
-        size -= _front_ptr - &_front_chunk->data[0];
-        size -= _back_end_ptr - _back_ptr.load(std::memory_order_acquire);
+        size -= front_ptr_ - &front_chunk_->data[0];
+        size -= back_end_ptr_ - back_ptr_.load(std::memory_order_acquire);
         return size;
     }
 public: // Consume
     inline bool empty() noexcept {
-        if(_front_ptr != _back_cached){
+        if(front_ptr_ != back_cached_){
             try_move_next_chunk();
             return false;
         }
-        _back_cached = _back_ptr.load(std::memory_order_acquire);
-        if(_front_ptr == _back_cached){
+        back_cached_ = back_ptr_.load(std::memory_order_acquire);
+        if(front_ptr_ == back_cached_){
             return true;
         }
         try_move_next_chunk();
         return false;
     }
     inline T& front() noexcept {
-        return *_front_ptr;
+        return *front_ptr_;
     }
     inline void pop() noexcept {
-        ++_front_ptr;
+        ++front_ptr_;
     }
 
     inline bool pop(T& t) noexcept {
         if(empty()){
             return false;
         }
-        t = *_front_ptr;
+        t = *front_ptr_;
         pop();
         return true;
     }
 public: // Produce
     inline bool full() noexcept {
-        if(_back_local < _back_end_ptr){
+        if(back_local_ < back_end_ptr_){
             return false;
         }
         chunk* chk = alloc_chunk();
@@ -120,95 +120,95 @@ public: // Produce
     }
 
     inline T& back() noexcept {
-        return *_back_local;
+        return *back_local_;
     }
 
     inline void push() noexcept {
-        ++_back_local;
-        _back_ptr.store(_back_local, std::memory_order_release);
+        ++back_local_;
+        back_ptr_.store(back_local_, std::memory_order_release);
     }
 
     inline bool push(T t) noexcept {
         if(full()){
             return false;
         }
-        *_back_local = t;
+        *back_local_ = t;
         push();
         return true;
     }
 #if 0
     inline void print_status() {
         spd_inf("front_ptr:{}, back_ptr:{}, front_end_ptr:{}, back_end_ptr:{}, back_local:{}, back_cached:{}\n"
-            "front_chunk:{}, back_chunk:{}, chunk_num:{}, spare_chunk:{}", 
-            fmt::ptr(_front_ptr), fmt::ptr(_back_ptr.load(std::memory_order_acquire)), fmt::ptr(_front_end_ptr), 
-            fmt::ptr(_back_end_ptr), fmt::ptr(_back_local), fmt::ptr(_back_cached),
-            fmt::ptr(_front_chunk), fmt::ptr(_back_chunk), CTS(_chunk_num.load(std::memory_order_acquire)), fmt::ptr(_spare_chunk.load(std::memory_order_acquire)));
+            "front_chunk:{}, back_chunk:{}, chunk_num:{}, spare_chunk:{}",
+            fmt::ptr(front_ptr_), fmt::ptr(back_ptr_.load(std::memory_order_acquire)), fmt::ptr(front_end_ptr_),
+            fmt::ptr(back_end_ptr_), fmt::ptr(back_local_), fmt::ptr(back_cached_),
+            fmt::ptr(front_chunk_), fmt::ptr(back_chunk_), CTS(chunk_num_.load(std::memory_order_acquire)), fmt::ptr(spare_chunk_.load(std::memory_order_acquire)));
     }
 #endif
 public: // todo: push_bulk(), pop_bulk();
 private: // help functions
     inline chunk* alloc_chunk() noexcept {
-        chunk *chk = _spare_chunk.exchange(nullptr, std::memory_order_acquire);
+        chunk *chk = spare_chunk_.exchange(nullptr, std::memory_order_acquire);
         if(chk){
             chk->next = nullptr;
             return chk;
         }
-        if(_chunk_num.load(std::memory_order_acquire) >= _chunk_capacity){
+        if(chunk_num_.load(std::memory_order_acquire) >= chunk_capacity_){
             return nullptr;
         }
-        chk = static_cast<chunk*>(aligned_malloc(sizeof(chunk) + sizeof(T) * _chunk_size, SPSC_CHUNK_ALIGMENT));
+        chk = static_cast<chunk*>(aligned_malloc(sizeof(chunk) + sizeof(T) * chunk_size_, SPSC_CHUNK_ALIGMENT));
         if(chk){
             chk->next = nullptr;
-            _chunk_num.fetch_add(1, std::memory_order_release);
+            chunk_num_.fetch_add(1, std::memory_order_release);
         }
         return chk;
     }
 
     inline void free_chunk(chunk* chk) noexcept {
         chk->next = nullptr;
-        chunk* spare = _spare_chunk.exchange(chk, std::memory_order_release);
+        chunk* spare = spare_chunk_.exchange(chk, std::memory_order_release);
         if(spare){
             aligned_free(spare);
-            _chunk_num.fetch_sub(1, std::memory_order_release);
+            chunk_num_.fetch_sub(1, std::memory_order_release);
         }
     }
 
     inline void append_chunk(chunk* chk) noexcept {
         chk->next = nullptr;
-        _back_chunk->next = chk;
-        _back_chunk = chk;
-        _back_end_ptr = &chk->data[_chunk_size];
-        _back_local = &chk->data[0];
+        back_chunk_->next = chk;
+        back_chunk_ = chk;
+        back_end_ptr_ = &chk->data[chunk_size_];
+        back_local_ = &chk->data[0];
     }
 
     inline void try_move_next_chunk() noexcept {
-        if(_front_ptr == _front_end_ptr){// && _front_chunk->next){
-            chunk* chk = _front_chunk;
-            _front_chunk = _front_chunk->next;
-            _front_ptr = &_front_chunk->data[0];
-            _front_end_ptr = &_front_chunk->data[_chunk_size];
+        if(front_ptr_ == front_end_ptr_){// && front_chunk_->next){
+            chunk* chk = front_chunk_;
+            front_chunk_ = front_chunk_->next;
+            front_ptr_ = &front_chunk_->data[0];
+            front_end_ptr_ = &front_chunk_->data[chunk_size_];
             free_chunk(chk);
         }
     }
 public:
-    std::size_t _chunk_size;
-    std::size_t _chunk_capacity;
+    std::size_t chunk_size_;
+    std::size_t chunk_capacity_;
 
-    std::atomic<std::size_t> _chunk_num;
-    std::atomic<chunk*> _spare_chunk;
+    std::atomic<std::size_t> chunk_num_;
+    std::atomic<chunk*> spare_chunk_;
 
-    chunk *_front_chunk;
-    chunk *_back_chunk;
+    chunk *front_chunk_;
+    chunk *back_chunk_;
 
-    T* _front_ptr;
-    T* _front_end_ptr;
+    T* front_ptr_;
+    T* front_end_ptr_;
 
-    char _padding[64]; // 强制隔离消费者和生产者的核心变量
+    char padding_[64]; // 强制隔离消费者和生产者的核心变量
 
-    T* _back_local; // 仅生产者线程访问
-    std::atomic<T*> _back_ptr; // P->C 发布指针，release/acquire 同步
-    mutable T* _back_cached; // 仅消费者线程访问，减少 acquire 读取频率
-    T* _back_end_ptr;
+    T* back_local_; // 仅生产者线程访问
+    std::atomic<T*> back_ptr_; // P->C 发布指针，release/acquire 同步
+    mutable T* back_cached_; // 仅消费者线程访问，减少 acquire 读取频率
+    T* back_end_ptr_;
 };
 
 NSE_ZPP

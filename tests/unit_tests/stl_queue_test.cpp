@@ -9,19 +9,19 @@
 TEST(SpscQueueTest, InitialChunkNextIsNull) {
     z::spsc<int> queue(4, 2);
 
-    ASSERT_NE(queue._front_chunk, nullptr);
-    ASSERT_NE(queue._back_chunk, nullptr);
-    EXPECT_EQ(queue._front_chunk->next, nullptr);
-    EXPECT_EQ(queue._back_chunk->next, nullptr);
+    ASSERT_NE(queue.front_chunk_, nullptr);
+    ASSERT_NE(queue.back_chunk_, nullptr);
+    EXPECT_EQ(queue.front_chunk_->next, nullptr);
+    EXPECT_EQ(queue.back_chunk_->next, nullptr);
 }
 
 TEST(MpmcQueueTest, InitialChunkNextIsNull) {
     z::mpmc<int> queue(4, 2);
 
-    ASSERT_NE(queue._front_chunk, nullptr);
-    ASSERT_NE(queue._back_chunk, nullptr);
-    EXPECT_EQ(queue._front_chunk->next, nullptr);
-    EXPECT_EQ(queue._back_chunk->next, nullptr);
+    ASSERT_NE(queue.front_chunk_, nullptr);
+    ASSERT_NE(queue.back_chunk_, nullptr);
+    EXPECT_EQ(queue.front_chunk_->next, nullptr);
+    EXPECT_EQ(queue.back_chunk_->next, nullptr);
 }
 
 TEST(SpscQueueTest, PushPopWithinInitialChunkDestructsSafely) {
@@ -67,7 +67,7 @@ TEST(SpscQueueTest, CrossChunkPushPopPreservesOrder) {
     }
     EXPECT_TRUE(queue.empty());
 
-    auto* spare = queue._spare_chunk.load(std::memory_order_acquire);
+    auto* spare = queue.spare_chunk_.load(std::memory_order_acquire);
     ASSERT_NE(spare, nullptr);
     EXPECT_EQ(spare->next, nullptr);
 }
@@ -85,7 +85,7 @@ TEST(MpmcQueueTest, CrossChunkPushPopPreservesOrder) {
     }
     EXPECT_TRUE(queue.empty());
 
-    auto* spare = queue._spare_chunk.load(std::memory_order_acquire);
+    auto* spare = queue.spare_chunk_.load(std::memory_order_acquire);
     ASSERT_NE(spare, nullptr);
     EXPECT_EQ(spare->next, nullptr);
 }

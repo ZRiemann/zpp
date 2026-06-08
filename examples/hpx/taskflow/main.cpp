@@ -141,5 +141,5 @@ err_t server::stop(){
 
 NSE_APP
 
-#define SVR_NAME app::server
+#define SVR_NAME z::app::server
 #include <zpp/hpx/main.hpp>

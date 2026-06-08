@@ -6,7 +6,7 @@ USE_ZPP
 
 obj_pool<foo_t> task_foo::pool;
 std::atomic_int task_foo::_count(0);
-z::time task_foo::_stopwatch;
+z::timer<> task_foo::_stopwatch;
 
 void task_foo::init_pool(){
     foo_t* t{nullptr};
@@ -26,7 +26,7 @@ err_t task_foo::work(int state){
     int count = _count.fetch_add(1) + 1;
 
     if(!(count & 0xffff)){
-        time_t timespan = _stopwatch.elapsed_ms();
+        auto timespan = _stopwatch.elapsed_ms();
         spd_inf("foo working... tasks[{}] time[{}] avg:{}(tasks/sec)", count, timespan, (count / timespan) * 1000);
     }
 #else
@@ -35,7 +35,7 @@ err_t task_foo::work(int state){
         _stopwatch.update();
     }
     if(test_num == count){
-        time_t timespan = _stopwatch.elapsed_ms();
+        auto timespan = _stopwatch.elapsed_ms();
         spd_inf("foo working... tasks:{} timespan:{}(ms) avg:{}(tasks/sec)", count, timespan, (count / timespan) * 1000);
     }
 #endif

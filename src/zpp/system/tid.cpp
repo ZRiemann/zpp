@@ -1,3 +1,3 @@
 #include <zpp/system/tid.h>
 
-std::atomic<int> z::tid::_next_tid(0);
+std::atomic<int> z::tid::next_tid_(0);

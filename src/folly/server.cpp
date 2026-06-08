@@ -13,7 +13,7 @@ USE_ZPP
 
 fo::server::server(int argc, char** argv)
     :z::server(argc, argv)
-    ,_folly_init(&argc, &argv) {
+    ,folly_init_(&argc, &argv) {
     ::folly::getGlobalCPUExecutor().add(std::move([](auto /*keepAlive*/){
         monitor_guard mon_guard;
         spd_inf("global CPU executor task running...");
@@ -22,9 +22,9 @@ fo::server::server(int argc, char** argv)
 
 fo::server::~server(){
     // request cancellation and join scopes (RAII members)
-    _cancellable_scope.requestCancellation();
-    folly::coro::blockingWait(_cancellable_scope.cancelAndJoinAsync());
-    folly::coro::blockingWait(_scope.joinAsync());
+    cancellable_scope_.requestCancellation();
+    folly::coro::blockingWait(cancellable_scope_.cancelAndJoinAsync());
+    folly::coro::blockingWait(scope_.joinAsync());
 }
 
 err_t fo::server::on_timer(){

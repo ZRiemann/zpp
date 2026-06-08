@@ -3,6 +3,26 @@
 
 * 发布历史
 
+** v0.6.0 - 2026-06-08
+*** 发布定位摘要
+- 按功能版本发布，zpp 从 =v0.5.3= 升级到 =v0.6.0=，扩展可复用 NNG runtime 与系统工具 API。
+- 继续把下游无关的 NNG 基础组件抽象进可选 =zpp_nng= 模块。
+- 用显式的 monotonic timer 和 wall-time 格式化工具替换旧 wall-clock helper。
+
+*** 变更内容
+- 新增 =zpp/nng/endpoint.h= 与 =src/nng/endpoint.cpp=，提供通用 NNG URL transport 解析、endpoint role、TCP URL 生成、token 替换、IPC 路径提取和 IPC 残留 socket 清理。
+- 将 =zpp/nng/socket.h= 重构为可移动 RAII socket owner，提供协议 open helper、socket option accessor、listen/dial wrapper、raw PUB/SUB 支持，并保留历史 =pare*= 方法兼容别名。
+- 新增 =zpp/nng/runtime.h= 与 =src/nng/runtime.cpp=，提供 runtime socket option、纳秒时间戳、normal PUB 发布和 raw SUB-to-PUB event forwarder。
+- 增加 =zpp_nngConfig.cmake= 导出支持，让下游项目可从安装后的 package config 恢复 =zpp= 与 =nng= 依赖。
+- 新增 =zpp/system/timer.hpp= 与 =zpp/system/wall_time.hpp=，并删除旧 =zpp/system/time.h= helper。
+- =z::sys= 增加 filesystem availability、machine UUID 查询、POSIX 目录递归创建、rename，以及基于 callback 的目录树遍历/删除工具。
+- =./zbuild.py= 增加 =--all=，配置阶段始终生成 =compile_commands.json=，Taskflow examples 优先查找 =Taskflow::Taskflow= package config，并保留 =TASKFLOW_ROOT= fallback。
+- 将 queue、engine、coroutine、NNG、Folly、Taskflow 内部成员名统一整理为 trailing-underscore 风格，并修正 scheduler thread-local dispatch cursor 初始化。
+
+*** 验证
+- 新增 =gtest_nng=，覆盖 endpoint helper 与新的 runtime socket/publisher 封装。
+- 新增 timer、wall-time、legacy wall-time、system 与 STL queue 测试，覆盖新工具 API 与重命名后的内部状态。
+
 ** v0.5.3 - 2026-05-28
 *** 发布定位摘要
 - 打稳 =zpp/hpx= 薄封装生命周期，保持 =z::zhpx::server= 继承 =z::server= 的轻量使用方式。

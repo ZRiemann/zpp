@@ -37,12 +37,12 @@ inspector_server::~inspector_server() {
 }
 
 bool inspector_server::init(std::string_view name) {
-    if (_writable != nullptr) {
+    if (writable_ != nullptr) {
         return true;
     }
 
     const auto shm_name = std::string{name};
-    _shm_name = shm_name;
+    shm_name_ = shm_name;
 
     auto try_create = [&]() {
         auto* h = new shm_handle{
@@ -55,7 +55,7 @@ bool inspector_server::init(std::string_view name) {
         server_handle() = h;
 
         void* addr = h->region.get_address();
-        _writable = new (addr) ServiceStats{};
+        writable_ = new (addr) ServiceStats{};
     };
 
     try {
@@ -78,12 +78,12 @@ bool inspector_server::init(std::string_view name) {
 }
 
 void inspector_server::fini() {
-    if (!_writable) {
+    if (!writable_) {
         return;
     }
 
-    if (!_shm_name.empty()) {
-        bip::shared_memory_object::remove(_shm_name.c_str());
+    if (!shm_name_.empty()) {
+        bip::shared_memory_object::remove(shm_name_.c_str());
     }
 
     auto*& h = server_handle();
@@ -92,7 +92,7 @@ void inspector_server::fini() {
         h = nullptr;
     }
 
-    _writable = nullptr;
+    writable_ = nullptr;
 }
 
 inspector_client::~inspector_client() {
@@ -100,7 +100,7 @@ inspector_client::~inspector_client() {
 }
 
 bool inspector_client::init(std::string_view name) {
-    if (_readable != nullptr) {
+    if (readable_ != nullptr) {
         return true;
     }
 
@@ -114,7 +114,7 @@ bool inspector_client::init(std::string_view name) {
         client_handle() = h;
 
         void* addr = h->region.get_address();
-        _readable = static_cast<const ServiceStats*>(addr);
+        readable_ = static_cast<const ServiceStats*>(addr);
         return true;
     } catch (...) {
         return false;
@@ -122,7 +122,7 @@ bool inspector_client::init(std::string_view name) {
 }
 
 void inspector_client::fini() {
-    if (!_readable) {
+    if (!readable_) {
         return;
     }
 
@@ -132,17 +132,17 @@ void inspector_client::fini() {
         h = nullptr;
     }
 
-    _readable = nullptr;
+    readable_ = nullptr;
 }
 
 void inspector_server::update_thread_pool_stats(uint32_t num_threads,
                                                 uint32_t num_active,
                                                 uint32_t num_pending) {
-    if (!_writable) {
+    if (!writable_) {
         return;
     }
 
-    auto& s = *_writable;
+    auto& s = *writable_;
 
     auto v1 = s.version.load(std::memory_order_relaxed);
     // mark write in progress (odd version)
@@ -159,11 +159,11 @@ void inspector_server::update_thread_pool_stats(uint32_t num_threads,
 }
 
 bool inspector_client::read_thread_pool_stats(ServiceStats& out) const {
-    if (!_readable) {
+    if (!readable_) {
         return false;
     }
 
-    const ServiceStats* s = _readable;
+    const ServiceStats* s = readable_;
 
     for (int i = 0; i < 3; ++i) {
         auto v1 = s->version.load(std::memory_order_acquire);

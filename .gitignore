@@ -100,3 +100,10 @@ ltximg
 **/*.csv
 .vscode/
 .github/
+
+# VS Code local/generated files
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json

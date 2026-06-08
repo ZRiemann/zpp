@@ -17,54 +17,54 @@ public:
 	ring(ring& other) = delete;
 
 	explicit ring(std::size_t capacity, std::size_t publish_batch = 1)
-		: _capacity(round_up_pow2(capacity > 1 ? capacity : 2))
-		, _mask(_capacity - 1)
-		, _publish_batch(publish_batch > 0 ? publish_batch : 1)
-		, _buffer(static_cast<T*>(aligned_malloc(sizeof(T) * _capacity, 64)))
-		, _write_local(0)
-		, _write_cached(0)
-		, _write_pub(0)
-		, _unpublished_push(0)
-		, _read_local(0)
-		, _read_cached(0)
-		, _read_pub(0)
-		, _need_publish(false) {
+		: capacity_(round_up_pow2(capacity > 1 ? capacity : 2))
+		, mask_(capacity_ - 1)
+		, publish_batch_(publish_batch > 0 ? publish_batch : 1)
+		, buffer_(static_cast<T*>(aligned_malloc(sizeof(T) * capacity_, 64)))
+		, write_local_(0)
+		, write_cached_(0)
+		, write_pub_(0)
+		, unpublished_push_(0)
+		, read_local_(0)
+		, read_cached_(0)
+		, read_pub_(0)
+		, need_publish_(false) {
 	}
 
 	~ring() {
-		aligned_free(_buffer);
+		aligned_free(buffer_);
 	}
 
 	std::size_t capacity() const noexcept {
-		return _capacity;
+		return capacity_;
 	}
 
 	std::size_t approx_size() const noexcept {
-		const std::size_t write = _write_pub.load(std::memory_order_acquire);
-		const std::size_t read = _read_pub.load(std::memory_order_acquire);
+		const std::size_t write = write_pub_.load(std::memory_order_acquire);
+		const std::size_t read = read_pub_.load(std::memory_order_acquire);
 		return write - read;
 	}
 
 public: // Consume
 	inline bool empty() const noexcept {
-		if(_read_local != _write_cached){
+		if(read_local_ != write_cached_){
 			return false;
 		}
-		_need_publish.store(true, std::memory_order_relaxed);
-		_write_cached = _write_pub.load(std::memory_order_acquire);
-		return _read_local == _write_cached;
+		need_publish_.store(true, std::memory_order_relaxed);
+		write_cached_ = write_pub_.load(std::memory_order_acquire);
+		return read_local_ == write_cached_;
 	}
 
 	inline T& front() noexcept {
-		return _buffer[_read_local & _mask];
+		return buffer_[read_local_ & mask_];
 	}
 
 	inline bool pop() noexcept {
 		if(empty()){
 			return false;
 		}
-		++_read_local;
-		_read_pub.store(_read_local, std::memory_order_release);
+		++read_local_;
+		read_pub_.store(read_local_, std::memory_order_release);
 		return true;
 	}
 
@@ -73,26 +73,26 @@ public: // Consume
 			return false;
 		}
 		t = front();
-		++_read_local;
-		_read_pub.store(_read_local, std::memory_order_release);
+		++read_local_;
+		read_pub_.store(read_local_, std::memory_order_release);
 		return true;
 	}
 
 public: // Produce
 	inline bool full() const noexcept {
-		if((_write_local - _read_cached) < _capacity){
+		if((write_local_ - read_cached_) < capacity_){
 			return false;
 		}
-		_read_cached = _read_pub.load(std::memory_order_acquire);
-		return (_write_local - _read_cached) >= _capacity;
+		read_cached_ = read_pub_.load(std::memory_order_acquire);
+		return (write_local_ - read_cached_) >= capacity_;
 	}
 
 	inline T& back() noexcept {
-		return _buffer[_write_local & _mask];
+		return buffer_[write_local_ & mask_];
 	}
 
 	inline void push() noexcept {
-		++_write_local;
+		++write_local_;
 		publish_write(false);
 	}
 
@@ -102,18 +102,18 @@ public: // Produce
 			return false;
 		}
 		back() = t;
-		++_write_local;
+		++write_local_;
 		publish_write(false);
 		return true;
 	}
 
 	inline void flush() noexcept {
-		if(_unpublished_push == 0){
+		if(unpublished_push_ == 0){
 			return;
 		}
-		_write_pub.store(_write_local, std::memory_order_release);
-		_unpublished_push = 0;
-		_need_publish.store(false, std::memory_order_relaxed);
+		write_pub_.store(write_local_, std::memory_order_release);
+		unpublished_push_ = 0;
+		need_publish_.store(false, std::memory_order_relaxed);
 	}
 
 private:
@@ -134,31 +134,31 @@ private:
 	}
 
 	inline void publish_write(bool force) noexcept {
-		++_unpublished_push;
-		if(!force && _unpublished_push < _publish_batch && !_need_publish.load(std::memory_order_relaxed)){
+		++unpublished_push_;
+		if(!force && unpublished_push_ < publish_batch_ && !need_publish_.load(std::memory_order_relaxed)){
 			return;
 		}
-		_write_pub.store(_write_local, std::memory_order_release);
-		_unpublished_push = 0;
-		_need_publish.store(false, std::memory_order_relaxed);
+		write_pub_.store(write_local_, std::memory_order_release);
+		unpublished_push_ = 0;
+		need_publish_.store(false, std::memory_order_relaxed);
 	}
 
 private:
-	const std::size_t _capacity;
-	const std::size_t _mask;
-	const std::size_t _publish_batch;
+	const std::size_t capacity_;
+	const std::size_t mask_;
+	const std::size_t publish_batch_;
 
-	T* _buffer;
+	T* buffer_;
 
-	std::size_t _write_local; // producer only
-	mutable std::size_t _write_cached; // consumer only
-	std::atomic<std::size_t> _write_pub; // P->C
-	std::size_t _unpublished_push; // producer only
+	std::size_t write_local_; // producer only
+	mutable std::size_t write_cached_; // consumer only
+	std::atomic<std::size_t> write_pub_; // P->C
+	std::size_t unpublished_push_; // producer only
 
-	mutable std::size_t _read_local; // consumer only
-	mutable std::size_t _read_cached; // producer only
-	std::atomic<std::size_t> _read_pub; // C->P
+	mutable std::size_t read_local_; // consumer only
+	mutable std::size_t read_cached_; // producer only
+	std::atomic<std::size_t> read_pub_; // C->P
 
-	mutable std::atomic<bool> _need_publish; // C 请求 P 立刻发布
+	mutable std::atomic<bool> need_publish_; // C 请求 P 立刻发布
 };
 NSE_ZPP

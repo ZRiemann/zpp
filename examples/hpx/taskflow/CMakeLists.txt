@@ -1,4 +1,19 @@
-include("${ZETA_CMAKE_UTIL_DIR}/find_package/taskflow.cmake")
+find_package(Taskflow QUIET CONFIG)
+
+if(NOT TARGET Taskflow::Taskflow)
+    if(DEFINED TASKFLOW_ROOT)
+        message(STATUS "Using Taskflow from TASKFLOW_ROOT: ${TASKFLOW_ROOT}")
+        add_library(Taskflow::Taskflow INTERFACE IMPORTED)
+        set_target_properties(Taskflow::Taskflow PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${TASKFLOW_ROOT}"
+        )
+    else()
+        message(FATAL_ERROR
+            "Taskflow::Taskflow not found. Install zeta_forge managed Taskflow package configs "
+            "or pass -DTASKFLOW_ROOT=/path/to/taskflow."
+        )
+    endif()
+endif()
 
 file(GLOB_RECURSE SVR_SOURCES CONFIGURE_DEPENDS "*.cpp")
 

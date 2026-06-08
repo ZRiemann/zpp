@@ -26,8 +26,8 @@ public:
 public:
     static void aio_handle_cb(void* h);
 public:
-    aio _aio;
-    nng_duration _duration;
+    aio aio_;
+    nng_duration duration_;
 };
 
 NSE_NNG

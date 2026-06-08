@@ -4,9 +4,10 @@
 z::mon_t z::monitor_guard::mont;
 
 void z::monitor_guard::print_statistic(){
-    mont.begin.localtime();
     std::string daytime;
-    spd_inf("system start: {} time span: {} sec", mont.begin.to_str(daytime), mont.begin.elapsed_sec());
+    spd_inf("system start: {} time span: {} sec",
+            z::wall_time::to_str(mont.begin_wall_time, daytime),
+            mont.uptime.elapsed_sec());
     
     uint64_t tasks{0}, task_cycles{0}, idel_cycles{0};
     for(int i = 0; i < MAX_THRS; ++i){

@@ -9,7 +9,7 @@
 #else
 #include <zpp/moodycamel/concurrentqueue.h>
 #endif
-#include <zpp/system/time.h>
+#include <zpp/system/timer.hpp>
 #include <zpp/spdlog.h>
 #include <zpp/system/sleep.h>
 #include <zpp/core/monitor.h>
@@ -38,7 +38,7 @@ public:
 
     void tick(){
         spd_inf("test task begin...");
-        _stop_watch.start();    
+        _stop_watch.update();
     }
     void tock(){
         _elapsed_ms = _stop_watch.elapsed_ms();
@@ -68,9 +68,9 @@ public:
     size_t tasks(){return _tasks;}
 private:
     size_t _tasks;
-    time_t _elapsed_ms;
+    std::int64_t _elapsed_ms;
     bool _done;
-    time _stop_watch;
+    timer<> _stop_watch;
     int *_hits;
     friend class task;
 };

@@ -33,42 +33,42 @@ public:
 
   void post(work_t f) {
     {
-      std::scoped_lock lk(_m);
-      _q.push(std::move(f));
+      std::scoped_lock lk(m_);
+      q_.push(std::move(f));
     }
-    _cv.notify_one();
+    cv_.notify_one();
   }
 
   ~simple_executor() {
-    _stop.store(true, std::memory_order_relaxed);
-    _cv.notify_one();
-    if (_thr.joinable()) _thr.join();
+    stop_.store(true, std::memory_order_relaxed);
+    cv_.notify_one();
+    if (thr_.joinable()) thr_.join();
   }
 
 private:
   simple_executor() {
-    _thr = std::thread([this]() { run(); });
+    thr_ = std::thread([this]() { run(); });
   }
 
   void run() {
-    while (!_stop.load(std::memory_order_relaxed)) {
+    while (!stop_.load(std::memory_order_relaxed)) {
       work_t job;
       {
-        std::unique_lock lk(_m);
-        _cv.wait(lk, [&] { return _stop.load(std::memory_order_relaxed) || !_q.empty(); });
-        if (_stop.load(std::memory_order_relaxed) && _q.empty()) return;
-        job = std::move(_q.front());
-        _q.pop();
+        std::unique_lock lk(m_);
+        cv_.wait(lk, [&] { return stop_.load(std::memory_order_relaxed) || !q_.empty(); });
+        if (stop_.load(std::memory_order_relaxed) && q_.empty()) return;
+        job = std::move(q_.front());
+        q_.pop();
       }
       if (job) job();
     }
   }
 
-  std::thread _thr;
-  std::mutex _m;
-  std::condition_variable _cv;
-  std::queue<work_t> _q;
-  std::atomic<bool> _stop{false};
+  std::thread thr_;
+  std::mutex m_;
+  std::condition_variable cv_;
+  std::queue<work_t> q_;
+  std::atomic<bool> stop_{false};
 };
 
 /**
@@ -126,7 +126,7 @@ struct awaiter_task {
 
   decltype(auto) await_resume() {
     if constexpr (!std::is_void_v<result_type>) {
-      auto v = h.promise()._value.value();
+      auto v = h.promise().value_.value();
       if (h) h.destroy();
       return v;
     } else {

@@ -12,13 +12,13 @@ NSB_INSPECTION
  */
 class analyst{
 public:
-    analyst(graph& g):_graph(g){}
+    analyst(graph& g):graph_(g){}
     ~analyst() = default;
 
     //void analyze(graph_thread_task* graph, size_t size);
     //virtual void analyze_user(){}
 
 private:
-    graph& _graph;
+    graph& graph_;
 };
 NSE_INSPECTION

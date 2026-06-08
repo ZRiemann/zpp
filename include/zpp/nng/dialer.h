@@ -20,13 +20,13 @@ public:
     dialer(){
 
     }
-    dialer(nng_dialer d):_dialer(d){
+    dialer(nng_dialer d):dialer_(d){
 
     }
     ~dialer(){
-        nng_dialer_close(_dialer);
+        nng_dialer_close(dialer_);
     }
 public:
-    nng_dialer _dialer{NNG_DIALER_INITIALIZER};
+    nng_dialer dialer_{NNG_DIALER_INITIALIZER};
 }
 NSE_NNG

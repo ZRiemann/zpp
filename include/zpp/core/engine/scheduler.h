@@ -28,27 +28,27 @@ class scheduler{
     };
 public:
     scheduler(size_t thr_num, time_t timeout = 100000)
-        :_thr_num(thr_num > sizeof(U) ? sizeof(U) : thr_num)
-        ,_timeout(timeout){
-        _index.store(0);
-        bool valid;
-        size_t num{_thr_num};
-        for(size_t i = 0; i < _thr_num; ++i){
-            _ctxs[i].que = new mpmc<T*>(8192, 8);
+        :thr_num_(thr_num > sizeof(U) ? sizeof(U) : thr_num)
+        ,timeout_(timeout){
+        index_.store(0);
+        bool valid{true};
+        size_t num{thr_num_};
+        for(size_t i = 0; i < thr_num_; ++i){
+            ctxs_[i].que = new mpmc<T*>(8192, 8);
             if(!valid){
                 // memory insufficient
-                delete _ctxs[i].que;
-                _ctxs[i].que = nullptr;
+                delete ctxs_[i].que;
+                ctxs_[i].que = nullptr;
                 --num;
             }
         }
-        _thr_num = num;
+        thr_num_ = num;
     }
 
     ~scheduler(){
-        for(size_t i = 0; i < _thr_num; ++i){
+        for(size_t i = 0; i < thr_num_; ++i){
             // need clear que tasks
-            delete _ctxs[i].que;
+            delete ctxs_[i].que;
         }
     }
     /**
@@ -62,10 +62,15 @@ public:
         if(!t){
             return false;
         }
-        static thread_local size_t index_ = _index++ % _thr_num;
+        static thread_local bool cursor_initialized = false;
+        static thread_local size_t cursor = 0;
+        if(!cursor_initialized){
+            cursor = index_.fetch_add(1, std::memory_order_relaxed) % thr_num_;
+            cursor_initialized = true;
+        }
         size_t index;
-        if(_idels.try_pop_lsb(index)){
-            thr_ctx& ctx = _ctxs[index];
+        if(idels_.try_pop_lsb(index)){
+            thr_ctx& ctx = ctxs_[index];
             std::unique_lock<std::mutex> lock(ctx.mtx);
             if(ctx.que->push(t)){
                 ctx.cv.notify_one();
@@ -77,25 +82,27 @@ public:
 #if ENABLE_SCHEDULER_LOG
                 spd_war("thr[{}] dispatch task[{}] to thread[{}] failed", tid::id(), fmt::ptr(t), ctx.tid);
 #endif
-            _idels.clear_bit(static_cast<U>(1) << index);
+            idels_.clear_bit(static_cast<U>(1) << index);
             return false;
         }
 #if ENABLE_SCHEDULER_LOG
-        index = ++index_ % _thr_num;
-        thr_ctx &ctx = _ctxs[index];
+        cursor = (cursor + 1) % thr_num_;
+        index = cursor;
+        thr_ctx &ctx = ctxs_[index];
         bool ret = ctx.que->push(t);
         spd_inf("thr[{}] dispatch task[{}] to thread[{}] ret[{}]", tid::id(), fmt::ptr(t), ctx.tid, ret);
         return ret;
 #else
-        return _ctxs[++index_ % _thr_num].que->push(t);
+        cursor = (cursor + 1) % thr_num_;
+        return ctxs_[cursor].que->push(t);
 #endif
     }
 public:
-    size_t _thr_num; // 线程池线程数量
-    time_t _timeout; // 线程等待超时 us
-    std::atomic_size_t _index; // 线程idx
-    thr_ctx _ctxs[sizeof(U)];
-    atomic_bit<U> _idels; // 线程池状态
+    size_t thr_num_; // 线程池线程数量
+    time_t timeout_; // 线程等待超时 us
+    std::atomic_size_t index_; // 线程idx
+    thr_ctx ctxs_[sizeof(U)];
+    atomic_bit<U> idels_; // 线程池状态
     friend class thread_pool<scheduler<T>>;
 };
 NSE_ZPP

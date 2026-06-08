@@ -40,8 +40,8 @@ server::server(){
 }
 
 server::server(int argc, char** argv)
-    :_argc(argc)
-    ,_argv(argv){
+    :argc_(argc)
+    ,argv_(argv){
     if(argc < 3){
         std::cout<< "usage: " << argv[0] << " <uni-conf.json> <conf_svr_name>" <<std::endl
         << "example: " << argv[0] << " ../doc/config/server.json server" << std::endl;

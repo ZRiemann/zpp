@@ -12,33 +12,33 @@ template<typename T>
 class binder{
 public:
     using fn = void (T::*)();
-    binder(T* t, fn f): _t(t), _f(f){}
+    binder(T* t, fn f): t_(t), f_(f){}
     
     static inline void async_op(void *arg) {
         binder<T> *b = static_cast<binder<T>*>(arg);
-        (b->_t->*(b->_f))();
+        (b->t_->*(b->f_))();
     }
     
 public:
-    T* _t;
-    fn _f;
+    T* t_;
+    fn f_;
 };
 
 #if 0
 
 class aop {
 public:
-    aop():_bind(this, &aop::fn){
-        nng_aio_alloc(&_aio, &binder<aop>::async_op, &_bind);
+    aop():bind_(this, &aop::fn){
+        nng_aio_alloc(&aio_, &binder<aop>::async_op, &bind_);
     }
     
     ~aop(){
-        nng_free_aio(_aio);
+        nng_free_aio(aio_);
     }
 
 private:
-    binder<aop> _bind;
-    nng_aio *_aio;
+    binder<aop> bind_;
+    nng_aio *aio_;
 
     void fn() {
         std::cout << "回调被触发!" << std::endl;

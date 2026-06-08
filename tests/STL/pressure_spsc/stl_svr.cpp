@@ -12,7 +12,7 @@
 #include <zpp/STL/ring.hpp>
 #include <thread>
 #include <stop_token>
-#include <zpp/system/time.h>
+#include <zpp/system/timer.hpp>
 #include <zpp/system/sleep.h>
 
 USE_ZPP
@@ -69,7 +69,7 @@ void stl_svr::pressure_spsc(){
     std::jthread consumer([&que](std::stop_token token){
         size_t val;
         size_t cnt{0};
-        z::time stop_watch;
+        z::timer<> stop_watch;
         bool run{true};
         size_t count_fails{0};
         while(run){
@@ -79,24 +79,24 @@ void stl_svr::pressure_spsc(){
 #else
                 sleep_ms(1000);
                 spd_inf("pop fail! cnt:{}", cnt);
-                spd_war("front_ptr:{}, back_ptr:{}, front_end_ptr:{}, back_end_ptr:{}, back_local:{}, back_cached:{}", 
-                    fmt::ptr(que._front_ptr), fmt::ptr(que._back_ptr.load(std::memory_order_acquire)), fmt::ptr(que._front_end_ptr), 
-                    fmt::ptr(que._back_end_ptr), fmt::ptr(que._back_local), fmt::ptr(que._back_cached));
+                spd_war("front_ptr:{}, back_ptr:{}, front_end_ptr:{}, back_end_ptr:{}, back_local:{}, back_cached:{}",
+                    fmt::ptr(que.front_ptr_), fmt::ptr(que.back_ptr_.load(std::memory_order_acquire)), fmt::ptr(que.front_end_ptr_),
+                    fmt::ptr(que.back_end_ptr_), fmt::ptr(que.back_local_), fmt::ptr(que.back_cached_));
 #endif
                 ++count_fails;
                 continue;
             }
             if(cnt != val){
                 spd_err("not match cnt[{}] val[{}] diff[{}]", cnt, val, cnt > val ? cnt - val : val -cnt);
-                spd_err("front_ptr:{}, back_ptr:{}, front_end_ptr:{}, back_end_ptr:{}, back_local:{}, back_cached:{}", 
-                    fmt::ptr(que._front_ptr), fmt::ptr(que._back_ptr.load(std::memory_order_acquire)), fmt::ptr(que._front_end_ptr), 
-                    fmt::ptr(que._back_end_ptr), fmt::ptr(que._back_local), fmt::ptr(que._back_cached));
+                spd_err("front_ptr:{}, back_ptr:{}, front_end_ptr:{}, back_end_ptr:{}, back_local:{}, back_cached:{}",
+                    fmt::ptr(que.front_ptr_), fmt::ptr(que.back_ptr_.load(std::memory_order_acquire)), fmt::ptr(que.front_end_ptr_),
+                    fmt::ptr(que.back_end_ptr_), fmt::ptr(que.back_local_), fmt::ptr(que.back_cached_));
                 run = false;
             }
 
             if(!(val & PRINT_MASK)){
-                time_t us = stop_watch.elapsed_us() + 1;
-                spd_inf("consum {} use {} us. {} q/s pop_fails[{}]", CTS(val), CTS(us), CTS((val / us) * 1000000), CTS(count_fails));      
+                auto us = stop_watch.elapsed_us() + 1;
+                spd_inf("consum {} use {} us. {} q/s pop_fails[{}]", CTS(val), CTS(us), CTS((val / us) * 1000000), CTS(count_fails));
             }
             switch(val){
             case 0:
@@ -104,7 +104,7 @@ void stl_svr::pressure_spsc(){
                 stop_watch.update();
                 break;
             case END_COUNT:{
-                time_t us = stop_watch.elapsed_us() + 1;
+                auto us = stop_watch.elapsed_us() + 1;
                 spd_inf("consum done. item[{}] use {} us. {} q/s", CTS(MAX_COUNT), CTS(us), CTS((MAX_COUNT / us) * 1000000), CTS(count_fails));
                 run = false;
                 }
@@ -146,7 +146,7 @@ void stl_svr::pressure_ring_compare(){
         std::jthread consumer([&que](std::stop_token token){
             size_t val;
             size_t cnt{0};
-            z::time stop_watch;
+            z::timer<> stop_watch;
             bool run{true};
             size_t pop_fails{0};
             while(run){
@@ -161,7 +161,7 @@ void stl_svr::pressure_ring_compare(){
                 }
 
                 if(!(val & PRINT_MASK)){
-                    time_t us = stop_watch.elapsed_us() + 1;
+                    auto us = stop_watch.elapsed_us() + 1;
                     spd_inf("[ring] consum {} use {} us. {} q/s pop_fails[{}]", CTS(val), CTS(us), CTS((val / us) * 1000000), CTS(pop_fails));
                 }
 
@@ -171,7 +171,7 @@ void stl_svr::pressure_ring_compare(){
                     stop_watch.update();
                     break;
                 case RING_END_COUNT:{
-                    time_t us = stop_watch.elapsed_us() + 1;
+                    auto us = stop_watch.elapsed_us() + 1;
                     spd_inf("[ring] consum done. item[{}] use {} us. {} q/s pop_fails[{}]", CTS(RING_MAX_COUNT), CTS(us), CTS((RING_MAX_COUNT / us) * 1000000), CTS(pop_fails));
                     run = false;
                     }
@@ -204,7 +204,7 @@ stl_svr::stl_svr(int argc, char** argv)
 err_t stl_svr::run(){
     //pressure_ring_compare();
     pressure_spsc();
-    return ERR_OK;    
+    return ERR_OK;
 }
 
 err_t stl_svr::on_timer(){

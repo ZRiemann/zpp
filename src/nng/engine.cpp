@@ -15,10 +15,10 @@ engine::engine(int argc, char** argv)
         return;
     }
     json doc;
-    doc.load_file(_argv[1]);
+    doc.load_file(argv_[1]);
     json_view conf;
     json_view conf_engine;
-    if (ERR_OK == doc.member(_argv[2], conf) &&
+    if (ERR_OK == doc.member(argv_[2], conf) &&
         ERR_OK == conf.member("nng_engine", conf_engine)) {
         rapidjson::StringBuffer sbuf;
         spd_inf("nng_engine: {}", conf_engine.to_string(sbuf, true));
@@ -59,7 +59,7 @@ engine::engine(int argc, char** argv)
                 params.num_resolver_threads);
         }
     } else {
-        spd_war("Waring: NOT find spd config item:{}.nng_engine", _argv[2]);
+        spd_war("Waring: NOT find spd config item:{}.nng_engine", argv_[2]);
     }
 }
 

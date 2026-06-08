@@ -20,7 +20,7 @@ class writer{
 public:
     //writer(const writer&) = delete;
     //writer& operator=(const writer&) = delete;
-    writer(graph &g):_graph(g), _thread_status(*_graph.thread_status_at(tid::id())) {
+    writer(graph &g):graph_(g), thread_status_(*graph_.thread_status_at(tid::id())) {
     }
     ~writer() = default;
 
@@ -29,18 +29,18 @@ public:
     }
     inline void end() noexcept {
         /*
-        uint32_t index = _thread_status->index;
-        ++_thread_status->tasks;
+        uint32_t index = thread_status_->index;
+        ++thread_status_->tasks;
         // 记录任务检查点数据
-        _thread_status->tasks[index].mission_info = mission_info;
-        _thread_status->tasks[index].elapsed = elapsed;
+        thread_status_->tasks[index].mission_info = mission_info;
+        thread_status_->tasks[index].elapsed = elapsed;
 
         // 更新下一个记录点索引，循环使用
-        _thread_status->index = (++index) % _graph.capacity();
+        thread_status_->index = (++index) % graph_.capacity();
         */
     }
 private:
-    graph& _graph;
-    thread_status& _thread_status;
+    graph& graph_;
+    thread_status& thread_status_;
 };
 NSE_INSPECTION

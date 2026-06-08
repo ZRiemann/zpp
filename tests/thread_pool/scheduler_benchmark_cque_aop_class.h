@@ -9,7 +9,7 @@
 #else
 #include <zpp/moodycamel/concurrentqueue.h>
 #endif
-#include <zpp/system/time.h>
+#include <zpp/system/timer.hpp>
 #include <zpp/spdlog.h>
 #include <zpp/system/sleep.h>
 #include <zpp/core/monitor.h>
@@ -103,7 +103,7 @@ public:
             switch(t->_index){
             case 0:
                 spd_inf("count begin...");
-                _stopwatch.start();
+                _stopwatch.update();
             break;
             case MAX_COUNT - 1:
                 spd_inf("max_count[{}] reached. elapsed {} ms, avg {} q/s", MAX_COUNT, _stopwatch.elapsed_ms(), CTS((MAX_COUNT / _stopwatch.elapsed_ms()) * 1000));
@@ -129,7 +129,7 @@ public:
     }
 public:
     bool _done{false};
-    time _stopwatch;
+    timer<> _stopwatch;
     int _max_index{0}; // 排查 t->push() 导致的无法达到退出问题, _done = true 不可达！
     int *_hits; // 检查所有 index 都被调用一次
 #ifdef USE_BLOCK_QUE

@@ -96,9 +96,9 @@ private:
     /// segment on graceful shutdown. This allows clients to distinguish
     /// between a clean exit (segment removed) and a crash (segment left
     /// behind with the last snapshot).
-    std::string _shm_name{};
+    std::string shm_name_{};
 
-    ServiceStats* _writable{nullptr};
+    ServiceStats* writable_{nullptr};
 };
 
 /**
@@ -145,7 +145,7 @@ public:
     bool read_thread_pool_stats(ServiceStats& out) const;
 
 private:
-    const ServiceStats* _readable{nullptr};
+    const ServiceStats* readable_{nullptr};
 };
 
 /**

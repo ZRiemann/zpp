@@ -28,7 +28,7 @@ template<typename T>
 class obj_pool{
 public:
     obj_pool(bool &valid, size_t chunk_size = 8192, size_t chunk_capacity = 1024)
-        :_que(valid, chunk_size, chunk_capacity), _valid(valid){
+        :que_(valid, chunk_size, chunk_capacity), valid_(valid){
     }
     ~obj_pool(){
         release();
@@ -37,19 +37,19 @@ public:
      * @brief pop object
      */
     inline bool pop(T*& obj){
-        return _que.pop(obj);
+        return que_.pop(obj);
     }
 
     inline bool push(T* obj){
-        return _que.push(obj);
+        return que_.push(obj);
     }
     void release(){
         T* obj{nullptr};
-        while(_que.pop(obj)){
+        while(que_.pop(obj)){
             delete obj;
         }
     }
 public:
-    mpmc<T*> _que;
+    mpmc<T*> que_;
 };
 NSE_ZPP

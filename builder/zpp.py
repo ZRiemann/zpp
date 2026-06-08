@@ -206,6 +206,7 @@ class ZppBuilder(CMakeProjectBuilder):
             "Ninja",
             "-Wno-dev",
             f"-DCMAKE_BUILD_TYPE={self.args.build_type}",
+            "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
             f"-DCMAKE_PREFIX_PATH={';'.join(cmake_prefix_paths)}",
             f"-DCMAKE_INSTALL_PREFIX={self.repo_config.install_prefix}",
             f"-DCMAKE_CXX_STANDARD={self.repo_config.cxx_standard}",
@@ -241,6 +242,11 @@ class ZppBuilder(CMakeProjectBuilder):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = common_build_argument_parser("Build zpp")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Enable all optional project components (equivalent to all --with-* flags)",
+    )
     parser.add_argument("--no-tests", action="store_true")
     parser.add_argument("--no-examples", action="store_true")
     parser.add_argument("--with-hpx-examples", action="store_true")
@@ -259,16 +265,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 def parse_args(argv: list[str] | None = None) -> ZppBuildArgs:
     namespace = build_parser().parse_args(argv)
+    enable_all = namespace.all
     return ZppBuildArgs(
         build_type=namespace.build_type,
         install=namespace.install,
         rebuild=namespace.rebuild,
         build_tests=not namespace.no_tests,
         build_examples=not namespace.no_examples,
-        build_hpx_examples=namespace.with_hpx_examples,
-        build_folly_module=namespace.with_folly,
-        build_nng_module=namespace.with_nng,
-        build_taskflow_module=namespace.with_taskflow,
+        build_hpx_examples=namespace.with_hpx_examples or enable_all,
+        build_folly_module=namespace.with_folly or enable_all,
+        build_nng_module=namespace.with_nng or enable_all,
+        build_taskflow_module=namespace.with_taskflow or enable_all,
     )
 
 

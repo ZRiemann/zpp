@@ -12,18 +12,18 @@ public:
     ~inspector() = default;
 
     err_t init(const char* name, bool create, size_t thread_count, size_t capacity){
-        _graph.init(thread_count, capacity);
-        err_t ret = _allocator.init(name, _graph.size(), create);
+        graph_.init(thread_count, capacity);
+        err_t ret = allocator_.init(name, graph_.size(), create);
         if(ERR_OK == ret){
-            _graph.attach(_allocator.data());
+            graph_.attach(allocator_.data());
         }
         return ret;
     }
     void fini(){
-        _allocator.fini();
+        allocator_.fini();
     }
 public:
-    Allocator _allocator;
-    Graph _graph;
+    Allocator allocator_;
+    Graph graph_;
 };
 NSE_INSPECTION

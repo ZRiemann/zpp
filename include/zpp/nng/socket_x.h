@@ -50,9 +50,9 @@ public:
         }
     }
     int pipe_notify(){
-        int ret = (int)nng_pipe_notify(_sock, NNG_PIPE_EV_ADD_PRE, &socket::pipe_cb, this);
-        int ret1 = (int)nng_pipe_notify(_sock, NNG_PIPE_EV_ADD_POST, &socket::pipe_cb, this);
-        int ret2 = (int)nng_pipe_notify(_sock, NNG_PIPE_EV_REMOVE_POST, &socket::pipe_cb, this);
+        int ret = (int)nng_pipe_notify(sock_, NNG_PIPE_EV_ADD_PRE, &socket::pipe_cb, this);
+        int ret1 = (int)nng_pipe_notify(sock_, NNG_PIPE_EV_ADD_POST, &socket::pipe_cb, this);
+        int ret2 = (int)nng_pipe_notify(sock_, NNG_PIPE_EV_REMOVE_POST, &socket::pipe_cb, this);
         if(ret != 0 || ret1 != 0 || ret2 != 0){
             spd_err("nng_pipe_notify ADD_PRE failed: {} {} {}",
                 strerr(ret), strerr(ret1), strerr(ret2));

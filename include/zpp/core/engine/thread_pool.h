@@ -1,13 +1,13 @@
 #pragma once
 
+#include <chrono>
+#include <mutex>
 #include <thread>
 #include <vector>
 #include <stop_token>
 #include <zpp/namespace.h>
 #include <zpp/core/monitor.h>
 #include <zpp/spdlog.h>
-#include <zpp/system/time.h>
-#include <mutex>
 #include <zpp/system/sleep.h>
 #include <zpp/system/tid.h>
 
@@ -39,25 +39,24 @@ public:
 
     template<typename Scheduler>
     void run(Scheduler& scheduler){
-        _threads.reserve(scheduler._thr_num);
-        for(size_t i = 0; i < scheduler._thr_num; ++i){
-            _threads.emplace_back(std::jthread([&scheduler, this, i](std::stop_token token){
+        threads_.reserve(scheduler.thr_num_);
+        for(size_t i = 0; i < scheduler.thr_num_; ++i){
+            threads_.emplace_back(std::jthread([&scheduler, this, i](std::stop_token token){
                 T* t{nullptr};
-                auto &que = *scheduler._ctxs[i].que;
-                auto &mtx = scheduler._ctxs[i].mtx;
-                auto &cv = scheduler._ctxs[i].cv;
+                auto &que = *scheduler.ctxs_[i].que;
+                auto &mtx = scheduler.ctxs_[i].mtx;
+                auto &cv = scheduler.ctxs_[i].cv;
                 // ret true: que.not_empty() may be notify maby timeout; false: timeout and que is empty!
                 //bool ret{false}; // ret = cv.wait_for(...)
                 uint64_t idel_bit;
-                scheduler._idels.make_lsb_bit(i, idel_bit);
-                z::time stopwatch;
+                scheduler.idels_.make_lsb_bit(i, idel_bit);
                 int tid = tid::id();
-                scheduler._ctxs[i].tid = tid;
+                scheduler.ctxs_[i].tid = tid;
                 spd_inf("consumer[{}] running...", tid);
                 for(;;){
-                    scheduler._idels.set_bit(idel_bit); // 标记空闲
+                    scheduler.idels_.set_bit(idel_bit); // 标记空闲
                     std::unique_lock<std::mutex> lock(mtx);
-                    cv.wait_for(lock, token, std::chrono::microseconds(scheduler._timeout),[&que]{ return !que.empty(); });
+                    cv.wait_for(lock, token, std::chrono::microseconds(scheduler.timeout_),[&que]{ return !que.empty(); });
                     //cv.wait(lock, token,[&que]{ return que.not_empty(); }); // 会卡死
                     if (!token.stop_requested()) {
                         lock.unlock();
@@ -76,11 +75,11 @@ public:
     }
 
     void stop(){
-        for(auto& thread : _threads){
+        for(auto& thread : threads_){
             thread.request_stop();
         }
     }
 private:
-    std::vector<std::jthread> _threads;
+    std::vector<std::jthread> threads_;
 };
 NSE_ZPP

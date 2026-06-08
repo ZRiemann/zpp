@@ -30,7 +30,7 @@ public:
     server(int argc, char** argv,
         timer_interval_type timer_interval = timer_interval_type{1000})
         :z::server(argc, argv)
-        ,_timer_interval(timer_interval){}
+        ,timer_interval_(timer_interval){}
 
     /**
      * @brief Destroy the HPX-aware zpp server.
@@ -42,7 +42,7 @@ public:
      * @param timer_interval New interval between loop iterations.
      */
     inline void set_timer_interval(timer_interval_type timer_interval) noexcept{
-        _timer_interval = timer_interval;
+        timer_interval_ = timer_interval;
     }
 
     /**
@@ -50,14 +50,14 @@ public:
      * @return The current timer interval.
      */
     [[nodiscard]] inline timer_interval_type timer_interval() const noexcept{
-        return _timer_interval;
+        return timer_interval_;
     }
 
     /**
      * @brief Keep the application alive without blocking the underlying OS worker thread.
      */
     inline err_t timer() override{
-        hpx::this_thread::sleep_for(_timer_interval);
+        hpx::this_thread::sleep_for(timer_interval_);
         return ERR_OK;
     }
 
@@ -70,6 +70,6 @@ public:
     }
 
 private:
-    timer_interval_type _timer_interval;
+    timer_interval_type timer_interval_;
 };
 NSE_HPX

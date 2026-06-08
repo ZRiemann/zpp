@@ -19,8 +19,8 @@ template<typename T>
 class pipeline_mpsc {
 public:
     pipeline_mpsc(tf::Executor& executor, tf::Taskflow& taskflow, size_t capacity)
-        : _executor(executor), _taskflow(taskflow), _valid(false)
-        , _queue(capacity / 2, 2), _is_running(false){}
+        : executor_(executor), taskflow_(taskflow), valid_(false)
+        , queue_(capacity / 2, 2), is_running_(false){}
 
     virtual ~pipeline_mpsc() {
         wait_done();
@@ -28,18 +28,18 @@ public:
 
     template<typename U>
     bool submit(U&& item) noexcept{
-        bool ret = _queue.push(std::forward<U>(item));
+        bool ret = queue_.push(std::forward<U>(item));
         bool expected = false;
-        if(_is_running.compare_exchange_strong(expected, true)) {
+        if(is_running_.compare_exchange_strong(expected, true)) {
             _run();            
         }
         return ret;
     }
 
     bool is_finished() noexcept {
-        return !_is_running.load(std::memory_order_acquire)
-            && _active_runs.load(std::memory_order_acquire) == 0
-            && _queue.empty();
+        return !is_running_.load(std::memory_order_acquire)
+            && active_runs_.load(std::memory_order_acquire) == 0
+            && queue_.empty();
     }
 
     void wait_done() {
@@ -54,7 +54,7 @@ public:
             tf::PipeType::SERIAL,
             [this, handler = std::forward<Handler>(handler)](tf::Pipeflow& pf) mutable {
                 T data;
-                if(_queue.pop(data)){
+                if(queue_.pop(data)){
                     try{
                         handler(pf, std::move(data));
                     }catch(std::exception &e){
@@ -71,29 +71,29 @@ public:
 
 private:
     void _run() {
-        _active_runs.fetch_add(1, std::memory_order_acq_rel);
-        _executor.run(_taskflow, [this](){
-            if(!_queue.empty()){
+        active_runs_.fetch_add(1, std::memory_order_acq_rel);
+        executor_.run(taskflow_, [this](){
+            if(!queue_.empty()){
                 _run();
-                _active_runs.fetch_sub(1, std::memory_order_acq_rel);
+                active_runs_.fetch_sub(1, std::memory_order_acq_rel);
                 return;
             }
-            _is_running.store(false, std::memory_order_seq_cst);
+            is_running_.store(false, std::memory_order_seq_cst);
             bool expected = false;
             // potential lost wakeup check
-            if(!_queue.empty() && _is_running.compare_exchange_strong(expected, true)) {
+            if(!queue_.empty() && is_running_.compare_exchange_strong(expected, true)) {
                 _run();
             }
-            _active_runs.fetch_sub(1, std::memory_order_acq_rel);
+            active_runs_.fetch_sub(1, std::memory_order_acq_rel);
         });
     }
 
-    tf::Executor& _executor;
-    tf::Taskflow& _taskflow;
-    bool _valid;
-    z::mpmc<T> _queue;
-    std::atomic<bool> _is_running;
-    std::atomic<std::size_t> _active_runs{0};
+    tf::Executor& executor_;
+    tf::Taskflow& taskflow_;
+    bool valid_;
+    z::mpmc<T> queue_;
+    std::atomic<bool> is_running_;
+    std::atomic<std::size_t> active_runs_{0};
 };
 
 NSE_TASKFLOW

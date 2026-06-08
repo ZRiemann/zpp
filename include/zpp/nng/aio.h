@@ -29,39 +29,39 @@ class aio{
 public:
     aio(){}
     nng_err create(void (*cb)(void *), void *arg){
-        nng_err err = nng_aio_alloc(&_aio, cb, arg);
+        nng_err err = nng_aio_alloc(&aio_, cb, arg);
         if(err != NNG_OK){
             spd_err("{}", nng_strerror(err));
-            _aio = nullptr;
+            aio_ = nullptr;
         }else{
-            _refs++;
-            if(_refs > _max_refs){
-                _max_refs = _refs;
+            refs_++;
+            if(refs_ > max_refs_){
+                max_refs_ = refs_;
             }
-            //spd_inf("alloc nng_aio[{}] {}", fmt::ptr(_aio), nng_strerror(err));
+            //spd_inf("alloc nng_aio[{}] {}", fmt::ptr(aio_), nng_strerror(err));
         }
         return err;
     }
 
     aio(void (*cb)(void *), void *arg){
-        nng_err err = nng_aio_alloc(&_aio, cb, arg);
+        nng_err err = nng_aio_alloc(&aio_, cb, arg);
         if(err != NNG_OK){
             spd_err("{}", nng_strerror(err));
-            _aio = nullptr;
+            aio_ = nullptr;
         }else{
-            _refs++;
-            if(_refs > _max_refs){
-                _max_refs = _refs;
+            refs_++;
+            if(refs_ > max_refs_){
+                max_refs_ = refs_;
             }
-            //spd_inf("alloc nng_aio[{}] {}", fmt::ptr(_aio), nng_strerror(err));
+            //spd_inf("alloc nng_aio[{}] {}", fmt::ptr(aio_), nng_strerror(err));
         }
     }
     ~aio(){
-        //spd_inf("free nng_aio[{}]", fmt::ptr(_aio));
-        if(_aio){
-            nng_aio_free(_aio); // waiting for any operations and associated callbacks to complete before doing so.
-            _refs--;
-            _aio = nullptr;
+        //spd_inf("free nng_aio[{}]", fmt::ptr(aio_));
+        if(aio_){
+            nng_aio_free(aio_); // waiting for any operations and associated callbacks to complete before doing so.
+            refs_--;
+            aio_ = nullptr;
         }
         //void nng_aio_reap(nng_aio *aio); this function is safe to call from aio’s own callback.
     }
@@ -69,11 +69,11 @@ public:
     // aio reserved
 public: // api wrapper
     inline void abort(nng_err err){
-        nng_aio_abort(_aio, err);
+        nng_aio_abort(aio_, err);
     }
     inline void cancel(){
         //The nng_aio_cancel function acts like nng_aio_abort, but uses the error code NNG_ECANCELED.
-        nng_aio_cancel(_aio);
+        nng_aio_cancel(aio_);
     }
     inline void stop(){
         /*
@@ -84,14 +84,14 @@ public: // api wrapper
         before deallocating any of them with nng_aio_free, 
         particularly if the callbacks might attempt to reschedule further operations.
         */
-        nng_aio_stop(_aio);
+        nng_aio_stop(aio_);
     }
 
     /**
      * @brief The timeout duration is specified as a relative number of milliseconds.
      */
     inline void set_timeout(nng_duration timeout =  NNG_DURATION_INFINITE){
-        nng_aio_set_timeout(_aio, timeout);
+        nng_aio_set_timeout(aio_, timeout);
     }
     /**
      * @brief The nng_aio_set_expire function is similar to nng_aio_set_timeout, 
@@ -100,27 +100,27 @@ public: // api wrapper
      * such as would be returned by nng_clock.
      */
     inline void set_expire(nng_time expiration){
-        nng_aio_set_expire(_aio, expiration);
+        nng_aio_set_expire(aio_, expiration);
     }
 
     /**
      * @brief sleep 
      */
     inline void sleep(nng_duration duration){
-        nng_sleep_aio(duration, _aio);
+        nng_sleep_aio(duration, aio_);
     }
     /**
      * @brief The nng_aio_wait function waits for an asynchronous I/O operation to complete.
      * @note If the operation has not been started, or has already completed, then it returns immediately.
      */
     inline void wait(){
-        nng_aio_wait(_aio);
+        nng_aio_wait(aio_);
     }
     /**
      * @brief Test for Completion
      */
     inline bool busy(){
-        return nng_aio_busy(_aio);
+        return nng_aio_busy(aio_);
     }
 
     /**
@@ -129,7 +129,7 @@ public: // api wrapper
      *  Otherwise a non-zero error code, such as NNG_ECANCELED or NNG_ETIMEDOUT, is returned.
      */
     inline nng_err result(){
-        return nng_aio_result(_aio);
+        return nng_aio_result(aio_);
     }
     /**
      * @brief For operations that transfer data
@@ -140,7 +140,7 @@ public: // api wrapper
      * or after waiting for the operation to complete with nng_aio_wait.
      */
     inline size_t count(){
-        return nng_aio_count(_aio);
+        return nng_aio_count(aio_);
     }
 #pragma region Messages
     /**
@@ -163,13 +163,13 @@ public: // api wrapper
      * @brief  retrieve a message in aio.
      */
     inline nng_msg *get_msg(){
-        return nng_aio_get_msg(_aio);
+        return nng_aio_get_msg(aio_);
     }
     /**
      * @brief  Store a message in aio.
      */
     inline void set_msg(nng_msg *msg){
-        nng_aio_set_msg(_aio, msg);
+        nng_aio_set_msg(aio_, msg);
     }
 
     /**
@@ -181,7 +181,7 @@ public: // api wrapper
      * check the amount of data transferred by calling nng_aio_count.
      */
     inline int set_iov(nng_iov *iov, unsigned int n){
-        return nng_aio_set_iov(_aio, n, iov);
+        return nng_aio_set_iov(aio_, n, iov);
     }
 #pragma endregion
 #pragma region Inputs and Outputs
@@ -190,17 +190,17 @@ public: // api wrapper
      * as no operation currently defined can accept more than four parameters or return more than four additional results.
      */
     inline void *get_input(unsigned int index){
-        return nng_aio_get_input(_aio, index);
+        return nng_aio_get_input(aio_, index);
     }
     inline void *get_output(unsigned int index){
-        return nng_aio_get_output(_aio, index);
+        return nng_aio_get_output(aio_, index);
     }
 
     inline void set_input(unsigned int index, void* param){
-        nng_aio_set_input(_aio, index, param);
+        nng_aio_set_input(aio_, index, param);
     }
     inline void set_output(unsigned int index, void *result){
-        nng_aio_set_output(_aio, index, result);
+        nng_aio_set_output(aio_, index, result);
     }
 #pragma endregion
 #pragma region I/O Providers
@@ -211,7 +211,7 @@ public: // api wrapper
      * @brief resets various fields in the aio. It can be called before starting an operation.
      */
     inline void reset(){
-        nng_aio_reset(_aio);
+        nng_aio_reset(aio_);
     }
     /**
      * @brief starts the operation associated with aio.
@@ -223,28 +223,28 @@ public: // api wrapper
      * 
      */
     inline bool start(nng_aio_cancelfn cb, void *arg){
-        return nng_aio_start(_aio, cb, arg);
+        return nng_aio_start(aio_, cb, arg);
     }
     /**
      * @brief This function causes the callback associated with the aio to called. The aio may not be referenced again by the caller.
      * @note Set any results using nng_aio_set_output before calling this function.
      */
     inline void finish(nng_err err){
-        nng_aio_finish(_aio, err);
+        nng_aio_finish(aio_, err);
     }
 #pragma endregion
 public:
     static int refs(){
-        return _refs.load();
+        return refs_.load();
     }
     static int max_refs(){
-        return _max_refs;
+        return max_refs_;
     }
 public:
-    nng_aio* _aio{nullptr};
+    nng_aio* aio_{nullptr};
 private:
-    static std::atomic_int _refs; // aio reference count
-    static int _max_refs; // the max aio count
+    static std::atomic_int refs_; // aio reference count
+    static int max_refs_; // the max aio count
 };
 #if 0
 // 通用回调包装器

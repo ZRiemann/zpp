@@ -30,7 +30,7 @@ public:
     static inline int id() noexcept {
         static thread_local int cached_id{-1};
         if (cached_id == -1) {
-            cached_id = _next_tid.fetch_add(1, std::memory_order_relaxed);
+            cached_id = next_tid_.fetch_add(1, std::memory_order_relaxed);
             // optional: debug assert
             // assert(cached_id < 256 && "thread id overflow (>=256)");
         }    
@@ -73,6 +73,6 @@ public:
         return ++cnt;
     }
 private:
-    static std::atomic<int> _next_tid;
+    static std::atomic<int> next_tid_;
 };
 NSE_ZPP

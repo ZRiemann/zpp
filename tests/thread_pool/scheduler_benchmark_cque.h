@@ -9,7 +9,7 @@
 #else
 #include <zpp/moodycamel/concurrentqueue.h>
 #endif
-#include <zpp/system/time.h>
+#include <zpp/system/timer.hpp>
 #include <zpp/spdlog.h>
 #include <zpp/system/sleep.h>
 #include <zpp/core/monitor.h>
@@ -53,7 +53,7 @@ public:
             switch(i){
             case 0:
                 spd_inf("count begin...");
-                _stopwatch.start();
+                _stopwatch.update();
             break;
             case MAX_COUNT - 1:
                 spd_inf("max_count[{}] reached. elapsed {} ms, avg {} q/s", MAX_COUNT, _stopwatch.elapsed_ms(), CTS((MAX_COUNT / _stopwatch.elapsed_ms()) * 1000));
@@ -66,7 +66,7 @@ public:
     }
 public:
     bool _done{false};
-    time _stopwatch;
+    timer<> _stopwatch;
 #ifdef USE_BLOCK_QUE
     moodycamel::BlockingConcurrentQueue<int> _queue;
 #else

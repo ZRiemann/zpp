@@ -6,16 +6,16 @@ NSB_NNG
 class condition{
 public:
     condition(mutex& mtx){
-        nng_cv_alloc(&_cv, mtx._mtx);
+        nng_cv_alloc(&cv_, mtx.mtx_);
     }
     virtual ~condition(){
-        nng_cv_free(_cv);
+        nng_cv_free(cv_);
     }
 public:
     inline void wait(nng_mtx* mtx){
-        nng_cv_wait(_cv, mtx);
+        nng_cv_wait(cv_, mtx);
     }
 public:
-    nng_cv* _cv{nullptr};
+    nng_cv* cv_{nullptr};
 };
 NSE_NNG

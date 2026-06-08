@@ -14,12 +14,12 @@ NSB_NNG
 class aio_ctx{
 public:
     aio_ctx(nng_socket sock, void(*aio_cb)(void*)) {
-        nng_ctx_open(&_ctx, sock);
-        nng_aio_alloc(&_aio, aio_cb, this);
+        nng_ctx_open(&ctx_, sock);
+        nng_aio_alloc(&aio_, aio_cb, this);
     }
     ~aio_ctx(){
-        nng_ctx_close(_ctx);
-        nng_aio_close(_aio);
+        nng_ctx_close(ctx_);
+        nng_aio_close(aio_);
     }
 public:
 #if 0
@@ -32,14 +32,14 @@ public:
     //virtual void on_aio(nng_aio* aio) = 0;
 #endif
 public:
-    nng_ctx _ctx{NNG_CTX_INITIALIZER};
-    nng_aio* _aio{nullptr};
-    void *_data{nullptr}; // user data
+    nng_ctx ctx_{NNG_CTX_INITIALIZER};
+    nng_aio* aio_{nullptr};
+    void *data_{nullptr}; // user data
     enum class state{
         INIT,
         RECV,
         SEND
-    } _state{state::INIT};
+    } state_{state::INIT};
 }
 #if 0
 void

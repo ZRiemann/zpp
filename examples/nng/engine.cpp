@@ -5,7 +5,7 @@
 #include <zpp/nng/message.h>
 #include <zpp/nng/aio.h>
 #include <zpp/system/sleep.h>
-#include <zpp/system/time.h>
+#include <zpp/system/timer.hpp>
 #include <zpp/core/monitor.h>
 #include "task_foo.h"
 #include <vector>
@@ -28,7 +28,7 @@ void engine::aio_provider_cb(void* user){
 
 void engine::test_aio_provider(){
     spd_inf("test aio provider");
-    time stw;
+    z::timer<> stw;
     _aio_provider.reset();
     if(_aio_provider.start(&engine::aio_cancelfn, this)){
         _aio_provider.finish(NNG_OK);

@@ -45,13 +45,13 @@ struct promise {
   using result_type = Result;
   using promise_type = promise<Result, AwaiterInit, AwaiterFinal>;
 
-  std::optional<std::remove_cv_t<std::remove_reference_t<Result>>> _value{};
+  std::optional<std::remove_cv_t<std::remove_reference_t<Result>>> value_{};
   /**
    * @brief Optional continuation handle used when another coroutine `co_await`s
    * this coroutine's `task` wrapper. When set, the final-suspend awaiter
    * will resume the continuation.
    */
-  std::coroutine_handle<> _continuation{};
+  std::coroutine_handle<> continuation_{};
 
   /**
    * @brief Get the coroutine handle associated with this promise.
@@ -91,10 +91,10 @@ struct promise {
     decltype(auto) await_suspend(H h) noexcept(noexcept(inner.await_suspend(h))) {
       if constexpr (std::is_void_v<decltype(inner.await_suspend(h))>) {
         inner.await_suspend(h);
-        if (self->_continuation) self->_continuation.resume();
+        if (self->continuation_) self->continuation_.resume();
       } else {
         auto r = inner.await_suspend(h);
-        if (self->_continuation) self->_continuation.resume();
+        if (self->continuation_) self->continuation_.resume();
         return r;
       }
     }
@@ -111,7 +111,7 @@ struct promise {
   /**
    * @brief Store a continuation handle to be resumed at final suspension.
    */
-  void set_continuation(std::coroutine_handle<> c) noexcept { _continuation = c; }
+  void set_continuation(std::coroutine_handle<> c) noexcept { continuation_ = c; }
 
   /**
    * @brief Accept an lvalue result from `co_return`.
@@ -124,7 +124,7 @@ struct promise {
    */
   void return_value(const Result& v) noexcept(std::is_nothrow_copy_constructible_v<Result>) 
     requires std::is_copy_constructible_v<Result> {
-    _value.emplace(v);
+    value_.emplace(v);
   }
 
   /**
@@ -144,7 +144,7 @@ struct promise {
    */
   void return_value(Result&& v) noexcept(std::is_nothrow_move_constructible_v<Result>) 
     requires std::is_move_constructible_v<Result> {
-    _value.emplace(std::move(v));
+    value_.emplace(std::move(v));
   }
 
   /**
@@ -175,12 +175,12 @@ struct promise<void, AwaiterInit, AwaiterFinal> {
   /**
    * @brief Placeholder member to keep layout simple; not used for results.
    */
-  std::monostate _value{}; // placeholder
+  std::monostate value_{}; // placeholder
 
   /**
    * @brief Continuation handle for awaiting coroutines.
    */
-  std::coroutine_handle<> _continuation{};
+  std::coroutine_handle<> continuation_{};
 
   /**
    * @brief Get the coroutine handle for this promise.
@@ -209,10 +209,10 @@ struct promise<void, AwaiterInit, AwaiterFinal> {
     decltype(auto) await_suspend(H h) noexcept(noexcept(inner.await_suspend(h))) {
       if constexpr (std::is_void_v<decltype(inner.await_suspend(h))>) {
         inner.await_suspend(h);
-        if (self->_continuation) self->_continuation.resume();
+        if (self->continuation_) self->continuation_.resume();
       } else {
         auto r = inner.await_suspend(h);
-        if (self->_continuation) self->_continuation.resume();
+        if (self->continuation_) self->continuation_.resume();
         return r;
       }
     }
@@ -226,7 +226,7 @@ struct promise<void, AwaiterInit, AwaiterFinal> {
 
   final_awaiter final_suspend() noexcept { return final_awaiter{AwaiterFinal{}, this}; }
 
-  void set_continuation(std::coroutine_handle<> c) noexcept { _continuation = c; }
+  void set_continuation(std::coroutine_handle<> c) noexcept { continuation_ = c; }
 
   /**
    * @brief Called for `co_return;` in a `void` coroutine.

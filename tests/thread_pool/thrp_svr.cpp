@@ -34,11 +34,11 @@ thrp_svr::thrp_svr(int argc, char** argv)
 err_t thrp_svr::configure(){
 #if defined BENCHMARK_ENGINE_FIFO
     json conf;
-    if(ERR_OK != conf.load_file(_argv[1])){
+    if(ERR_OK != conf.load_file(argv_[1])){
         exit(-1);
     }else{
         json_view svr_conf;
-        if(ERR_OK == conf.member(_argv[2], svr_conf)){
+        if(ERR_OK == conf.member(argv_[2], svr_conf)){
             svr_conf.get("thread_num", _thr_num);
             svr_conf.get("task_num", _task_num);
         }
@@ -68,7 +68,7 @@ err_t thrp_svr::run(){
 #if defined BENCHMARK_ENGINE_FIFO
 #ifdef TEST_BENCHMARK_ENGINE_FIFO
     std::vector<std::jthread> p_thrs;
-    for(size_t i = 0; i < _scheduler._thr_num; ++i){
+    for(size_t i = 0; i < _scheduler.thr_num_; ++i){
         p_thrs.emplace_back(std::jthread([this, i](std::stop_token token){
             std::vector<tbef*> tasks;
             // 可能多线程操作stopwatch, 导致计时结果不准确。避免这种使用方式；所有类型的lock都有这问题。
@@ -88,7 +88,7 @@ err_t thrp_svr::run(){
     }
 #elif defined TEST_TASK_INFINITE
     //for(size_t i = 0; i < 1; ++i){ // 单任务无限循环
-    for(size_t i = 0; i < _scheduler._thr_num * 10; ++i){ // 多任务无限循环
+    for(size_t i = 0; i < _scheduler.thr_num_ * 10; ++i){ // 多任务无限循环
         auto t = new task_infinite(_scheduler, i);
         _scheduler.dispatch(t);
     }
@@ -105,25 +105,25 @@ err_t thrp_svr::run(){
     18 22:22:13.628678 2173591 I thr_pool[2] notifys[1] timeouts[2] tasks[100,000,000] Q/S[17,161,000]      thread_pool.h:53
     */
     std::vector<std::jthread> p_thrs;
-    for(size_t i = 0; i < _scheduler._thr_num; ++i){
+    for(size_t i = 0; i < _scheduler.thr_num_; ++i){
         p_thrs.emplace_back(std::jthread([this, i](std::stop_token token){
-            auto &ctx = this->_scheduler._ctxs[i];
-            auto &que = *this->_scheduler._ctxs[i].que;
-            spd_inf("producer que:{} {}", fmt::ptr(this->_scheduler._ctxs[i].que), fmt::ptr(&que));
+            auto &ctx = this->_scheduler.ctxs_[i];
+            auto &que = *this->_scheduler.ctxs_[i].que;
+            spd_inf("producer que:{} {}", fmt::ptr(this->_scheduler.ctxs_[i].que), fmt::ptr(&que));
             size_t *k{nullptr};
             size_t push_fails{0};
             for(size_t j = 0; j < MAX_COUNT; ++j){
                 while(!que.push(k)){
 #if 0
                     spd_inf("thr[{}] push [{}] failed", i, j);
-                    spd_inf("front_chk:{}->{} back_chk:{}->{}", fmt::ptr(que._front_chunk), fmt::ptr(que._front_chunk->next), fmt::ptr(que._back_chunk), fmt::ptr(que._back_chunk->next));
+                    spd_inf("front_chk:{}->{} back_chk:{}->{}", fmt::ptr(que.front_chunk_), fmt::ptr(que.front_chunk_->next), fmt::ptr(que.back_chunk_), fmt::ptr(que.back_chunk_->next));
 #if FIFO_BACK_PTR_MODE == 1
-                    spd_inf("front_ptr:{} back_ptr:{}", fmt::ptr(que._front_ptr), fmt::ptr(que._atm_back_ptr.load(std::memory_order_relaxed)));
+                    spd_inf("front_ptr:{} back_ptr:{}", fmt::ptr(que.front_ptr_), fmt::ptr(que._atm_back_ptr.load(std::memory_order_relaxed)));
 #else
-                    spd_inf("front_ptr:{} back_ptr:{}", fmt::ptr(que._front_ptr), fmt::ptr(que._back_ptr));
+                    spd_inf("front_ptr:{} back_ptr:{}", fmt::ptr(que.front_ptr_), fmt::ptr(que.back_ptr_));
 #endif
-                    spd_inf("front_end_ptr:{} back_end_ptr:{}", fmt::ptr(que._front_end_ptr), fmt::ptr(que._back_end_ptr));
-                    spd_inf("chunk_num:{} chunk_capacity:{} apare:{}", que._chunk_num.load(), que._chunk_capacity, fmt::ptr(que._spare_chunk.load()));
+                    spd_inf("front_end_ptr:{} back_end_ptr:{}", fmt::ptr(que.front_end_ptr_), fmt::ptr(que.back_end_ptr_));
+                    spd_inf("chunk_num:{} chunk_capacity:{} apare:{}", que.chunk_num_.load(), que.chunk_capacity_, fmt::ptr(que.spare_chunk_.load()));
                     spd_inf("push_count:{} pop_count:{}", que._count_push, que._count_pop);
 #endif
                     ++push_fails;

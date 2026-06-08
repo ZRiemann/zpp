@@ -113,7 +113,7 @@ struct task {
   template <typename R = result_type>
   requires(!std::is_void_v<R>)
   R result() {
-    return handle.promise()._value.value();
+    return handle.promise().value_.value();
   }
 
   /**

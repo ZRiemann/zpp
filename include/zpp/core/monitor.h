@@ -7,7 +7,8 @@
 #include <zpp/namespace.h>
 #include <zpp/system/tid.h>
 #include <zpp/system/tsc.h>
-#include <zpp/system/time.h>
+#include <zpp/system/timer.hpp>
+#include <zpp/system/wall_time.hpp>
 #include <zpp/core/monitor/common_defs.h>
 
 NSB_ZPP
@@ -16,11 +17,13 @@ NSB_ZPP
 constexpr int MAX_THRS = 64;
 
 typedef struct monitor_s{
-    time begin;
+    wall_time::time_point begin_wall_time;
+    timer<> uptime;
     thread_state states[MAX_THRS];
 
     monitor_s() {
-        begin.update();
+        begin_wall_time = wall_time::clock_type::now();
+        uptime.update();
         for (int i = 0; i < MAX_THRS; ++i) {
             states[i].start = tsc_now_r();
             states[i].state = 0;

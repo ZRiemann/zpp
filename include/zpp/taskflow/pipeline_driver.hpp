@@ -52,7 +52,7 @@ template<typename T, typename Queue = std::queue<T>>
 class [[deprecated("Use pipeline_mpsc instead")]] pipeline_driver {
 public:
     pipeline_driver(tf::Executor& executor, tf::Taskflow& taskflow, size_t capacity)
-        : _executor(executor), _taskflow(taskflow), _capacity(capacity) {}
+        : executor_(executor), taskflow_(taskflow), capacity_(capacity) {}
 
     virtual ~pipeline_driver() {
         // Ensure to wait_done() in user code before destruction if threads are active
@@ -70,10 +70,10 @@ public:
     template<typename U>
     bool submit(U&& item) {
         if constexpr (is_moodycamel_queue<Queue>::value) {
-            if(_queue.size_approx() >= _capacity) {
+            if(queue_.size_approx() >= capacity_) {
                 return false; // backpressure
             }
-            _queue.enqueue(std::forward<U>(item));
+            queue_.enqueue(std::forward<U>(item));
             
             // Lock-Free Wakeup Logic:
             // Only the thread that successfully transitions state from FALSE to TRUE
@@ -81,21 +81,21 @@ public:
             // Uses seq_cst to ensure visibility relative to enqueue.
             bool expected = false;
             // strong CAS to avoid spurious start failures
-            if(_is_running.compare_exchange_strong(expected, true)) {
+            if(is_running_.compare_exchange_strong(expected, true)) {
                 schedule();
             }
             return true;
         } else {
             bool trigger = false;
             {
-                std::lock_guard<std::mutex> lock(_mutex);
-                if(_queue.size() >= _capacity) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                if(queue_.size() >= capacity_) {
                     return false; // backpressure
                 }
-                _queue.push(std::forward<U>(item));
+                queue_.push(std::forward<U>(item));
                 
-                if(!_is_running.load(std::memory_order_relaxed)) {
-                    _is_running.store(true, std::memory_order_relaxed);
+                if(!is_running_.load(std::memory_order_relaxed)) {
+                    is_running_.store(true, std::memory_order_relaxed);
                     trigger = true;
                 }
             }
@@ -130,14 +130,14 @@ public:
      */
     bool try_pop(T& out_item) {
         if constexpr (is_moodycamel_queue<Queue>::value) {
-            return _queue.try_dequeue(out_item);
+            return queue_.try_dequeue(out_item);
         } else {
-            std::lock_guard<std::mutex> lock(_mutex);
-            if(_queue.empty()) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if(queue_.empty()) {
                 return false;
             }
-            out_item = std::move(_queue.front());
-            _queue.pop();
+            out_item = std::move(queue_.front());
+            queue_.pop();
             return true;
         }
     }
@@ -148,10 +148,10 @@ public:
     bool is_finished() const {
         // Approximate check for shutdown logic
         if constexpr (is_moodycamel_queue<Queue>::value) {
-            return !_is_running.load(std::memory_order_acquire) && _queue.size_approx() == 0;
+            return !is_running_.load(std::memory_order_acquire) && queue_.size_approx() == 0;
         } else {
-            std::lock_guard<std::mutex> lock(_mutex);
-            return !_is_running.load(std::memory_order_relaxed) && _queue.empty();
+            std::lock_guard<std::mutex> lock(mutex_);
+            return !is_running_.load(std::memory_order_relaxed) && queue_.empty();
         }
     }
 
@@ -178,7 +178,7 @@ private:
         if constexpr (is_moodycamel_queue<Queue>::value) {
             // Lock-Free Shutdown Logic:
             // 1. Check if queue is likely empty to avoid expensive atomic ops if not needed.
-            if(_queue.size_approx() == 0) {
+            if(queue_.size_approx() == 0) {
                  // 2. Set running to false tentatively.
                  // We must effectively ensure that no items were pushed *before* we set running=false.
                  // But producers set running=true *after* pushing.
@@ -190,7 +190,7 @@ private:
                  // Correct Lock-Free Protocol (Consumer Side):
                  
                  // Step A: Tentatively assert we are stopping.
-                 _is_running.store(false, std::memory_order_seq_cst);
+                 is_running_.store(false, std::memory_order_seq_cst);
                  
                  // Step B: Double check the queue AFTER declaring stop.
                  // If queue is NOT empty, we must restart ourselves.
@@ -202,13 +202,13 @@ private:
                  // A safer check is to try one last dequeue? No, we are in schedule() which is outside the pipeline loop.
                  // We just need to trigger the graph again if not empty.
                  
-                 if(_queue.size_approx() > 0) {
+                 if(queue_.size_approx() > 0) {
                      // Oops, raced. Someone pushed data but didn't wake us because we were "running".
                      // But now we are "stopped".
                      // We must switch back to running and continue.
                      bool expected = false;
-                     if(_is_running.compare_exchange_strong(expected, true)) {
-                         _executor.run(_taskflow, [this](){ schedule(); });
+                     if(is_running_.compare_exchange_strong(expected, true)) {
+                         executor_.run(taskflow_, [this](){ schedule(); });
                      }
                      return;
                  }
@@ -217,29 +217,29 @@ private:
                  return;
             }
             // else: queue has items, loop again.
-             _executor.run(_taskflow, [this](){ schedule(); });
+             executor_.run(taskflow_, [this](){ schedule(); });
 
         } else {
             // Standard Queue Logic
             {
-                std::lock_guard<std::mutex> lock(_mutex);
-                if(_queue.empty()) {
-                    _is_running.store(false, std::memory_order_relaxed);
+                std::lock_guard<std::mutex> lock(mutex_);
+                if(queue_.empty()) {
+                    is_running_.store(false, std::memory_order_relaxed);
                     return;
                 }
                 // Keep running state
             }
-            _executor.run(_taskflow, [this](){ schedule(); });
+            executor_.run(taskflow_, [this](){ schedule(); });
         }
     }
 
-    tf::Executor& _executor;
-    tf::Taskflow& _taskflow;
-    size_t _capacity;
+    tf::Executor& executor_;
+    tf::Taskflow& taskflow_;
+    size_t capacity_;
     
-    mutable std::mutex _mutex; // Used for state transition protection (Running <-> Stopped)
-    Queue _queue;
-    std::atomic<bool> _is_running{false};
+    mutable std::mutex mutex_; // Used for state transition protection (Running <-> Stopped)
+    Queue queue_;
+    std::atomic<bool> is_running_{false};
 };
 
 NSE_TASKFLOW

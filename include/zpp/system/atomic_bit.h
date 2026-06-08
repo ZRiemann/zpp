@@ -19,26 +19,26 @@ NSB_ZPP
 template<typename T>
 class bits{
 public:
-    bits():_bits(0){}
+    bits():bits_(0){}
     ~bits() = default;
     /**
      * @brief 非原子操作返回最低位1位置,并清除
      */
     bool pop_lsb(size_t& index){
-        if (!_bits)
+        if (!bits_)
             return false;
-        index = find_lsb(_bits);
-        _bits &= ~(static_cast<T>(1) << index);
+        index = find_lsb(bits_);
+        bits_ &= ~(static_cast<T>(1) << index);
         return true;
     }
     void clear_bit(T state){
-        _bits &= ~state;
+        bits_ &= ~state;
     }
     void set_bit(T state){
-        _bits |= state;
+        bits_ |= state;
     }
     bool test_bit(T state){
-        return (_bits & state) != 0;
+        return (bits_ & state) != 0;
     }
     /**
      * @brief 产生一个第index lsb位 bit 为 1 的数
@@ -109,7 +109,7 @@ private:
      * @return 最低位1的索引，如果num为0则返回-1
      */
     size_t find_lsb(T num) {
-        if (num == 0) return -1;    
+        if (num == 0) return -1;
     #if defined(__GNUC__) || defined(__clang__)
         // 查找最低位的1（LSB - Least Significant Bit）
         //  ctz: "Count Trailing Zeros"（计数尾随零）
@@ -155,27 +155,27 @@ private:
     #endif
     }
 private:
-    T _bits;
+    T bits_;
 };
 
 template<typename T>
 class atomic_bit{
 public:
     atomic_bit(){
-        _bits.store(0);
+        bits_.store(0);
     }
     ~atomic_bit() = default;
-        
+
     /**
      * @brief 检查`state`标记位置是否被设置,`state`必须有且只能有一位是 1
      * @retval false 未被设置 1
      * @retval true 标记位为 1
      */
     bool test_bit(T state) noexcept {
-        return (_bits.load(std::memory_order_relaxed) & state) != 0;
+        return (bits_.load(std::memory_order_relaxed) & state) != 0;
     }
     void clear_bit(T state) noexcept{
-        _bits.fetch_and(~state, std::memory_order_release);
+        bits_.fetch_and(~state, std::memory_order_release);
     }
     /**
      * @brief 设置对应的bit位
@@ -184,13 +184,13 @@ public:
      */
     void set_bit(T state) noexcept{
 #if 1
-        _bits.fetch_or(state, std::memory_order_release);
+        bits_.fetch_or(state, std::memory_order_release);
 #else
-        T old_state = _bits.load(std::memory_order_relaxed);
+        T old_state = bits_.load(std::memory_order_relaxed);
         T new_state;
         do {
             new_state = old_state | state;
-        } while (!_bits.compare_exchange_weak(old_state, new_state, 
+        } while (!bits_.compare_exchange_weak(old_state, new_state,
             std::memory_order_acquire,
             std::memory_order_relaxed));
 #endif
@@ -202,9 +202,9 @@ public:
        *  任何线程试图原子操作获取，当前空闲线程的index并读取后设置0防止被其他线程也读取；
        */
     bool pop_msb(size_t &index) noexcept{
-        T old_state = _bits.load(std::memory_order_relaxed);
+        T old_state = bits_.load(std::memory_order_relaxed);
         T new_state;
-        
+
         do {
             if (old_state == 0) {
                 // 如果状态被其他线程变为0，退出循环并返回false
@@ -212,11 +212,11 @@ public:
             }
             index = find_msb(old_state);
             new_state = old_state & ~(static_cast<T>(1) << index);
-            
-        } while (!_bits.compare_exchange_weak(old_state, new_state, 
+
+        } while (!bits_.compare_exchange_weak(old_state, new_state,
                                                std::memory_order_acquire,
                                                std::memory_order_relaxed));
-        
+
         return true;
     }
 
@@ -225,12 +225,12 @@ public:
      * @note 这种方案可能实际效果会更好
      */
     bool try_pop_lsb(size_t &index) noexcept {
-        T bits = _bits.load(std::memory_order_relaxed);
+        T bits = bits_.load(std::memory_order_relaxed);
         if (bits == 0) {
             return false;
         }
         index = find_lsb(bits);
-        return _bits.compare_exchange_strong(bits, bits & ~(static_cast<T>(1) << index), 
+        return bits_.compare_exchange_strong(bits, bits & ~(static_cast<T>(1) << index),
                                         std::memory_order_acquire,
                                         std::memory_order_relaxed);
     }
@@ -241,17 +241,17 @@ public:
      * @return 如果找到bit为1的位置返回true，否则返回false
      */
     bool pop_lsb(size_t &index){
-        T bits = _bits.load(std::memory_order_relaxed);
-    
+        T bits = bits_.load(std::memory_order_relaxed);
+
         while (bits != 0) {
             index = find_lsb(bits);
-            if (_bits.compare_exchange_weak(bits, bits & ~(static_cast<T>(1) << index), 
+            if (bits_.compare_exchange_weak(bits, bits & ~(static_cast<T>(1) << index),
                                         std::memory_order_acquire,
                                         std::memory_order_relaxed)) {
                 return true;
             }
         }
-        
+
         return false;
     }
     /**
@@ -266,15 +266,15 @@ public:
     }
 
     void wait_for_any_bit(T mask){
-        T old = _bits.load(std::memory_order_relaxed);
+        T old = bits_.load(std::memory_order_relaxed);
         while ((old & mask) == 0) {
-            _bits.wait(old, std::memory_order_relaxed);
-            old = _bits.load(std::memory_order_relaxed);
+            bits_.wait(old, std::memory_order_relaxed);
+            old = bits_.load(std::memory_order_relaxed);
         }
     }
 
     void notify_all(){
-        _bits.notify_all();
+        bits_.notify_all();
     }
 
 private:
@@ -336,7 +336,7 @@ private:
      * @return 最低位1的索引，如果num为0则返回-1
      */
     size_t find_lsb(T num) {
-        if (num == 0) return -1;    
+        if (num == 0) return -1;
     #if defined(__GNUC__) || defined(__clang__)
         // 查找最低位的1（LSB - Least Significant Bit）
         //  ctz: "Count Trailing Zeros"（计数尾随零）
@@ -382,9 +382,9 @@ private:
     #endif
     }
 
-    // 确保 _bits 不会与其他数据共享同一缓存行。
-    //alignas(std::hardware_destructive_interference_size) std::atomic<T> _bits;
-    alignas(64) std::atomic<T> _bits;
+    // 确保 bits_ 不会与其他数据共享同一缓存行。
+    //alignas(std::hardware_destructive_interference_size) std::atomic<T> bits_;
+    alignas(64) std::atomic<T> bits_;
 };
 
 

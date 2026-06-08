@@ -52,22 +52,22 @@ public:
         using pointer = void;
 
         iterator()
-            :_ptr(nullptr)
-            ,_alloc(nullptr){
+            :ptr_(nullptr)
+            ,alloc_(nullptr){
         }
 
         iterator(rapidjson::Value *ptr, allocator_type *alloc)
-            :_ptr(ptr)
-            ,_alloc(alloc){
+            :ptr_(ptr)
+            ,alloc_(alloc){
         }
 
         reference operator*() const{
-            return value_type(_ptr, _alloc);
+            return value_type(ptr_, alloc_);
         }
 
         iterator &operator++(){
-            if(nullptr != _ptr){
-                ++_ptr;
+            if(nullptr != ptr_){
+                ++ptr_;
             }
             return *this;
         }
@@ -79,7 +79,7 @@ public:
         }
 
         friend bool operator==(const iterator &lhs, const iterator &rhs){
-            return lhs._ptr == rhs._ptr && lhs._alloc == rhs._alloc;
+            return lhs.ptr_ == rhs.ptr_ && lhs.alloc_ == rhs.alloc_;
         }
 
         friend bool operator!=(const iterator &lhs, const iterator &rhs){
@@ -87,34 +87,34 @@ public:
         }
 
     private:
-        rapidjson::Value *_ptr;
-        allocator_type *_alloc;
+        rapidjson::Value *ptr_;
+        allocator_type *alloc_;
     };
 
     json() requires (is_document)
         :v()
-        ,_alloc(&v.GetAllocator()){
+        ,alloc_(&v.GetAllocator()){
     }
 
     json() requires (is_value)
         :v()
-        ,_alloc(nullptr){
+        ,alloc_(nullptr){
     }
 
     json() requires (is_view)
         :v(nullptr)
-        ,_alloc(nullptr){
+        ,alloc_(nullptr){
     }
 
     template<class OwnerV>
     json(json<OwnerV> &owner) requires (is_value)
         :v()
-        ,_alloc(&owner.allocator()){
+        ,alloc_(&owner.allocator()){
     }
 
     json(rapidjson::Value *value, allocator_type *alloc) requires (is_view)
         :v(value)
-        ,_alloc(alloc){
+        ,alloc_(alloc){
     }
 
     json(const json&) = delete;
@@ -122,14 +122,14 @@ public:
 
     json(json &&other) noexcept
         :v(std::move(other.v))
-        ,_alloc(other._alloc){
+        ,alloc_(other.alloc_){
         if constexpr(is_document){
-            _alloc = &v.GetAllocator();
+            alloc_ = &v.GetAllocator();
         }else if constexpr(is_view){
             other.v = nullptr;
-            other._alloc = nullptr;
+            other.alloc_ = nullptr;
         }else{
-            other._alloc = nullptr;
+            other.alloc_ = nullptr;
         }
     }
 
@@ -138,9 +138,9 @@ public:
 
     bool valid() const{
         if constexpr(is_view){
-            return nullptr != v && nullptr != _alloc;
+            return nullptr != v && nullptr != alloc_;
         }else if constexpr(is_value){
-            return nullptr != _alloc;
+            return nullptr != alloc_;
         }else{
             return true;
         }
@@ -282,7 +282,7 @@ public:
         if(!has_allocator() || !data.valid()){
             return ERR_NOT_SUPPORT;
         }
-        if(data._alloc == _alloc){
+        if(data.alloc_ == alloc_){
             return set_value(key, data.v.Move());
         }
         rapidjson::Value copy;
@@ -491,7 +491,7 @@ public:
         if(!has_allocator() || !data.valid()){
             return ERR_NOT_SUPPORT;
         }
-        if(data._alloc == _alloc){
+        if(data.alloc_ == alloc_){
             return push_value(data.v.Move());
         }
         rapidjson::Value copy;
@@ -609,7 +609,7 @@ public:
         if constexpr(is_document){
             return v.GetAllocator();
         }else{
-            return *_alloc;
+            return *alloc_;
         }
     }
 
@@ -617,7 +617,7 @@ public:
         if constexpr(is_document){
             return v.GetAllocator();
         }else{
-            return *_alloc;
+            return *alloc_;
         }
     }
 
@@ -631,7 +631,7 @@ private:
         if constexpr(is_document){
             return true;
         }else{
-            return nullptr != _alloc;
+            return nullptr != alloc_;
         }
     }
 
@@ -653,7 +653,7 @@ private:
 
     void bind(rapidjson::Value &value, allocator_type &alloc) requires (is_view){
         v = &value;
-        _alloc = &alloc;
+        alloc_ = &alloc;
     }
 
     err_t ensure_object(){
@@ -729,7 +729,7 @@ private:
         return ERR_OK;
     }
 
-    allocator_type *_alloc;
+    allocator_type *alloc_;
 };
 
 template<class OwnerV>

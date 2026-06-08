@@ -35,47 +35,47 @@ public:
      * @param capacity 每个线程的任务检查点容量
      */
     inline void init(size_t thread_count, size_t capacity) noexcept {
-        _thread_count = thread_count;
-        _capacity = capacity;
-        _thread_status_size = sizeof(thread_status) + _capacity * sizeof(task);
+        thread_count_ = thread_count;
+        capacity_ = capacity;
+        thread_status_size_ = sizeof(thread_status) + capacity_ * sizeof(task);
     }
 
     inline void attach(uint8_t* data) noexcept {
-        _data = data;
-        for(size_t i = 0; i < _thread_count; ++i){
-            _status[i] = reinterpret_cast<thread_status*>(_data + i * _thread_status_size);
+        data_ = data;
+        for(size_t i = 0; i < thread_count_; ++i){
+            status_[i] = reinterpret_cast<thread_status*>(data_ + i * thread_status_size_);
         }
     }
     /**
      * @brief 获取指定线程的状态图指针
      */
     inline thread_status* thread_status_at(size_t thread_id) noexcept {
-        if(thread_id >= _thread_count){
+        if(thread_id >= thread_count_){
             return nullptr;
         }
-        return _status[thread_id];
+        return status_[thread_id];
     }
     /**
      * @brief 计算图的总大小,给分配器使用
      */
     inline size_t size() const noexcept {
-        return _thread_status_size * _thread_count;
+        return thread_status_size_ * thread_count_;
     }
     /**
      * @brief 计算单线程状态图大小
      */
     inline size_t thread_status_size() const noexcept {
-        return _thread_status_size;
+        return thread_status_size_;
     }
     inline size_t capacity() const noexcept {
-        return _capacity;
+        return capacity_;
     }
 private:
-    uint8_t* _data{nullptr};
-    thread_status* _status[64]{nullptr};
-    size_t _capacity{1024};
-    size_t _thread_status_size{0};
-    size_t _thread_count{64};
+    uint8_t* data_{nullptr};
+    thread_status* status_[64]{nullptr};
+    size_t capacity_{1024};
+    size_t thread_status_size_{0};
+    size_t thread_count_{64};
 };
 
 NSE_INSPECTION
