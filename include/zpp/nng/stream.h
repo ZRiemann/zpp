@@ -3,8 +3,7 @@
 #include "defs.h"
 
 NSB_NNG
-class stream{
+class stream {
 public:
-    
 };
 NSE_NNG

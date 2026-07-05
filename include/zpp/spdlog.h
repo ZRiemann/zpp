@@ -32,26 +32,25 @@ NSB_ZPP
 namespace log {
 
 struct config {
-    bool async{false};
-    bool console{true};
-    bool rotating_file{false};
-    bool rotate_on_open{true};
-    std::string file_name{"server.log"};
-    std::size_t max_file_size_mb{32};
-    std::size_t max_files{3};
-    std::size_t queue_size{8192};
-    std::chrono::seconds flush_interval{2};
-    spdlog::level::level_enum level{spdlog::level::trace};
-    spdlog::level::level_enum flush_level{spdlog::level::warn};
-    std::string logger_name{"zpp"};
-    std::string pattern{"%d %H:%M:%S.%f %t %^%L%$: %v\t%g:%#"};
+  bool async{false};
+  bool console{true};
+  bool rotating_file{false};
+  bool rotate_on_open{true};
+  std::string file_name{"server.log"};
+  std::size_t max_file_size_mb{32};
+  std::size_t max_files{3};
+  std::size_t queue_size{8192};
+  std::chrono::seconds flush_interval{2};
+  spdlog::level::level_enum level{spdlog::level::trace};
+  spdlog::level::level_enum flush_level{spdlog::level::warn};
+  std::string logger_name{"zpp"};
+  std::string pattern{"%d %H:%M:%S.%f %t %^%L%$: %v\t%g:%#"};
 };
 
-void init(const config& cfg = config{});
+void init(const config &cfg = config{});
 void shutdown() noexcept;
 void set_level(spdlog::level::level_enum level);
-void log_preformatted(spdlog::source_loc source,
-                      spdlog::level::level_enum lvl,
+void log_preformatted(spdlog::source_loc source, spdlog::level::level_enum lvl,
                       spdlog::string_view_t msg);
 
 } // namespace log
@@ -61,32 +60,33 @@ NSE_ZPP
 #define spd_end g_spd_log->dump_backtrace
 
 template <typename... Args>
-inline void spd_logx(spdlog::source_loc source,
-                     spdlog::level::level_enum lvl,
-                     spdlog::format_string_t<Args...> fmt_str,
-                     Args&&... args) {
-    spdlog::memory_buf_t buffer;
+inline void spd_logx(spdlog::source_loc source, spdlog::level::level_enum lvl,
+                     spdlog::format_string_t<Args...> fmt_str, Args &&...args) {
+  spdlog::memory_buf_t buffer;
 #ifdef SPDLOG_USE_STD_FORMAT
-    fmt_lib::vformat_to(std::back_inserter(buffer),
-                        spdlog::details::to_string_view(fmt_str),
-                        fmt_lib::make_format_args(args...));
+  fmt_lib::vformat_to(std::back_inserter(buffer),
+                      spdlog::details::to_string_view(fmt_str),
+                      fmt_lib::make_format_args(args...));
 #else
-    fmt::vformat_to(fmt::appender(buffer),
-                    spdlog::details::to_string_view(fmt_str),
-                    fmt::make_format_args(args...));
+  fmt::vformat_to(fmt::appender(buffer),
+                  spdlog::details::to_string_view(fmt_str),
+                  fmt::make_format_args(args...));
 #endif
-    z::log::log_preformatted(source,
-                             lvl,
-                             spdlog::string_view_t{buffer.data(), buffer.size()});
+  z::log::log_preformatted(source, lvl,
+                           spdlog::string_view_t{buffer.data(), buffer.size()});
 }
 
 inline bool spd_should_log(spdlog::level::level_enum lvl) noexcept {
-    auto* logger = g_spd_log.get();
-    return logger && lvl != spdlog::level::off && (logger->should_log(lvl) || logger->should_backtrace());
+  auto *logger = g_spd_log.get();
+  return logger && lvl != spdlog::level::off &&
+         (logger->should_log(lvl) || logger->should_backtrace());
 }
 
-#define spd_logx_if(lvl, ...) \
-    (spd_should_log(lvl) ? spd_logx(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, lvl, __VA_ARGS__) : (void)0)
+#define spd_logx_if(lvl, ...)                                                  \
+  (spd_should_log(lvl)                                                         \
+       ? spd_logx(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, lvl,   \
+                  __VA_ARGS__)                                                 \
+       : (void)0)
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_INFO
 #define spd_inf(...) spd_logx_if(spdlog::level::info, __VA_ARGS__)

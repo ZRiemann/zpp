@@ -1,74 +1,82 @@
 #pragma once
 
-#include "defs.h"
+#include <nng/nng.h>
+
+#include <zpp/core/monitor.h>
+#include <zpp/nng/aio.h>
+#include <zpp/nng/context.h>
+#include <zpp/nng/message.h>
 
 NSB_NNG
 
 /**
- * @class aio_ctx
- * @note
- * Not all protocols have contexts, because many protocols simply have no state to manage. 
- * The following protocols support contexts: REP, REQ, RESPONDENT, SURVEYOR, SUB
- * @todo use template impliment
+ * @brief Movable RAII wrapper for an NNG protocol context and its AIO handle.
+ * @note SUB, REQ, REP, SURVEYOR, and RESPONDENT support contexts.
+ *       Close every context before stopping its parent protocol.
  */
-class aio_ctx{
+class aio_ctx {
 public:
-    aio_ctx(nng_socket sock, void(*aio_cb)(void*)) {
-        nng_ctx_open(&ctx_, sock);
-        nng_aio_alloc(&aio_, aio_cb, this);
-    }
-    ~aio_ctx(){
-        nng_ctx_close(ctx_);
-        nng_aio_close(aio_);
-    }
-public:
-#if 0
-    // aio_ctx reserved
-    static inline void aio_cb(nng_aio* aio){
-        aio_ctx* ctx = static_cast<aio_ctx*>(nng_aio_get_prov_data(aio));
-        ctx->on_aio(aio);
-    }
-    // 性能考虑直接在回调中处理，不通过虚函数调用
-    //virtual void on_aio(nng_aio* aio) = 0;
-#endif
-public:
-    nng_ctx ctx_{NNG_CTX_INITIALIZER};
-    nng_aio* aio_{nullptr};
-    void *data_{nullptr}; // user data
-    enum class state{
-        INIT,
-        RECV,
-        SEND
-    } state_{state::INIT};
-}
-#if 0
-void
-echo(void *arg)
-{
-    struct echo_context *ec = arg;
+  aio_ctx() = default;
+  ~aio_ctx() noexcept;
 
-    switch (ec->state) {
-    case INIT:
-        ec->state = RECV;
-        nng_ctx_recv(ec->ctx, ec->aio);
-        return;
-    case RECV:
-        if (nng_aio_result(ec->aio) != 0) {
-            // ... handle error
-        }
-        // We reuse the message on the ec->aio
-        ec->state = SEND;
-        nng_ctx_send(ec->ctx, ec->aio);
-        return;
-    case SEND:
-        if (nng_aio_result(ec->aio) != 0) {
-            // ... handle error
-        }
-        ec->state = RECV;
-        nng_ctx_recv(ec->ctx, ec->aio);
-        return;
-    }
-}
-#endif
+  aio_ctx(const aio_ctx &) = delete;
+  aio_ctx &operator=(const aio_ctx &) = delete;
+
+  aio_ctx(aio_ctx &&other) noexcept;
+  aio_ctx &operator=(aio_ctx &&other) noexcept;
+
+  using callback = void (*)(void *, aio_ctx &, aio::state, nng_err);
+  /**
+   * @brief Opens a context and allocates its asynchronous I/O handle
+   * transactionally.
+   * @note A null callback creates a waitable AIO without completion callbacks.
+   */
+  int open(nng_socket owner, callback cb, void *arg) noexcept;
+
+  /// Stops asynchronous work, frees the AIO, and closes the context.
+  void close() noexcept;
+
+  bool valid() const noexcept;
+  explicit operator bool() const noexcept;
+
+  /// Returns the owned protocol context wrapper.
+  context &ctx() noexcept;
+  /// Returns the owned protocol context wrapper.
+  const context &ctx() const noexcept;
+
+  aio &io() noexcept;
+  const aio &io() const noexcept;
+
+  /**
+   * @brief Transfers a message to the AIO and starts an asynchronous send.
+   * @note The context must be valid and its AIO must be idle. On failure, use
+   *       io().release_msg() to recover the unsent message.
+   */
+  void send(message &msg) noexcept {
+    io_.set_msg(msg.release());
+    ctx_.send(io_);
+  }
+  /**
+   * @brief Starts an asynchronous receive on an idle AIO.
+   * @note The context must be valid and its AIO must be idle. On failure, use
+   *       io().release_msg() to recover the unsent message.
+   */
+  void send() noexcept { ctx_.send(io_); }
+
+  /// Starts an asynchronous receive on an idle AIO.
+  void recv() noexcept { ctx_.recv(io_); }
+private:
+  context ctx_;
+  aio io_;
+  callback callback_{nullptr};
+  void *arg_{nullptr};
+
+  static void aio_callback(void *arg) noexcept {
+    auto *self = static_cast<aio_ctx *>(arg);
+    monitor_guard guard;
+    self->callback_(self->arg_, *self, self->io_.get_state(),
+                    self->io_.result());
+  }
+};
 
 NSE_NNG

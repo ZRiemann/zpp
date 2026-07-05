@@ -1,11 +1,11 @@
 #pragma once
 
 #include <coroutine>
+#include <optional>
 #include <type_traits>
 #include <utility>
-#include <optional>
-#include <zpp/namespace.h>
 #include <zpp/coro/promise.h>
+#include <zpp/namespace.h>
 
 NSB_CORO
 
@@ -13,12 +13,12 @@ NSB_CORO
  * @file task.h
  * @brief Generic move-only coroutine task wrapper parameterized by result type.
  *
- * This header provides a small, generic `task<ResultType, AwaiterInit, AwaiterFinal>`
- * wrapper that holds the coroutine handle for a coroutine whose `promise_type`
- * is `z::coro::promise<ResultType, AwaiterInit, AwaiterFinal>` (exposed as
- * the nested `promise_type`). The wrapper is movable but not copyable. For
- * non-void result types the `result()` accessor returns the stored result
- * from the promise.
+ * This header provides a small, generic `task<ResultType, AwaiterInit,
+ * AwaiterFinal>` wrapper that holds the coroutine handle for a coroutine whose
+ * `promise_type` is `z::coro::promise<ResultType, AwaiterInit, AwaiterFinal>`
+ * (exposed as the nested `promise_type`). The wrapper is movable but not
+ * copyable. For non-void result types the `result()` accessor returns the
+ * stored result from the promise.
  */
 
 /**
@@ -35,10 +35,8 @@ NSB_CORO
  * produced by the coroutine. Users may extend this wrapper or provide
  * custom awaiters if they require awaiting behaviour.
  */
-template <
-  typename ResultType = void,
-  typename AwaiterInit = std::suspend_never,
-  typename AwaiterFinal = std::suspend_always>
+template <typename ResultType = void, typename AwaiterInit = std::suspend_never,
+          typename AwaiterFinal = std::suspend_always>
 struct task {
   using promise_type = z::coro::promise<ResultType, AwaiterInit, AwaiterFinal>;
   using result_type = typename promise_type::result_type;
@@ -47,21 +45,23 @@ struct task {
 
   task(std::coroutine_handle<promise_type> h) noexcept : handle(h) {}
 
-  task(task&& o) noexcept : handle(o.handle) { o.handle = {}; }
-  task& operator=(task&& o) noexcept {
+  task(task &&o) noexcept : handle(o.handle) { o.handle = {}; }
+  task &operator=(task &&o) noexcept {
     if (this != &o) {
-      if (handle) handle.destroy();
+      if (handle)
+        handle.destroy();
       handle = o.handle;
       o.handle = {};
     }
     return *this;
   }
 
-  task(const task&) = delete;
-  task& operator=(const task&) = delete;
+  task(const task &) = delete;
+  task &operator=(const task &) = delete;
 
   ~task() {
-    if (handle) handle.destroy();
+    if (handle)
+      handle.destroy();
   }
 
   /**
@@ -111,7 +111,7 @@ struct task {
    * Behavior is undefined if the coroutine never produced a value.
    */
   template <typename R = result_type>
-  requires(!std::is_void_v<R>)
+    requires(!std::is_void_v<R>)
   R result() {
     return handle.promise().value_.value();
   }
@@ -120,9 +120,9 @@ struct task {
    * @brief Dummy result accessor for `void` coroutines.
    */
   template <typename R = result_type>
-  requires(std::is_void_v<R>)
+    requires(std::is_void_v<R>)
   void result() noexcept {}
-// (awaiter implementation moved to include/zpp/coro/awaiter.h)
+  // (awaiter implementation moved to include/zpp/coro/awaiter.h)
 };
 
 NSE_CORO

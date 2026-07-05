@@ -3,6 +3,41 @@
 
 * 发布历史
 
+** v0.7.0 - 2026-07-05
+*** 发布定位摘要
+- 从 =v0.6.0= 升级到 =v0.7.0=，核心是可复用 NNG 协议封装与仓库级 C++ 格式规范。
+- 对 =zpp::nng= 进行破坏性 API 清理，移除过时兼容接口并统一协议生命周期与所有权语义。
+
+*** 变更内容
+- 新增仓库级 =.clang-format= 配置与 VS Code formatter 设置，并按统一格式整理 zpp C++ 源码、头文件、示例和测试。
+- 将所有公开协议封装统一到 =zpp/nng/protocols/=，新增聚合头 =protocols.h=；直接移除旧 =zpp/nng/publisher.h= 与 =zpp/nng/subscriber.h= 路径，不提供转发兼容头。
+- 新增公共 =endpoint_protocol= 生命周期复用，并完成 PUSH/PULL、REQ/REP、SURVEYOR/RESPONDENT、BUS 及单 endpoint PAIR0/PAIR1 封装；REQ/REP 与 SUB 收敛为管理式异步并发接口，其余协议按合法方向提供同步与 AIO 接口。
+- 将 =aio_ctx= 增强为可移动、事务式 RAII，仅保留异步 =send(message&)= 与 =recv()= 操作；由 REQ/REP 内部管理并发 context，SURVEYOR、RESPONDENT 继续提供应用管理的 context 和 survey timeout 等协议专用配置。
+- 新增 =z::nng::context= 薄封装，覆盖 =nng_ctx= 生命周期、同步/AIO 收发、当前 NNG 2.0 typed context option，以及公共收发超时的批量配置，并由 =aio_ctx= 组合复用。
+- 新增支持事务式多 endpoint 配置的 =publisher= 与 =subscriber=，option 组均可省略，单个 socket 可混合 listen/dial role，生命周期顺序由调用方保证；subscriber 在默认 context 上管理固定 receive AIO 池，确保每条匹配消息只投递一次。
+- 将宽泛的 =event_forwarder= API 替换为 =zpp/nng/protocols/= 下的 =pub_sub_device=，device completion 改用 RAII =aio= 封装，在 NNG 接管后释放 socket wrapper 所有权，并移除冗余的 =running()= 状态查询。
+- 将 listener/dialer endpoint 创建和启动逻辑收敛为 =endpoint_protocol= 私有实现，由全部协议封装内部复用。
+- 将 endpoint 元数据校验归入 =zpp/nng/endpoint.h=，并完成 socket、listener、dialer 的批量 =set_options/get_options=；endpoint 与 TCP transport option 组可独立省略。
+- 将同步 PUB send 热路径改为内联薄转发，保留 NNG 错误码和明确的消息所有权语义。
+- 将 PUB/SUB 程序重命名为 =publisher_example= 与 =subscriber_example=，新增 =pub_sub_device_example=，演示 publisher 经 device 到 subscriber 的三进程透传拓扑。
+- 新增可运行的 PUSH/PULL、REQ/REP、PAIR1 listen/dial 示例，共享 JSON option 解析与可复用 AIO 状态机，并补充对应 =doc/server.json= 配置。
+- 将 REQ/REP 生命周期统一为 =start(context_count)= 与 =stop()=：启动时自动创建并发 context，停止时先关闭 AIO/context 再关闭 endpoint；移除公开的 =open_context()/send()/recv()= 及 =start_mt()/stop_mt()=。requester 通过 =request()/on_reply()= 和 =hint= 关联乱序应答。
+- 将 SUB 生命周期统一为 =start(aio_count)= 与 =stop()=：在 socket 单一默认 context 上提交多个 receive，callback 完成后自动重投对应 AIO，停止时先关闭全部 AIO 再关闭 endpoint；移除公开的 =subscribe()/unsubscribe()/open_context()/recv()=，通过可并发执行的 =on_receive(message&, result)= 扩展点交付消息。
+- 清理 =pipe= option getter 的指针输出重载，并移除 NNG 2.0 已不再提供实现的 dialer/listener option wrapper。
+- 简化 =nng::message= 所有权状态：=msg_= 非空时始终由封装层拥有，发送成功或 =release()= 后置空，并移除独立的 =owned_= 标记。
+- 为协议框架补充按阶段定位的错误日志，覆盖配置、endpoint 启动、托管 AIO/context 创建、callback 状态异常，以及 requester context 池初始化和回收失败；正常背压与有序停止仍不记录为错误。
+
+*** 兼容性与升级说明
+- PUB/SUB include 需迁移到 =zpp/nng/protocols/publisher.h= 与 =zpp/nng/protocols/subscriber.h=，也可使用聚合头 =zpp/nng/protocols/protocols.h=。
+- REQ/REP 调用方应按 =configure() -> start(context_count) -> request/serve -> stop()= 管理生命周期，不再单独调用 =start_mt()/stop_mt()=；SURVEYOR 和 RESPONDENT 的应用管理 context 在 =stop()= 前仍须先关闭。
+- SUB 调用方应按 =configure() -> start(aio_count) -> receive callback -> stop()= 管理生命周期。原有直接 =subscribe()/unsubscribe()/open_context()/recv()= 调用应迁移到配置 topics 和 =on_receive()=；确需底层操作时直接使用 =z::nng::socket=、=context= 与 =aio_ctx=。
+- 原有 REQ/REP =open_context()/send()/recv()= 调用应迁移到 requester 的 =request()/on_reply()= 或 replier 的 =on_receive()/on_send()= 扩展点；context 级底层操作可直接使用 =z::nng::context= 与 =aio_ctx=。
+- 原有同步或裸消息 =aio_ctx= 收发调用应改用 =context= 完成同步 I/O，或改用 =aio_ctx::send(message&)= 与 =recv()= 完成异步 I/O。异步发送在提交时转移所有权；发送失败后通过 =io().release_msg()= 取回消息。重复转发的 =aio_ctx::get()/id()= 已移除，context handle 和 id 统一通过 =ctx().get()= 与 =ctx().id()= 访问。
+- 将 =event_forwarder= 及其头文件迁移为 =zpp/nng/protocols/pub_sub_device.h= 中的 =pub_sub_device=；旧类型、include 路径和 =running()= 不提供兼容别名。
+- PUB/SUB 示例配置必须提供一个 =ingress_endpoint=、非空 =egress_endpoints= 数组和非空 =topics= 数组；空 topic 字符串表示订阅全部消息。
+- 原有 =socket::apply_options()= 调用需改为 =socket::set_options()= 并处理返回的 NNG 错误码。
+- 原先调用已移除 option wrapper 的代码需要改用当前 NNG 2.0 支持的接口。
+
 ** v0.6.0 - 2026-06-08
 *** 发布定位摘要
 - 按功能版本发布，zpp 从 =v0.5.3= 升级到 =v0.6.0=，扩展可复用 NNG runtime 与系统工具 API。
@@ -12,6 +47,7 @@
 *** 变更内容
 - 新增 =zpp/nng/endpoint.h= 与 =src/nng/endpoint.cpp=，提供通用 NNG URL transport 解析、endpoint role、TCP URL 生成、token 替换、IPC 路径提取和 IPC 残留 socket 清理。
 - 将 =zpp/nng/socket.h= 重构为可移动 RAII socket owner，提供协议 open helper、socket option accessor、listen/dial wrapper、raw PUB/SUB 支持，并保留历史 =pare*= 方法兼容别名。
+- 统一 NNG 模块日志到 =zpp/nng/log.h= 的 =nng2*= 宏接口，避免旧 =nng_err(...)= helper 与上游 =::nng_err= 类型重名。
 - 新增 =zpp/nng/runtime.h= 与 =src/nng/runtime.cpp=，提供 runtime socket option、纳秒时间戳、normal PUB 发布和 raw SUB-to-PUB event forwarder。
 - 增加 =zpp_nngConfig.cmake= 导出支持，让下游项目可从安装后的 package config 恢复 =zpp= 与 =nng= 依赖。
 - 新增 =zpp/system/timer.hpp= 与 =zpp/system/wall_time.hpp=，并删除旧 =zpp/system/time.h= helper。

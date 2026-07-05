@@ -10,8 +10,8 @@
 #if defined(_MSC_VER)
 #include <intrin.h>
 #else
-#include <x86intrin.h>
 #include <cpuid.h>
+#include <x86intrin.h>
 #endif
 #else
 #error "timestamp counter helpers are only available on x86/x86_64"
@@ -39,19 +39,16 @@ inline bool tsc_init() noexcept{return true;}
 /**
  * @brief Timestamp counter frequency detection.
  * @note
- * TSC: <10 cycles/ns, RDTSC:~100 cycles/ns, clock_gettime()/std::chrono::steady_clock: ~1000 cycles/ns
- * TSC only support x86/x86_64 platform and real system(not vm), other platform can use
+ * TSC: <10 cycles/ns, RDTSC:~100 cycles/ns,
+ * clock_gettime()/std::chrono::steady_clock: ~1000 cycles/ns TSC only support
+ * x86/x86_64 platform and real system(not vm), other platform can use
  * clock_gettime() POSIX API. Can work on Linux, MacOS, *BSD. and VM.
  */
 extern double s_tsc_frequency;
 extern double s_tsc_ns_per;
 
-inline double& get_tsc_frequency() noexcept{
-    return s_tsc_frequency;
-}
-inline double& get_tsc_ns_per() noexcept{
-    return s_tsc_ns_per;
-}
+inline double &get_tsc_frequency() noexcept { return s_tsc_frequency; }
+inline double &get_tsc_ns_per() noexcept { return s_tsc_ns_per; }
 
 /**
  * @brief Probe and initialize the TSC frequency used by this library.
@@ -73,9 +70,7 @@ bool tsc_init();
  * Invokes a bare RDTSC instruction (no serialization fences). Callers must
  * tolerate that surrounding instructions can be reordered around the read.
  */
-inline tsc_t tsc_now_r() noexcept{
-    return __rdtsc();
-}
+inline tsc_t tsc_now_r() noexcept { return __rdtsc(); }
 
 /**
  * @brief Read the time-stamp counter with LFENCE/RDTSCP serialization.
@@ -83,10 +78,10 @@ inline tsc_t tsc_now_r() noexcept{
  * Emits an LFENCE before the measurement point and uses RDTSCP to ensure
  * no following instructions execute before the counter value is captured.
  */
-inline tsc_t tsc_now_s() noexcept{
-    _mm_lfence();
-    unsigned int aux;
-    return __rdtscp(&aux);
+inline tsc_t tsc_now_s() noexcept {
+  _mm_lfence();
+  unsigned int aux;
+  return __rdtscp(&aux);
 }
 
 /**
@@ -94,46 +89,50 @@ inline tsc_t tsc_now_s() noexcept{
  * @param cycles Difference between two readings of the timestamp counter.
  * @return Duration in nanoseconds (rounded), or 0 when frequency is unknown.
  */
-inline duration_t tsc_to_ns(tsc_t cycles) noexcept{
-    // Fast path: if we have a cached nanoseconds-per-cycle factor, use a
-    // single multiply (hot path). Otherwise fall back to division-based
-    // computation using the reported frequency.
-    const double ns_per_cycle = get_tsc_ns_per();
-    if (ns_per_cycle > 0.0) {
-        const long double nanos = static_cast<long double>(cycles) * static_cast<long double>(ns_per_cycle);
-        if (nanos <= 0.0L) {
-            return 0;
-        }
-        if (nanos >= static_cast<long double>(std::numeric_limits<uint64_t>::max())) {
-            return std::numeric_limits<uint64_t>::max();
-        }
-        return static_cast<duration_t>(nanos + 0.5L);
+inline duration_t tsc_to_ns(tsc_t cycles) noexcept {
+  // Fast path: if we have a cached nanoseconds-per-cycle factor, use a
+  // single multiply (hot path). Otherwise fall back to division-based
+  // computation using the reported frequency.
+  const double ns_per_cycle = get_tsc_ns_per();
+  if (ns_per_cycle > 0.0) {
+    const long double nanos = static_cast<long double>(cycles) *
+                              static_cast<long double>(ns_per_cycle);
+    if (nanos <= 0.0L) {
+      return 0;
     }
-
-    if (get_tsc_frequency() <= 0.0){
-        return 0;
-    }
-    const long double numerator = static_cast<long double>(cycles) * 1'000'000'000.0L;
-    const long double nanos = numerator / static_cast<long double>(get_tsc_frequency());
-    if (nanos <= 0.0L){
-        return 0;
-    }
-    if (nanos >= static_cast<long double>(std::numeric_limits<uint64_t>::max())){
-        return std::numeric_limits<uint64_t>::max();
+    if (nanos >=
+        static_cast<long double>(std::numeric_limits<uint64_t>::max())) {
+      return std::numeric_limits<uint64_t>::max();
     }
     return static_cast<duration_t>(nanos + 0.5L);
+  }
+
+  if (get_tsc_frequency() <= 0.0) {
+    return 0;
+  }
+  const long double numerator =
+      static_cast<long double>(cycles) * 1'000'000'000.0L;
+  const long double nanos =
+      numerator / static_cast<long double>(get_tsc_frequency());
+  if (nanos <= 0.0L) {
+    return 0;
+  }
+  if (nanos >= static_cast<long double>(std::numeric_limits<uint64_t>::max())) {
+    return std::numeric_limits<uint64_t>::max();
+  }
+  return static_cast<duration_t>(nanos + 0.5L);
 }
 
-inline duration_t elapsed_ns(tsc_t start, tsc_t end) noexcept{
-    return tsc_to_ns(end - start);
+inline duration_t elapsed_ns(tsc_t start, tsc_t end) noexcept {
+  return tsc_to_ns(end - start);
 }
 
-inline duration_t elapsed_us(tsc_t start, tsc_t end) noexcept{
-    return tsc_to_ns(end - start) / 1000;
+inline duration_t elapsed_us(tsc_t start, tsc_t end) noexcept {
+  return tsc_to_ns(end - start) / 1000;
 }
 
-inline duration_t elapsed_ms(tsc_t start, tsc_t end) noexcept{
-    return tsc_to_ns(end - start) / 1'000'000;
+inline duration_t elapsed_ms(tsc_t start, tsc_t end) noexcept {
+  return tsc_to_ns(end - start) / 1'000'000;
 }
 
 /**
@@ -169,22 +168,22 @@ inline duration_t elapsed_ms(tsc_t start, tsc_t end) noexcept{
  * before converting to nanoseconds, which improves effective resolution and
  * avoids repeated floating-point math in hot loops.
  */
-inline tsc_t step_cycles_r(tsc_t& start) noexcept{
-    const tsc_t now = tsc_now_r();
-    const tsc_t diff = now - start;
-    start = now;
-    return diff;
+inline tsc_t step_cycles_r(tsc_t &start) noexcept {
+  const tsc_t now = tsc_now_r();
+  const tsc_t diff = now - start;
+  start = now;
+  return diff;
 }
 
 /**
  * @brief Lightweight step that returns the raw cycle difference and advances
  *        `start` (serialized read).
  */
-inline tsc_t step_cycles_s(tsc_t& start) noexcept{
-    const tsc_t now = tsc_now_s();
-    const tsc_t diff = now - start;
-    start = now;
-    return diff;
+inline tsc_t step_cycles_s(tsc_t &start) noexcept {
+  const tsc_t now = tsc_now_s();
+  const tsc_t diff = now - start;
+  start = now;
+  return diff;
 }
 
 /**
@@ -194,11 +193,11 @@ inline tsc_t step_cycles_s(tsc_t& start) noexcept{
  * result to nanoseconds. Prefer using the cycle-returning variants in
  * extremely hot paths and batch conversion where possible.
  */
-inline duration_t step_ns_r(tsc_t& start) noexcept{
-    return tsc_to_ns(step_cycles_r(start));
+inline duration_t step_ns_r(tsc_t &start) noexcept {
+  return tsc_to_ns(step_cycles_r(start));
 }
 
-inline duration_t step_ns_s(tsc_t& start) noexcept{
-    return tsc_to_ns(step_cycles_s(start));
+inline duration_t step_ns_s(tsc_t &start) noexcept {
+  return tsc_to_ns(step_cycles_s(start));
 }
 NSE_ZPP

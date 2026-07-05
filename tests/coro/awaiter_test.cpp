@@ -10,9 +10,7 @@ TEST(AwaiterExamples, ProducerReturnsValue) {
   EXPECT_EQ(t.result(), 123);
 }
 
-TEST(AwaiterExamples, ProducerRunHelper) {
-  EXPECT_EQ(producer_run(), 123);
-}
+TEST(AwaiterExamples, ProducerRunHelper) { EXPECT_EQ(producer_run(), 123); }
 
 TEST(AwaiterExamples, AwaiterDelayResume) {
   // This test verifies that awaiting worker_delay does not deadlock and
@@ -24,7 +22,7 @@ TEST(AwaiterExamples, AwaiterDelayResume) {
   auto waiter = [&]() -> task<void> {
     co_await awaiter_delay{std::chrono::milliseconds(10)};
     done = true;
-  
+
     co_return;
   };
 

@@ -1,8 +1,8 @@
 #pragma once
 
+#include "stopwatch.h"
 #include <zpp/namespace.h>
 #include <zpp/system/tsc.h>
-#include "stopwatch.h"
 
 NSB_ZPP
 /**
@@ -28,38 +28,36 @@ NSB_ZPP
  * - Converting cycles to wall-clock time uses `tsc_to_ns()` / `elapsed_ns`
  *   helpers which may consult a cached cycles->ns factor when available.
  */
-class tsc_r{
+class tsc_r {
 public:
-    tsc_r() = default;
-    ~tsc_r() = default;
+  tsc_r() = default;
+  ~tsc_r() = default;
 
-    static inline tsc_t now() noexcept{
-        return tsc_now_r();
-    }
+  static inline tsc_t now() noexcept { return tsc_now_r(); }
 
-    static inline duration_t elapsed_ns(tsc_t start, tsc_t end) noexcept{
-        return z::elapsed_ns(start, end);
-    }
-    static inline duration_t step_ns(tsc_t& start) noexcept{
-        const tsc_t cycles = step_cycles_r(start);
-        return tsc_to_ns(cycles);
-    }
+  static inline duration_t elapsed_ns(tsc_t start, tsc_t end) noexcept {
+    return z::elapsed_ns(start, end);
+  }
+  static inline duration_t step_ns(tsc_t &start) noexcept {
+    const tsc_t cycles = step_cycles_r(start);
+    return tsc_to_ns(cycles);
+  }
 
-    static inline duration_t elapsed_us(tsc_t start, tsc_t end) noexcept{
-        return z::elapsed_ns(start, end) / 1000;
-    }
-    static inline duration_t step_us(tsc_t& start) noexcept{
-        const tsc_t cycles = step_cycles_r(start);
-        return tsc_to_ns(cycles) / 1000;
-    }
+  static inline duration_t elapsed_us(tsc_t start, tsc_t end) noexcept {
+    return z::elapsed_ns(start, end) / 1000;
+  }
+  static inline duration_t step_us(tsc_t &start) noexcept {
+    const tsc_t cycles = step_cycles_r(start);
+    return tsc_to_ns(cycles) / 1000;
+  }
 
-    static inline duration_t elapsed_ms(tsc_t start, tsc_t end) noexcept{
-        return z::elapsed_ns(start, end) / 1000000;
-    }
-    static inline duration_t step_ms(tsc_t& start) noexcept{
-        const tsc_t cycles = step_cycles_r(start);
-        return tsc_to_ns(cycles) / 1000000;
-    }
+  static inline duration_t elapsed_ms(tsc_t start, tsc_t end) noexcept {
+    return z::elapsed_ns(start, end) / 1000000;
+  }
+  static inline duration_t step_ms(tsc_t &start) noexcept {
+    const tsc_t cycles = step_cycles_r(start);
+    return tsc_to_ns(cycles) / 1000000;
+  }
 };
 
 /**
@@ -70,43 +68,41 @@ public:
  * additional overhead for stronger ordering guarantees, which can be important
  * for certain profiling scenarios.
  */
-class tsc_s{
+class tsc_s {
 public:
-    tsc_s() = default;
-    ~tsc_s() = default;
+  tsc_s() = default;
+  ~tsc_s() = default;
 
-    static inline tsc_t now() noexcept{
-        return tsc_now_s();
-    }
+  static inline tsc_t now() noexcept { return tsc_now_s(); }
 
-    static inline duration_t elapsed_ns(tsc_t start, tsc_t end) noexcept{
-        return z::elapsed_ns(start, end);
-    }
-    static inline duration_t step_ns(tsc_t& start) noexcept{
-        const tsc_t cycles = step_cycles_s(start);
-        return tsc_to_ns(cycles);
-    }
+  static inline duration_t elapsed_ns(tsc_t start, tsc_t end) noexcept {
+    return z::elapsed_ns(start, end);
+  }
+  static inline duration_t step_ns(tsc_t &start) noexcept {
+    const tsc_t cycles = step_cycles_s(start);
+    return tsc_to_ns(cycles);
+  }
 
-    static inline duration_t elapsed_us(tsc_t start, tsc_t end) noexcept{
-        return z::elapsed_ns(start, end) / 1000;
-    }
-    static inline duration_t step_us(tsc_t& start) noexcept{
-        const tsc_t cycles = step_cycles_r(start);
-        return tsc_to_ns(cycles) / 1000;
-    }
+  static inline duration_t elapsed_us(tsc_t start, tsc_t end) noexcept {
+    return z::elapsed_ns(start, end) / 1000;
+  }
+  static inline duration_t step_us(tsc_t &start) noexcept {
+    const tsc_t cycles = step_cycles_r(start);
+    return tsc_to_ns(cycles) / 1000;
+  }
 
-    static inline duration_t elapsed_ms(tsc_t start, tsc_t end) noexcept{
-        return z::elapsed_ns(start, end) / 1000000;
-    }
-    static inline duration_t step_ms(tsc_t& start) noexcept{
-        const tsc_t cycles = step_cycles_r(start);
-        return tsc_to_ns(cycles) / 1000000;
-    }
+  static inline duration_t elapsed_ms(tsc_t start, tsc_t end) noexcept {
+    return z::elapsed_ns(start, end) / 1000000;
+  }
+  static inline duration_t step_ms(tsc_t &start) noexcept {
+    const tsc_t cycles = step_cycles_r(start);
+    return tsc_to_ns(cycles) / 1000000;
+  }
 };
 
 using tsc = tsc_r;
 using stopwatch_tsc = stopwatch<tsc, tsc_t>;
 using stopwatch_tsc_ref = stopwatch_ref<tsc, tsc_t>;
-//using stopwatch_tsc_r = stopwatch<tsc_r, tsc_t>;
-//using stopwatch_tsc_s = stopwatch<tsc_s, tsc_t>;
+// using stopwatch_tsc_r = stopwatch<tsc_r, tsc_t>;
+// using stopwatch_tsc_s = stopwatch<tsc_s, tsc_t>;
 NSE_ZPP

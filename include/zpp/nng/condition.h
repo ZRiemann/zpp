@@ -3,19 +3,15 @@
 #include "defs.h"
 #include "mutex.h"
 NSB_NNG
-class condition{
+class condition {
 public:
-    condition(mutex& mtx){
-        nng_cv_alloc(&cv_, mtx.mtx_);
-    }
-    virtual ~condition(){
-        nng_cv_free(cv_);
-    }
+  condition(mutex &mtx) { nng_cv_alloc(&cv_, mtx.mtx_); }
+  virtual ~condition() { nng_cv_free(cv_); }
+
 public:
-    inline void wait(nng_mtx* mtx){
-        nng_cv_wait(cv_, mtx);
-    }
+  inline void wait(nng_mtx *mtx) { nng_cv_wait(cv_, mtx); }
+
 public:
-    nng_cv* cv_{nullptr};
+  nng_cv *cv_{nullptr};
 };
 NSE_NNG

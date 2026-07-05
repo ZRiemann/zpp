@@ -1,15 +1,13 @@
 #include <gtest/gtest.h>
 #if 1
-#include <zpp/folly/coro.h>
-#include <folly/coro/Task.h>
 #include <folly/coro/BlockingWait.h>
+#include <folly/coro/Task.h>
+#include <zpp/folly/coro.h>
 
 using namespace z::fo;
 
 // simple producer returning int
-static folly::coro::Task<int> good_producer() {
-  co_return 7;
-}
+static folly::coro::Task<int> good_producer() { co_return 7; }
 
 static folly::coro::Task<int> bad_producer() {
   throw std::runtime_error("boom");

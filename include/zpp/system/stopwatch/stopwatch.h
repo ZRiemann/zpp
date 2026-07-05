@@ -16,7 +16,8 @@ NSB_ZPP
  *
  * Requirements for ClockType:
  * - static TimePointType now() noexcept;
- * - static duration_t elapsed_ns(TimePointType start, TimePointType end) noexcept;
+ * - static duration_t elapsed_ns(TimePointType start, TimePointType end)
+ * noexcept;
  * - static duration_t step_ns(TimePointType& start) noexcept; (updates start)
  * - analogous `elapsed_us`/`step_us` and `elapsed_ms`/`step_ms` variants.
  *
@@ -27,102 +28,98 @@ NSB_ZPP
  * @tparam ClockType   Clock adapter providing `now`, `elapsed_*` and `step_*`.
  * @tparam TimePointType The type returned by `ClockType::now()`.
  */
-template <typename ClockType, typename TimePointType>
-class stopwatch{
+template <typename ClockType, typename TimePointType> class stopwatch {
 public:
-    /**
-     * @brief Construct and start the stopwatch at the current time.
-     */
-    stopwatch()
-        :time_point_(ClockType::now()){
-    }
+  /**
+   * @brief Construct and start the stopwatch at the current time.
+   */
+  stopwatch() : time_point_(ClockType::now()) {}
 
-    ~stopwatch() = default;
+  ~stopwatch() = default;
 
-    /**
-     * @brief Start or restart the stopwatch from now.
-     *
-     * This writes the current time returned by `ClockType::now()` into the
-     * internal `time_point_` so subsequent `elapsed_*`/`step_*` calls are
-     * relative to this new baseline.
-     */
-    void start(){
-        time_point_ = ClockType::now();
-    }
+  /**
+   * @brief Start or restart the stopwatch from now.
+   *
+   * This writes the current time returned by `ClockType::now()` into the
+   * internal `time_point_` so subsequent `elapsed_*`/`step_*` calls are
+   * relative to this new baseline.
+   */
+  void start() { time_point_ = ClockType::now(); }
 
-    /**
-     * @brief Return elapsed time in nanoseconds since construction or last start.
-     *
-     * This delegates to `ClockType::elapsed_ns(start, end)` using the stored
-     * `time_point_` as the start and `ClockType::now()` as the end.
-     *
-     * @return duration in nanoseconds as `duration_t`.
-     */
-    inline duration_t elapsed_ns() noexcept {
-        return ClockType::elapsed_ns(time_point_, ClockType::now());
-    }
+  /**
+   * @brief Return elapsed time in nanoseconds since construction or last start.
+   *
+   * This delegates to `ClockType::elapsed_ns(start, end)` using the stored
+   * `time_point_` as the start and `ClockType::now()` as the end.
+   *
+   * @return duration in nanoseconds as `duration_t`.
+   */
+  inline duration_t elapsed_ns() noexcept {
+    return ClockType::elapsed_ns(time_point_, ClockType::now());
+  }
 
-    /**
-     * @brief Return time in nanoseconds since the stored `time_point_`, and
-     *        update `time_point_` to now (a "step" operation).
-     *
-     * Useful for measuring intervals in a loop while resetting the baseline
-     * on each measurement.
-     *
-     * @return duration in nanoseconds as `duration_t`.
-     */
-    inline duration_t step_ns() noexcept {
-        return ClockType::step_ns(time_point_);
-    }
+  /**
+   * @brief Return time in nanoseconds since the stored `time_point_`, and
+   *        update `time_point_` to now (a "step" operation).
+   *
+   * Useful for measuring intervals in a loop while resetting the baseline
+   * on each measurement.
+   *
+   * @return duration in nanoseconds as `duration_t`.
+   */
+  inline duration_t step_ns() noexcept {
+    return ClockType::step_ns(time_point_);
+  }
 
-    /**
-     * @brief Elapsed time in microseconds since baseline.
-     *
-     * Delegates to `ClockType::elapsed_us(start, end)`.
-     *
-     * @return duration in microseconds as `duration_t`.
-     */
-    inline duration_t elapsed_us() noexcept {
-        return ClockType::elapsed_us(time_point_, ClockType::now());
-    }
+  /**
+   * @brief Elapsed time in microseconds since baseline.
+   *
+   * Delegates to `ClockType::elapsed_us(start, end)`.
+   *
+   * @return duration in microseconds as `duration_t`.
+   */
+  inline duration_t elapsed_us() noexcept {
+    return ClockType::elapsed_us(time_point_, ClockType::now());
+  }
 
-    /**
-     * @brief Step variant that returns microseconds and updates the baseline.
-     *
-     * @return duration in microseconds as `duration_t`.
-     */
-    inline duration_t step_us() noexcept {
-        return ClockType::step_us(time_point_);
-    }
+  /**
+   * @brief Step variant that returns microseconds and updates the baseline.
+   *
+   * @return duration in microseconds as `duration_t`.
+   */
+  inline duration_t step_us() noexcept {
+    return ClockType::step_us(time_point_);
+  }
 
-    /**
-     * @brief Elapsed time in milliseconds since baseline.
-     *
-     * Delegates to `ClockType::elapsed_ms(start, end)`.
-     *
-     * @return duration in milliseconds as `duration_t`.
-     */
-    inline duration_t elapsed_ms() noexcept {
-        return ClockType::elapsed_ms(time_point_, ClockType::now());
-    }
+  /**
+   * @brief Elapsed time in milliseconds since baseline.
+   *
+   * Delegates to `ClockType::elapsed_ms(start, end)`.
+   *
+   * @return duration in milliseconds as `duration_t`.
+   */
+  inline duration_t elapsed_ms() noexcept {
+    return ClockType::elapsed_ms(time_point_, ClockType::now());
+  }
 
-    /**
-     * @brief Step variant that returns milliseconds and updates the baseline.
-     *
-     * @return duration in milliseconds as `duration_t`.
-     */
-    inline duration_t step_ms() noexcept {
-        return ClockType::step_ms(time_point_);
-    }
+  /**
+   * @brief Step variant that returns milliseconds and updates the baseline.
+   *
+   * @return duration in milliseconds as `duration_t`.
+   */
+  inline duration_t step_ms() noexcept {
+    return ClockType::step_ms(time_point_);
+  }
+
 public:
-    /**
-     * @brief The stored time point used as the measurement baseline.
-     *
-     * This member is public to allow `stopwatch_ref` and external code to
-     * reference or persist a baseline time directly. It is expected to be
-     * identical to `TimePointType` (no extra invariants).
-     */
-    TimePointType time_point_;
+  /**
+   * @brief The stored time point used as the measurement baseline.
+   *
+   * This member is public to allow `stopwatch_ref` and external code to
+   * reference or persist a baseline time directly. It is expected to be
+   * identical to `TimePointType` (no extra invariants).
+   */
+  TimePointType time_point_;
 };
 
 /**
@@ -133,77 +130,74 @@ public:
  * baseline). All operations are identical to `stopwatch` but act on the
  * referenced time point.
  *
- * @tparam ClockType     Clock adapter providing `now`, `elapsed_*` and `step_*`.
+ * @tparam ClockType     Clock adapter providing `now`, `elapsed_*` and
+ * `step_*`.
  * @tparam TimePointType The type of the referenced time point.
  */
-template <typename ClockType, typename TimePointType>
-class stopwatch_ref{
+template <typename ClockType, typename TimePointType> class stopwatch_ref {
 public:
-    /**
-     * @brief Construct a reference stopwatch from an existing time point.
-     *
-     * @param tp Reference to a `TimePointType` that will be used as baseline.
-     */
-    stopwatch_ref(TimePointType& tp)
-        :time_point_(tp){
-    }
-    ~stopwatch_ref() = default;
+  /**
+   * @brief Construct a reference stopwatch from an existing time point.
+   *
+   * @param tp Reference to a `TimePointType` that will be used as baseline.
+   */
+  stopwatch_ref(TimePointType &tp) : time_point_(tp) {}
+  ~stopwatch_ref() = default;
 
-    /**
-     * @brief Update the referenced time point to the current time.
-     */
-    void start(){
-        time_point_ = ClockType::now();
-    }
+  /**
+   * @brief Update the referenced time point to the current time.
+   */
+  void start() { time_point_ = ClockType::now(); }
 
-    /**
-     * @brief Elapsed time in nanoseconds using the referenced baseline.
-     *
-     * Delegates to `ClockType::elapsed_ns(start, end)`.
-     */
-    inline duration_t elapsed_ns() noexcept {
-        return ClockType::elapsed_ns(time_point_, ClockType::now());
-    }
+  /**
+   * @brief Elapsed time in nanoseconds using the referenced baseline.
+   *
+   * Delegates to `ClockType::elapsed_ns(start, end)`.
+   */
+  inline duration_t elapsed_ns() noexcept {
+    return ClockType::elapsed_ns(time_point_, ClockType::now());
+  }
 
-    /**
-     * @brief Step variant using the referenced baseline; updates the reference.
-     */
-    inline duration_t step_ns() noexcept {
-        return ClockType::step_ns(time_point_);
-    }
+  /**
+   * @brief Step variant using the referenced baseline; updates the reference.
+   */
+  inline duration_t step_ns() noexcept {
+    return ClockType::step_ns(time_point_);
+  }
 
-    /**
-     * @brief Elapsed time in microseconds using the referenced baseline.
-     */
-    inline duration_t elapsed_us() noexcept {
-        return ClockType::elapsed_us(time_point_, ClockType::now());
-    }
+  /**
+   * @brief Elapsed time in microseconds using the referenced baseline.
+   */
+  inline duration_t elapsed_us() noexcept {
+    return ClockType::elapsed_us(time_point_, ClockType::now());
+  }
 
-    /**
-     * @brief Step variant in microseconds using the referenced baseline.
-     */
-    inline duration_t step_us() noexcept {
-        return ClockType::step_us(time_point_);
-    }
+  /**
+   * @brief Step variant in microseconds using the referenced baseline.
+   */
+  inline duration_t step_us() noexcept {
+    return ClockType::step_us(time_point_);
+  }
 
-    /**
-     * @brief Elapsed time in milliseconds using the referenced baseline.
-     */
-    inline duration_t elapsed_ms() noexcept {
-        return ClockType::elapsed_ms(time_point_, ClockType::now());
-    }
+  /**
+   * @brief Elapsed time in milliseconds using the referenced baseline.
+   */
+  inline duration_t elapsed_ms() noexcept {
+    return ClockType::elapsed_ms(time_point_, ClockType::now());
+  }
 
-    /**
-     * @brief Step variant in milliseconds using the referenced baseline.
-     */
-    inline duration_t step_ms() noexcept {
-        return ClockType::step_ms(time_point_);
-    }
+  /**
+   * @brief Step variant in milliseconds using the referenced baseline.
+   */
+  inline duration_t step_ms() noexcept {
+    return ClockType::step_ms(time_point_);
+  }
+
 public:
-    /**
-     * @brief Reference to the external baseline time point.
-     */
-    TimePointType& time_point_;
+  /**
+   * @brief Reference to the external baseline time point.
+   */
+  TimePointType &time_point_;
 };
 
 NSE_ZPP

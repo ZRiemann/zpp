@@ -3,6 +3,46 @@
 
 * Release History
 
+** v0.7.0 - 2026-07-05
+*** Release Positioning Summary
+- Feature release from =v0.6.0= to =v0.7.0=, centered on reusable NNG protocol wrappers and repository-wide C++ formatting.
+- Breaking API cleanup in =zpp::nng= removes obsolete compatibility surfaces and standardizes protocol lifecycle and ownership semantics.
+
+*** Changes
+- Add a repository =.clang-format= configuration and VS Code formatter settings, then normalize zpp C++ sources, headers, examples, and tests to the shared format.
+- Unify public protocol wrappers under =zpp/nng/protocols/= and add the =protocols.h= aggregate header; the former =zpp/nng/publisher.h= and =zpp/nng/subscriber.h= include paths are removed without forwarding headers.
+- Add reusable =endpoint_protocol= lifecycle support and complete PUSH/PULL, REQ/REP, SURVEYOR/RESPONDENT, BUS, and single-endpoint PAIR0/PAIR1 wrappers; REQ/REP and SUB use managed asynchronous concurrency while the remaining protocols expose synchronous and AIO operations in each legal direction.
+- Upgrade =aio_ctx= to movable transactional RAII with only asynchronous =send(message&)= and =recv()= operations; REQ/REP manage their contexts internally, while SURVEYOR and RESPONDENT retain application-managed contexts with protocol-specific survey options.
+- Add the thin =z::nng::context= wrapper for =nng_ctx= lifecycle, synchronous/AIO transfers, current NNG 2.0 typed context options, and batch configuration of common send/receive timeouts, and compose it into =aio_ctx=.
+- Add reusable =publisher= and =subscriber= wrappers with transactional multi-endpoint configuration, optional socket/transport/listener/dialer option groups, mixed listen/dial roles, and caller-managed lifecycle sequencing; subscriber manages a fixed pool of receive AIOs on the default context so each matching message is delivered once.
+- Replace the broad =event_forwarder= API with =pub_sub_device= under =zpp/nng/protocols/=, use the RAII =aio= wrapper for device completion, relinquish sockets after NNG takes ownership, and remove the redundant =running()= state query.
+- Keep listener/dialer endpoint creation and startup as private =endpoint_protocol= implementation details shared by all protocol wrappers.
+- Move endpoint metadata validation into =zpp/nng/endpoint.h= and complete batch =set_options/get_options= APIs for sockets, listeners, and dialers, including independently optional endpoint and TCP transport groups.
+- Inline synchronous PUB send forwarding for the hot path while preserving NNG result codes and explicit message ownership semantics.
+- Rename the PUB/SUB programs to =publisher_example= and =subscriber_example=, add =pub_sub_device_example=, and demonstrate a three-process publisher-to-device-to-subscriber forwarding topology.
+- Add runnable PUSH/PULL, REQ/REP, and PAIR1 listen/dial examples with shared JSON option parsing, reusable AIO state machines, and matching =doc/server.json= sections.
+- Unify REQ/REP lifecycle under =start(context_count)= and =stop()=: startup creates managed concurrent contexts and shutdown closes AIO/context resources before endpoints. Remove public =open_context()/send()/recv()= and =start_mt()/stop_mt()=; requester correlates out-of-order replies through =request()/on_reply()= hints.
+- Unify SUB lifecycle under =start(aio_count)= and =stop()=: startup posts multiple receives on the socket's single default context, callback completion automatically resubmits its AIO, and shutdown stops all AIOs before endpoints. Remove public =subscribe()/unsubscribe()/open_context()/recv()= and deliver messages through the concurrent =on_receive(message&, result)= extension point.
+- In =zpp/nng/pipe.h=, remove pointer overloads for =get_bool/get_int/get_ms/get_size/get_string/get_strdup/get_strlen= inside the Pipe Options region.
+- Keep and normalize reference overloads so each method directly calls the underlying =nng_pipe_get_*= API using the referenced output variable.
+- Keep =get_strcpy(const char*, char*, std::size_t)= unchanged because it is a buffer-oriented API that is naturally pointer-based.
+- Follow NNG 2.0 by removing =dialer/listener::set_uint64/get_uint64= and =dialer::get_addr=, whose upstream implementations and exported symbols no longer exist; =dialer::set_addr= remains available.
+- Simplify =nng::message= ownership so a non-null =msg_= is always owned and successful sends or =release()= leave the wrapper empty, removing the separate =owned_= state.
+- Add stage-specific protocol framework error logs for configuration, endpoint startup, managed AIO/context creation, callback-state violations, and requester context-pool initialization or recycle failures; expected backpressure and orderly shutdown remain non-error paths.
+
+*** Compatibility and Upgrade Notes
+- Update PUB/SUB includes to =zpp/nng/protocols/publisher.h= and =zpp/nng/protocols/subscriber.h=, or include =zpp/nng/protocols/protocols.h= for the complete protocol surface.
+- Manage REQ/REP through =configure() -> start(context_count) -> request/serve -> stop()= instead of separate =start_mt()/stop_mt()= calls. SURVEYOR and RESPONDENT application-managed contexts must be closed before =stop()=.
+- Manage SUB through =configure() -> start(aio_count) -> receive callbacks -> stop()=. Migrate direct =subscribe()/unsubscribe()/open_context()/recv()= use to configured topics and =on_receive()=, or use =z::nng::socket=, =context=, and =aio_ctx= directly when low-level operations are required.
+- Migrate former REQ/REP =open_context()/send()/recv()= calls to requester =request()/on_reply()= or the replier =on_receive()/on_send()= extension points; use =z::nng::context= and =aio_ctx= directly for lower-level context operations.
+- Replace removed synchronous or raw-message =aio_ctx= send/receive calls with =context= for synchronous I/O or =aio_ctx::send(message&)= and =recv()= for asynchronous I/O. Asynchronous send transfers ownership when submitted; recover a failed send with =io().release_msg()=. Access the context handle and id through =ctx().get()= and =ctx().id()= because the duplicate =aio_ctx::get()/id()= forwarding helpers were removed.
+- Replace =event_forwarder= and its header with =pub_sub_device= from =zpp/nng/protocols/pub_sub_device.h=; the old type, include path, and =running()= method have no compatibility aliases.
+- PUB/SUB example configurations must provide one =ingress_endpoint=, a non-empty =egress_endpoints= array, and a non-empty =topics= array; an empty topic string subscribes to all messages.
+- Replace calls to the removed =socket::apply_options()= helper with =socket::set_options()= and handle its returned NNG error code.
+- This is a source-level breaking change for callers that passed explicit output pointers to the removed =pipe::get_*= overloads.
+- Migration pattern: replace pointer calls with reference calls, for example =pipe.get_int(name, value)= instead of =pipe.get_int(name, &value)=.
+- Remove calls to the deleted dialer/listener option wrappers; rebuilding NNG cannot restore them because current NNG only retains stale declarations for these removed APIs.
+
 ** v0.6.0 - 2026-06-08
 *** Release Positioning Summary
 - Feature release from =v0.5.3= to =v0.6.0=, expanding zpp's reusable NNG runtime and system utility surface.
@@ -12,6 +52,7 @@
 *** Changes
 - Add =zpp/nng/endpoint.h= and =src/nng/endpoint.cpp= for common NNG URL transport parsing, endpoint roles, TCP URL formatting, token replacement, IPC path extraction, and stale IPC socket cleanup.
 - Refactor =zpp/nng/socket.h= into a movable RAII socket owner with protocol open helpers, socket option accessors, listen/dial wrappers, raw PUB/SUB support, and compatibility aliases for historical =pare*= methods.
+- Unify NNG module logging through =zpp/nng/log.h= with =nng2*= macros, avoiding the former =nng_err(...)= helper name collision with the upstream =::nng_err= type.
 - Add =zpp/nng/runtime.h= and =src/nng/runtime.cpp= for runtime socket options, nanosecond timestamps, normal PUB publishing, and raw SUB-to-PUB event forwarding.
 - Add =zpp_nngConfig.cmake= export support so downstream projects can restore =zpp= and =nng= dependencies from installed package configs.
 - Add =zpp/system/timer.hpp= and =zpp/system/wall_time.hpp=, and remove the legacy =zpp/system/time.h= helper.

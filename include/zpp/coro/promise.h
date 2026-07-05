@@ -1,9 +1,9 @@
 #pragma once
 
 #include <coroutine>
+#include <optional>
 #include <type_traits>
 #include <utility>
-#include <optional>
 #include <variant>
 #include <zpp/namespace.h>
 
@@ -11,20 +11,22 @@ NSB_CORO
 
 /**
  * @file promise.h
- * @brief Lightweight coroutine promise templates used by small coroutine examples.
+ * @brief Lightweight coroutine promise templates used by small coroutine
+ * examples.
  *
  * These templates provide a minimal `promise_type` implementation that can be
- * used for both `void` and non-`void` coroutine return types. The implementation
- * is intentionally simple and configurable via the `AwaiterInit` and
- * `AwaiterFinal` template parameters so callers can choose `std::suspend_never` or
- * `std::suspend_always` (or custom awaiter types) for initial/final suspension.
+ * used for both `void` and non-`void` coroutine return types. The
+ * implementation is intentionally simple and configurable via the `AwaiterInit`
+ * and `AwaiterFinal` template parameters so callers can choose
+ * `std::suspend_never` or `std::suspend_always` (or custom awaiter types) for
+ * initial/final suspension.
  */
 
 /**
  * @brief Primary (non-void) `promise` template.
  *
- * @tparam Result The coroutine result type. May be a reference, value or cv-qualified
- *                type; storage normalizes to a non-reference, non-cv type.
+ * @tparam Result The coroutine result type. May be a reference, value or
+ * cv-qualified type; storage normalizes to a non-reference, non-cv type.
  * @tparam AwaiterInit The awaiter type returned from `initial_suspend()`.
  * @tparam AwaiterFinal The awaiter type returned from `final_suspend()`.
  *
@@ -37,10 +39,7 @@ NSB_CORO
  * - `return_value(...)` overloads accept lvalues and rvalues and emplace the
  *   value into the internal storage.
  */
-template <
-    typename Result,
-    typename AwaiterInit,
-    typename AwaiterFinal>
+template <typename Result, typename AwaiterInit, typename AwaiterFinal>
 struct promise {
   using result_type = Result;
   using promise_type = promise<Result, AwaiterInit, AwaiterFinal>;
@@ -83,18 +82,21 @@ struct promise {
    */
   struct final_awaiter {
     AwaiterFinal inner;
-    promise* self;
+    promise *self;
 
     bool await_ready() noexcept { return inner.await_ready(); }
 
     template <typename H>
-    decltype(auto) await_suspend(H h) noexcept(noexcept(inner.await_suspend(h))) {
+    decltype(auto)
+    await_suspend(H h) noexcept(noexcept(inner.await_suspend(h))) {
       if constexpr (std::is_void_v<decltype(inner.await_suspend(h))>) {
         inner.await_suspend(h);
-        if (self->continuation_) self->continuation_.resume();
+        if (self->continuation_)
+          self->continuation_.resume();
       } else {
         auto r = inner.await_suspend(h);
-        if (self->continuation_) self->continuation_.resume();
+        if (self->continuation_)
+          self->continuation_.resume();
         return r;
       }
     }
@@ -106,12 +108,16 @@ struct promise {
     }
   };
 
-  final_awaiter final_suspend() noexcept { return final_awaiter{AwaiterFinal{}, this}; }
+  final_awaiter final_suspend() noexcept {
+    return final_awaiter{AwaiterFinal{}, this};
+  }
 
   /**
    * @brief Store a continuation handle to be resumed at final suspension.
    */
-  void set_continuation(std::coroutine_handle<> c) noexcept { continuation_ = c; }
+  void set_continuation(std::coroutine_handle<> c) noexcept {
+    continuation_ = c;
+  }
 
   /**
    * @brief Accept an lvalue result from `co_return`.
@@ -122,8 +128,10 @@ struct promise {
    *
    * @param v The lvalue to be copied into the coroutine result storage.
    */
-  void return_value(const Result& v) noexcept(std::is_nothrow_copy_constructible_v<Result>) 
-    requires std::is_copy_constructible_v<Result> {
+  void return_value(const Result &v) noexcept(
+      std::is_nothrow_copy_constructible_v<Result>)
+    requires std::is_copy_constructible_v<Result>
+  {
     value_.emplace(v);
   }
 
@@ -142,8 +150,10 @@ struct promise {
    *
    * @param v The rvalue to be moved into the coroutine result storage.
    */
-  void return_value(Result&& v) noexcept(std::is_nothrow_move_constructible_v<Result>) 
-    requires std::is_move_constructible_v<Result> {
+  void return_value(Result &&v) noexcept(
+      std::is_nothrow_move_constructible_v<Result>)
+    requires std::is_move_constructible_v<Result>
+  {
     value_.emplace(std::move(v));
   }
 
@@ -201,18 +211,21 @@ struct promise<void, AwaiterInit, AwaiterFinal> {
    */
   struct final_awaiter {
     AwaiterFinal inner;
-    promise* self;
+    promise *self;
 
     bool await_ready() noexcept { return inner.await_ready(); }
 
     template <typename H>
-    decltype(auto) await_suspend(H h) noexcept(noexcept(inner.await_suspend(h))) {
+    decltype(auto)
+    await_suspend(H h) noexcept(noexcept(inner.await_suspend(h))) {
       if constexpr (std::is_void_v<decltype(inner.await_suspend(h))>) {
         inner.await_suspend(h);
-        if (self->continuation_) self->continuation_.resume();
+        if (self->continuation_)
+          self->continuation_.resume();
       } else {
         auto r = inner.await_suspend(h);
-        if (self->continuation_) self->continuation_.resume();
+        if (self->continuation_)
+          self->continuation_.resume();
         return r;
       }
     }
@@ -224,9 +237,13 @@ struct promise<void, AwaiterInit, AwaiterFinal> {
     }
   };
 
-  final_awaiter final_suspend() noexcept { return final_awaiter{AwaiterFinal{}, this}; }
+  final_awaiter final_suspend() noexcept {
+    return final_awaiter{AwaiterFinal{}, this};
+  }
 
-  void set_continuation(std::coroutine_handle<> c) noexcept { continuation_ = c; }
+  void set_continuation(std::coroutine_handle<> c) noexcept {
+    continuation_ = c;
+  }
 
   /**
    * @brief Called for `co_return;` in a `void` coroutine.
@@ -245,9 +262,8 @@ struct promise<void, AwaiterInit, AwaiterFinal> {
  * Example: `promise_void<>` is equivalent to
  * `promise<void, std::suspend_never, std::suspend_never>`.
  */
-template <
-  typename AwaiterInit = std::suspend_never,
-  typename AwaiterFinal = std::suspend_always>
+template <typename AwaiterInit = std::suspend_never,
+          typename AwaiterFinal = std::suspend_always>
 using promise_void = promise<void, AwaiterInit, AwaiterFinal>;
 
 /**
@@ -255,10 +271,8 @@ using promise_void = promise<void, AwaiterInit, AwaiterFinal>;
  *
  * @tparam Result The coroutine result type (default `int`).
  */
-template <
-  typename Result = int,
-  typename AwaiterInit = std::suspend_never,
-  typename AwaiterFinal = std::suspend_always>
+template <typename Result = int, typename AwaiterInit = std::suspend_never,
+          typename AwaiterFinal = std::suspend_always>
 using promise_result = promise<Result, AwaiterInit, AwaiterFinal>;
 
 NSE_CORO

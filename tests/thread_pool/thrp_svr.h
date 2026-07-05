@@ -1,20 +1,21 @@
 #pragma once
 
-#include <zpp/namespace.h>
 #include <zpp/core/server.h>
+#include <zpp/namespace.h>
 
-//#define USE_CQUE
-//#define USE_CQUE_AOP
-//#define USE_CQUE_AOP_CLASS
-//#define USE_TASK
-//#define USE_THREAD_POOL_FIFO
+// #define USE_CQUE
+// #define USE_CQUE_AOP
+// #define USE_CQUE_AOP_CLASS
+// #define USE_TASK
+// #define USE_THREAD_POOL_FIFO
 #define BENCHMARK_ENGINE_FIFO
 
 #if defined USE_CQUE
 /****************************************************************************\
  * max_count[10000000] reached. elapsed 545 ms, avg 18,348,000 q/s 非阻塞版
  * max_count[10000000] reached. elapsed 1748 ms, avg 5,724,000 q/s 阻塞版
- * max_count[10000000] reached. elapsed 519 ms, avg 19,267,000 q/s 非阻塞+monitor
+ * max_count[10000000] reached. elapsed 519 ms, avg 19,267,000 q/s
+非阻塞+monitor
  * 他添加monitor_guard来统计任务以及线程情况，(基本)不影响吞吐量；
 \****************************************************************************/
 #include "scheduler_benchmark_cque.h"
@@ -57,41 +58,40 @@
 #include <zpp/core/engine/thread_pool.h>
 #endif
 
-
 NSB_ZPP
 
-class thrp_svr : public server{
+class thrp_svr : public server {
 public:
-    thrp_svr(int argc, char** argv);
-    ~thrp_svr() override;
-    err_t configure() override;
-    err_t run() override;
-    err_t stop() override;
-    err_t on_timer() override;
-    err_t timer() override;
+  thrp_svr(int argc, char **argv);
+  ~thrp_svr() override;
+  err_t configure() override;
+  err_t run() override;
+  err_t stop() override;
+  err_t on_timer() override;
+  err_t timer() override;
+
 private:
 #ifdef USE_CQUE
-    scheduler_benchmark_cque _scheduler;
-    thread_pool<scheduler_benchmark_cque> _thr_pool;
+  scheduler_benchmark_cque _scheduler;
+  thread_pool<scheduler_benchmark_cque> _thr_pool;
 #elif defined USE_CQUE_AOP
-    scheduler_benchmark_cque_aop _scheduler;
-    thread_pool<scheduler_benchmark_cque_aop> _thr_pool;
+  scheduler_benchmark_cque_aop _scheduler;
+  thread_pool<scheduler_benchmark_cque_aop> _thr_pool;
 #elif defined USE_CQUE_AOP_CLASS
-    scheduler_benchmark_cque _scheduler;
-    thread_pool<scheduler_benchmark_cque> _thr_pool;
+  scheduler_benchmark_cque _scheduler;
+  thread_pool<scheduler_benchmark_cque> _thr_pool;
 #elif defined USE_TASK
-    scheduler<task> _scheduler;
-    thread_pool<scheduler<task>> _thr_pool;
-    task_benchmark _benchmark{MAX_COUNT};
+  scheduler<task> _scheduler;
+  thread_pool<scheduler<task>> _thr_pool;
+  task_benchmark _benchmark{MAX_COUNT};
 #elif defined USE_THREAD_POOL_FIFO
-    scheduler<size_t> _scheduler;
-    thread_pool<size_t> _thr_pool;
+  scheduler<size_t> _scheduler;
+  thread_pool<size_t> _thr_pool;
 #elif defined BENCHMARK_ENGINE_FIFO
-    scheduler<engine::aop> _scheduler;
-    thread_pool<engine::aop> _thr_pool;
+  scheduler<engine::aop> _scheduler;
+  thread_pool<engine::aop> _thr_pool;
 #endif
-    int _thr_num{3};
-    int _task_num{10};
-
+  int _thr_num{3};
+  int _task_num{10};
 };
 NSE_ZPP

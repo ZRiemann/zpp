@@ -8,20 +8,19 @@ NSB_ENGINE
  * @brief 静态函数绑定成员函数，适配第三方c接口
  * @note 如nng的aio task threads操作
  */
-template<typename T>
-class binder{
+template <typename T> class binder {
 public:
-    using fn = void (T::*)();
-    binder(T* t, fn f): t_(t), f_(f){}
-    
-    static inline void async_op(void *arg) {
-        binder<T> *b = static_cast<binder<T>*>(arg);
-        (b->t_->*(b->f_))();
-    }
-    
+  using fn = void (T::*)();
+  binder(T *t, fn f) : t_(t), f_(f) {}
+
+  static inline void async_op(void *arg) {
+    binder<T> *b = static_cast<binder<T> *>(arg);
+    (b->t_->*(b->f_))();
+  }
+
 public:
-    T* t_;
-    fn f_;
+  T *t_;
+  fn f_;
 };
 
 #if 0
@@ -44,7 +43,6 @@ private:
         std::cout << "回调被触发!" << std::endl;
     }
 };
-
 
 #endif
 NSE_ENGINE

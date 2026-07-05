@@ -1,15 +1,15 @@
 #pragma once
 #include <zpp/namespace.h>
 
+#include <atomic>
+#include <condition_variable>
+#include <cuda_runtime.h>
 #include <folly/executors/Executor.h>
 #include <folly/executors/GlobalExecutor.h>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <queue>
 #include <functional>
-#include <atomic>
-#include <cuda_runtime.h>
+#include <mutex>
+#include <queue>
+#include <thread>
 
 NSB_FOLLY
 class executor_cuda : public folly::Executor {
@@ -24,7 +24,8 @@ public:
       stopping_ = true;
       cv_.notify_all();
     }
-    if (worker_.joinable()) worker_.join();
+    if (worker_.joinable())
+      worker_.join();
   }
 
   void add(fn_t fn) override {
@@ -50,7 +51,8 @@ private:
       {
         std::unique_lock lk(mu_);
         cv_.wait(lk, [&] { return stopping_ || !tasks_.empty(); });
-        if (stopping_ && tasks_.empty()) break;
+        if (stopping_ && tasks_.empty())
+          break;
         fn = std::move(tasks_.front());
         tasks_.pop();
       }
@@ -94,26 +96,25 @@ NSE_FOLLY
 // 关于非阻塞高性能：示例实现了一个 cuda 事件 poller（用于在事件完成时 resume 协程），
 // 请参考下面的 `cuda_completion_poller` 示例。
 
-
 #endif
 #pragma once
 #include <zpp/namespace.h>
 
+#include <atomic>
+#include <condition_variable>
+#include <cuda_runtime.h>
 #include <folly/executors/Executor.h>
 #include <folly/executors/GlobalExecutor.h>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <queue>
 #include <functional>
-#include <atomic>
-#include <cuda_runtime.h>
+#include <mutex>
+#include <queue>
+#include <thread>
 
 NSB_FOLLY
 class executor_cuda : public folly::Executor {
 public:
   executor_cuda(int device = 0) {
-    worker_ = std::thread([this,device]{ run(device); });
+    worker_ = std::thread([this, device] { run(device); });
   }
   ~executor_cuda() {
     {
@@ -121,7 +122,8 @@ public:
       stopping_ = true;
       cv_.notify_all();
     }
-    if(worker_.joinable()) worker_.join();
+    if (worker_.joinable())
+      worker_.join();
   }
 
   void add(fn_t fn) override {
@@ -141,16 +143,21 @@ private:
   void run(int device) {
     cudaSetDevice(device);
     cudaStreamCreate(&stream_);
-    for(;;) {
+    for (;;) {
       fn_t fn;
       {
         std::unique_lock lk(mu_);
-        cv_.wait(lk, [&]{ return stopping_ || !tasks_.empty(); });
-        if (stopping_ && tasks_.empty()) break;
-        fn = std::move(tasks_.front()); tasks_.pop();
+        cv_.wait(lk, [&] { return stopping_ || !tasks_.empty(); });
+        if (stopping_ && tasks_.empty())
+          break;
+        fn = std::move(tasks_.front());
+        tasks_.pop();
       }
       // execute on CUDA-thread: submit async ops or run callback
-      try { fn(); } catch(...) { /* log */ }
+      try {
+        fn();
+      } catch (...) { /* log */
+      }
     }
     cudaStreamDestroy(stream_);
   }
@@ -250,16 +257,16 @@ co_await captureScope.joinAsync(); // if inside a coroutine
 
 #if 0
 // Example: CudaCompletionPoller (simplified, illustrative)
-#include <folly/executors/Executor.h>
-#include <folly/executors/GlobalExecutor.h>
+#include <atomic>
+#include <condition_variable>
+#include <cuda_runtime.h>
 #include <folly/coro/Task.h>
 #include <folly/coro/traits.h>
-#include <thread>
+#include <folly/executors/Executor.h>
+#include <folly/executors/GlobalExecutor.h>
 #include <mutex>
-#include <condition_variable>
+#include <thread>
 #include <vector>
-#include <atomic>
-#include <cuda_runtime.h>
 
 // Example: cuda_completion_poller (simplified, illustrative)
 #include <folly/coro/Task.h>

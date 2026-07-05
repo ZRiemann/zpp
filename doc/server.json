@@ -98,7 +98,75 @@
         }
     },
     "nng_net":{
-        "pub":"ipc://@test_nng_pub_sub"
+        "pub_sub":{
+            "ingress_endpoint": "ipc:///tmp/test_nng_pub_sub.sock",
+            "egress_endpoints": [
+                "tcp://127.0.0.1:5555"
+            ],
+            "topics": [""],
+            "socket_options": {
+                "recv_queue_depth": 1024,
+                "send_queue_depth": 1024,
+                "recv_timeout_ms": 1000,
+                "send_timeout_ms": 1000
+            },
+
+            "listener_options": {
+                "max_recv_size_bytes": 1048576
+            },
+
+            "dialer_options": {
+                "reconnect_min_ms": 3000,
+                "reconnect_max_ms": 10000,
+                "max_recv_size_bytes": 1048576
+            },
+
+            "transport_options": {
+                "tcp": {
+                    "nodelay": true,
+                    "keepalive": true
+                },
+                "ipc": {
+                    "permissions": "0600"
+                },
+                "tls": {
+                    "profile": "internal-mtls"
+                }
+            }
+        },
+        "pipeline": {
+            "endpoints": [
+                "ipc:///tmp/zpp_nng_pipeline.sock"
+            ],
+            "socket_options": {
+                "recv_queue_depth": 128,
+                "send_queue_depth": 128,
+                "recv_timeout_ms": 1000,
+                "send_timeout_ms": 1000
+            }
+        },
+        "request_reply": {
+            "endpoints": [
+                "ipc:///tmp/zpp_nng_request_reply.sock"
+            ],
+            "socket_options": {
+                "recv_queue_depth": 128,
+                "send_queue_depth": 128,
+                "recv_timeout_ms": 5000,
+                "send_timeout_ms": 1000
+            }
+        },
+        "pair1": {
+            "endpoints": [
+                "ipc:///tmp/zpp_nng_pair1.sock"
+            ],
+            "socket_options": {
+                "recv_queue_depth": 128,
+                "send_queue_depth": 128,
+                "recv_timeout_ms": 1000,
+                "send_timeout_ms": 1000
+            }
+        }
     },
     "engine":{
         "spd":{
@@ -109,8 +177,8 @@
             "rotats":3
         },
         "nng_engine":{
-            "task_threads": 32,
-            "task_threads_max": 38,
+            "task_threads": 4,
+            "task_threads_max": 6,
             "expire_threads": 1,
             "expire_threads_max": 2,
             "poller_threads": 2,
@@ -119,17 +187,17 @@
             "aios": 1024
         }
     },
-    "nng_pub":{
+    "publisher_example":{
         "spd":{
             "async":true,
             "console":true,
-            "name":"nng_pub.log",
+            "name":"publisher_example.log",
             "max_size":32,
             "rotats":3
         },
         "nng_engine":{
-            "task_threads": 32,
-            "task_threads_max": 38,
+            "task_threads": 4,
+            "task_threads_max": 6,
             "expire_threads": 1,
             "expire_threads_max": 2,
             "poller_threads": 2,
@@ -138,14 +206,67 @@
             "aios": 1024
         }
     },
-    "nng_sub":{
+    "pub_sub_device_example":{
         "spd":{
             "async":true,
             "console":true,
-            "name":"nng_sub.log",
+            "name":"pub_sub_device_example.log",
             "max_size":32,
             "rotats":3
+        },
+        "nng_engine":{
+            "task_threads": 4,
+            "task_threads_max": 6,
+            "expire_threads": 1,
+            "expire_threads_max": 2,
+            "poller_threads": 2,
+            "poller_threads_max": 4,
+            "resolver_threads": 1,
+            "aios": 1024
         }
+    },
+    "subscriber_example":{
+        "spd":{
+            "async":true,
+            "console":true,
+            "name":"subscriber_example.log",
+            "max_size":32,
+            "rotats":3
+        },
+        "nng_engine":{
+            "task_threads": 4,
+            "task_threads_max": 6,
+            "expire_threads": 1,
+            "expire_threads_max": 2,
+            "poller_threads": 2,
+            "poller_threads_max": 4,
+            "resolver_threads": 1,
+            "aios": 1024
+        }
+    },
+    "pusher_example": {
+        "spd": {"async": true, "console": true, "name": "pusher_example.log", "max_size": 32, "rotats": 3},
+        "nng_engine": {}
+    },
+    "puller_example": {
+        "spd": {"async": true, "console": true, "name": "puller_example.log", "max_size": 32, "rotats": 3},
+        "nng_engine": {}
+    },
+    "requester_example": {
+        "spd": {"async": true, "console": true, "name": "requester_example.log", "max_size": 32, "rotats": 3},
+        "nng_engine": {}
+    },
+    "replier_example": {
+        "spd": {"async": true, "console": true, "name": "replier_example.log", "max_size": 32, "rotats": 3},
+        "nng_engine": {}
+    },
+    "pair1_listen_example": {
+        "spd": {"async": true, "console": true, "name": "pair1_listen_example.log", "max_size": 32, "rotats": 3},
+        "nng_engine": {}
+    },
+    "pair1_dial_example": {
+        "spd": {"async": true, "console": true, "name": "pair1_dial_example.log", "max_size": 32, "rotats": 3},
+        "nng_engine": {}
     }
 
 }

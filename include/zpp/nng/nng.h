@@ -1,41 +1,36 @@
 #pragma once
 
 #include "defs.h"
-#include <zpp/spdlog.h>
+
+#include <cstdint>
 
 NSB_NNG
-/**
- * @class nng
- * @code
- *  int main(){
- *      //nng nng_instance(4, 8, 2, 4, 2, 4, 2);
- *      nng nng_instance; // use default params
- *      return 0;
- *  }
- * @endcode
- */
-class nng{
+
+/// RAII owner for the global NNG runtime lifecycle.
+class nng {
 public:
-    nng(int16_t num_task_thrs = 0, int16_t max_task_thrs = 0,
-        int16_t num_expire_thrs = 0, int16_t max_expire_thrs = 0,
-        int16_t num_poller_thrs = 0, int16_t max_poller_thrs = 0,
-        int16_t num_resolver_thrs = 0){
-        nng_init_params params{0};
-	    params.num_task_threads = num_task_thrs;
-	    params.max_task_threads = max_task_thrs;
-	    params.num_expire_threads = num_expire_thrs;
-	    params.max_expire_threads = max_expire_thrs;
-    	params.num_poller_threads = num_poller_thrs;
-    	params.max_poller_threads = max_poller_thrs;
-		params.num_resolver_threads = num_resolver_thrs;
-        nng_err err = nng_init(&params);
-        spd_inf("nng init[{}]: {}",
-            (int)err, nng_strerror(err));
-    }
-    ~nng(){
-        nng_fini();
-        spd_inf("nng fini.");
-    }
+  /// Initializes NNG with library default thread settings.
+  nng();
+
+  /// Initializes NNG with explicit initialization parameters.
+  explicit nng(const nng_init_params &params);
+
+  /// Initializes NNG from individual thread settings.
+  nng(std::int16_t num_task_thrs, std::int16_t max_task_thrs,
+      std::int16_t num_expire_thrs, std::int16_t max_expire_thrs,
+      std::int16_t num_poller_thrs, std::int16_t max_poller_thrs,
+      std::int16_t num_resolver_thrs);
+
+  /// Finalizes the NNG runtime.
+  ~nng();
+
+  nng(const nng &) = delete;
+  nng &operator=(const nng &) = delete;
+  nng(nng &&) = delete;
+  nng &operator=(nng &&) = delete;
+
+private:
+  void init(const nng_init_params &params);
 };
 
 NSE_NNG

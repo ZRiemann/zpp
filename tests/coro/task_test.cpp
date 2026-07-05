@@ -1,13 +1,11 @@
 #include <gtest/gtest.h>
-#include <zpp/coro/task.h>
 #include <zpp/coro/awaiter.h>
+#include <zpp/coro/task.h>
 
 using namespace z::coro;
 
 // Simple producer used by multiple tests
-static inline task<int> test_producer() {
-  co_return 123;
-}
+static inline task<int> test_producer() { co_return 123; }
 
 TEST(TaskBasic, ConstructAndResult) {
   auto t = test_producer();
@@ -28,7 +26,8 @@ TEST(TaskOwnership, ReleaseAndDestroy) {
   auto h = t.release();
   EXPECT_FALSE(t.valid());
   // We must destroy the released handle to avoid leak
-  if (h) h.destroy();
+  if (h)
+    h.destroy();
 }
 
 TEST(TaskOwnership, DetachLeavesNoOwner) {
@@ -40,9 +39,7 @@ TEST(TaskOwnership, DetachLeavesNoOwner) {
 
 TEST(TaskAwaitable, CoAwaitValueTask) {
   // producer that returns a small int
-  auto async_producer = []() -> task<int> {
-    co_return 7;
-  };
+  auto async_producer = []() -> task<int> { co_return 7; };
 
   // consumer awaits the producer and returns value+1
   auto consumer = [&]() -> task<int> {
@@ -59,7 +56,8 @@ TEST(TaskAwaiter, AwaitRvalueVoid) {
   bool done = false;
 
   auto async_void = []() -> task<void> {
-    co_await awaiter_delay{std::chrono::milliseconds(0)}; // immediate, no suspend
+    co_await awaiter_delay{
+        std::chrono::milliseconds(0)}; // immediate, no suspend
     co_return;
   };
 

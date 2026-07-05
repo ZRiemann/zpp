@@ -74,7 +74,6 @@ cbuild
 *.out
 *.log
 *.spv
-.vscode
 *logs
 
 # rust
@@ -98,12 +97,9 @@ ltximg
 **/__pycache__
 **/*.pyc
 **/*.csv
-.vscode/
 .github/
 
 # VS Code local/generated files
-.vscode/*
+.vscode/
 !.vscode/settings.json
-!.vscode/extensions.json
-!.vscode/tasks.json
-!.vscode/launch.json
+.vorg.db

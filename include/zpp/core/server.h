@@ -36,30 +36,31 @@ int main(int argc, char **argv){
  * @endcode
  */
 
- NSB_ZPP
+NSB_ZPP
 
-class server{
+class server {
 public:
-    /**
-     * @brief Construct a new server object
-     * @note just init console spdlog, use by gtest
-     */
-    server();
-    server(int argc, char** argv);
-    virtual ~server();
+  /**
+   * @brief Construct a new server object
+   * @note just init console spdlog, use by gtest
+   */
+  server();
+  server(int argc, char **argv);
+  virtual ~server();
 
-    virtual err_t configure();
-    virtual err_t run();
-    virtual err_t stop();
-    virtual err_t wait_stop();
-public:
-    virtual err_t on_timer();
-    virtual err_t timer();
-    virtual err_t handle_signal(int signal);
-    void loop();
+  virtual err_t configure();
+  virtual err_t run();
+  virtual err_t stop();
+  virtual err_t wait_stop();
 
 public:
-    int argc_{0}; ///< argv[1] 配置文件路径
-    char** argv_{nullptr}; ///< argv[2] 服务配置项目
+  virtual err_t on_timer();
+  virtual err_t timer();
+  virtual err_t handle_signal(int signal);
+  void loop();
+
+public:
+  int argc_{0};          ///< argv[1] 配置文件路径
+  char **argv_{nullptr}; ///< argv[2] 服务配置项目
 };
 NSE_ZPP

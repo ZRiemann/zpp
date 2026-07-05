@@ -1,8 +1,8 @@
 #pragma once
 
 #include "namespace.h"
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 NSB_ZPP
 /// Alias for numeric error codes returned by zpp APIs.

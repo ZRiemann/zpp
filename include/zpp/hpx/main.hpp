@@ -17,12 +17,10 @@ NSB_HPX
  * @param argv Application argument values.
  * @return The server lifecycle error, or the HPX finalize result on success.
  */
-template<typename Server>
-int run_server(int argc, char** argv)
-{
-    const err_t err = run_server_lifecycle<Server>(argc, argv);
-    const int finalize_result = hpx::finalize();
-    return ERR_OK == err ? finalize_result : static_cast<int>(err);
+template <typename Server> int run_server(int argc, char **argv) {
+  const err_t err = run_server_lifecycle<Server>(argc, argv);
+  const int finalize_result = hpx::finalize();
+  return ERR_OK == err ? finalize_result : static_cast<int>(err);
 }
 
 NSE_HPX
@@ -33,12 +31,11 @@ NSE_HPX
  * @param argv Application argument values.
  * @return The server or HPX runtime result code.
  */
-int hpx_main(int argc, char* argv[])
-{
+int hpx_main(int argc, char *argv[]) {
 #ifdef SVR_NAME
-    return z::zhpx::run_server<SVR_NAME>(argc, argv);
+  return z::zhpx::run_server<SVR_NAME>(argc, argv);
 #else
-    return z::zhpx::run_server<z::zhpx::server>(argc, argv);
+  return z::zhpx::run_server<z::zhpx::server>(argc, argv);
 #endif
 }
 
@@ -48,6 +45,4 @@ int hpx_main(int argc, char* argv[])
  * @param argv Application argument values.
  * @return The result from `hpx::init`.
  */
-int main(int argc, char **argv){
-    return hpx::init(argc, argv);
-}
+int main(int argc, char **argv) { return hpx::init(argc, argv); }

@@ -72,14 +72,13 @@
 #define Z_OS_SOLARIS 1
 #endif
 
-#if (1 !=                                                                  \
-     Z_OS_LINUX + Z_OS_DRAGONFLY + Z_OS_FREEBSD + Z_OS_NETBSD +        \
-     Z_OS_OPENBSD + Z_OS_DARWIN + Z_OS_WINDOWS + Z_OS_HURD +           \
-     Z_OS_SOLARIS)
+#if (1 != Z_OS_LINUX + Z_OS_DRAGONFLY + Z_OS_FREEBSD + Z_OS_NETBSD +           \
+              Z_OS_OPENBSD + Z_OS_DARWIN + Z_OS_WINDOWS + Z_OS_HURD +          \
+              Z_OS_SOLARIS)
 #define Z_OS_UNKNOWN 1
 #endif
 
-#if Z_OS_LINUX || Z_OS_DRAGONFLY || Z_OS_FREEBSD || Z_OS_NETBSD ||     \
+#if Z_OS_LINUX || Z_OS_DRAGONFLY || Z_OS_FREEBSD || Z_OS_NETBSD ||             \
     Z_OS_OPENBSD || Z_OS_DARWIN || Z_OS_HURD || Z_OS_SOLARIS
 #undef Z_OS_UNIX
 #define Z_OS_UNIX 1
@@ -89,28 +88,28 @@
 #include <iostream>
 
 #if defined(__APPLE__)
-  #include <TargetConditionals.h>
+#include <TargetConditionals.h>
 #endif
 
 int main() {
 #if defined(_WIN32)
-    #if defined(_WIN64)
+#if defined(_WIN64)
       std::cout << "Windows 64-bit\n";
-    #else
+#else
       std::cout << "Windows 32-bit\n";
-    #endif
+#endif
 #elif defined(__APPLE__) && defined(__MACH__)
-    #if defined(TARGET_OS_OSX) && TARGET_OS_OSX
+#if defined(TARGET_OS_OSX) && TARGET_OS_OSX
       std::cout << "macOS\n";
-    #elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
+#elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
       std::cout << "iOS/iPadOS\n";
-    #elif defined(TARGET_OS_TV) && TARGET_OS_TV
+#elif defined(TARGET_OS_TV) && TARGET_OS_TV
       std::cout << "tvOS\n";
-    #elif defined(TARGET_OS_WATCH) && TARGET_OS_WATCH
+#elif defined(TARGET_OS_WATCH) && TARGET_OS_WATCH
       std::cout << "watchOS\n";
-    #else
+#else
       std::cout << "Apple Darwin (unspecified)\n";
-    #endif
+#endif
 #elif defined(__ANDROID__)
     std::cout << "Android (Linux-based)\n";
 #elif defined(__linux__)

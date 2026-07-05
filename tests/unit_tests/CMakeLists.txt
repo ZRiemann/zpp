@@ -39,7 +39,10 @@ add_run_target(gtest_tsc)
 if(TARGET zpp::zpp_nng)
     add_executable(gtest_nng
         nng_endpoint_test.cpp
+        nng_protocol_test.cpp
+        nng_task_test.cpp
         nng_runtime_test.cpp
+        nng_url_test.cpp
     )
 
     target_link_libraries(gtest_nng PRIVATE

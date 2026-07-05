@@ -1,0 +1,24 @@
+{
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "C_Cpp.default.defines": [
+        "SPDLOG_FMT_EXTERNAL"
+    ],
+    "C_Cpp.default.includePath": [
+        "${env:HOME}/.local/include",
+        "${env:HOME}/.conan2/p/**/include"
+    ],
+    "rust-analyzer.initializeStopped": true,
+
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
+    "[c]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "[cuda-cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "C_Cpp.clang_format_style": "file"
+}

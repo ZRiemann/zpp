@@ -10,13 +10,14 @@
  */
 NSB_ENGINE
 
-class aop{
+class aop {
 public:
-    aop() = default;
-    virtual ~aop() = default;
+  aop() = default;
+  virtual ~aop() = default;
 
-    virtual void operate() = 0;
+  virtual void operate() = 0;
+
 private:
-    // user datas
+  // user datas
 };
 NSE_ENGINE

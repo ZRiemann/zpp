@@ -1,14 +1,14 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
+#include <functional>
 #include <mutex>
 #include <queue>
-#include <functional>
 #include <thread>
-#include <chrono>
 
-#include <taskflow/taskflow.hpp>
 #include <taskflow/algorithm/pipeline.hpp>
+#include <taskflow/taskflow.hpp>
 #include <zpp/namespace.h>
 
 NSB_TASKFLOW
@@ -23,8 +23,9 @@ NSB_TASKFLOW
  * @example
  * \code{.cpp}
  *    // 1. Definition
- *    using Driver = z::ztf::pipeline_driver<int, moodycamel::ConcurrentQueue<int>>;
- *    auto driver = std::make_shared<Driver>(executor, taskflow, 1024);
+ *    using Driver = z::ztf::pipeline_driver<int,
+ * moodycamel::ConcurrentQueue<int>>; auto driver =
+ * std::make_shared<Driver>(executor, taskflow, 1024);
  *
  *    // 2. Build Pipeline (using functional source builder)
  *    tf::Pipeline pipeline(num_lines,
@@ -42,204 +43,215 @@ NSB_TASKFLOW
  *    // 3. Producer (User Thread)
  *    while(!driver->submit(std::move(data))) {
  *         std::this_thread::yield(); // Backpressure handling
- *    } 
+ *    }
  *
  *    // 4. Wait
  *    driver->wait_done();
  * \endcode
  */
-template<typename T, typename Queue = std::queue<T>>
+template <typename T, typename Queue = std::queue<T>>
 class [[deprecated("Use pipeline_mpsc instead")]] pipeline_driver {
 public:
-    pipeline_driver(tf::Executor& executor, tf::Taskflow& taskflow, size_t capacity)
-        : executor_(executor), taskflow_(taskflow), capacity_(capacity) {}
+  pipeline_driver(tf::Executor &executor, tf::Taskflow &taskflow,
+                  size_t capacity)
+      : executor_(executor), taskflow_(taskflow), capacity_(capacity) {}
 
-    virtual ~pipeline_driver() {
-        // Ensure to wait_done() in user code before destruction if threads are active
-    }
+  virtual ~pipeline_driver() {
+    // Ensure to wait_done() in user code before destruction if threads are
+    // active
+  }
 
-    /**
-     * @brief Submits data into the reactor and schedules the pipeline if idle.
-     *        Implies "push + trigger".
-     * @return true if submitted (ownership transferred), false if full (backpressure).
-     * @note If returns false, the 'item' is unmodified (ownership RETAINED by caller).
-     *       Callers should use named variables (lvalues) wrapped in std::move 
-     *       inside a retry loop (spin/yield/sleep) to handle backpressure safely.
-     * @thread_safety Thread-safe, multiple producers allowed.
-     */
-    template<typename U>
-    bool submit(U&& item) {
-        if constexpr (is_moodycamel_queue<Queue>::value) {
-            if(queue_.size_approx() >= capacity_) {
-                return false; // backpressure
-            }
-            queue_.enqueue(std::forward<U>(item));
-            
-            // Lock-Free Wakeup Logic:
-            // Only the thread that successfully transitions state from FALSE to TRUE
-            // is responsible for scheduling the pipeline.
-            // Uses seq_cst to ensure visibility relative to enqueue.
-            bool expected = false;
-            // strong CAS to avoid spurious start failures
-            if(is_running_.compare_exchange_strong(expected, true)) {
-                schedule();
-            }
-            return true;
-        } else {
-            bool trigger = false;
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                if(queue_.size() >= capacity_) {
-                    return false; // backpressure
-                }
-                queue_.push(std::forward<U>(item));
-                
-                if(!is_running_.load(std::memory_order_relaxed)) {
-                    is_running_.store(true, std::memory_order_relaxed);
-                    trigger = true;
-                }
-            }
-            if(trigger) schedule();
-            return true;
+  /**
+   * @brief Submits data into the reactor and schedules the pipeline if idle.
+   *        Implies "push + trigger".
+   * @return true if submitted (ownership transferred), false if full
+   * (backpressure).
+   * @note If returns false, the 'item' is unmodified (ownership RETAINED by
+   * caller). Callers should use named variables (lvalues) wrapped in std::move
+   *       inside a retry loop (spin/yield/sleep) to handle backpressure safely.
+   * @thread_safety Thread-safe, multiple producers allowed.
+   */
+  template <typename U> bool submit(U &&item) {
+    if constexpr (is_moodycamel_queue<Queue>::value) {
+      if (queue_.size_approx() >= capacity_) {
+        return false; // backpressure
+      }
+      queue_.enqueue(std::forward<U>(item));
+
+      // Lock-Free Wakeup Logic:
+      // Only the thread that successfully transitions state from FALSE to TRUE
+      // is responsible for scheduling the pipeline.
+      // Uses seq_cst to ensure visibility relative to enqueue.
+      bool expected = false;
+      // strong CAS to avoid spurious start failures
+      if (is_running_.compare_exchange_strong(expected, true)) {
+        schedule();
+      }
+      return true;
+    } else {
+      bool trigger = false;
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (queue_.size() >= capacity_) {
+          return false; // backpressure
         }
-    }
+        queue_.push(std::forward<U>(item));
 
-    /**
-     * @brief Generates a serial source pipe that acts as an adapter 
-     *        between the driver's queue and the pipeline's data flow.
-     * @tparam Handler Callable with signature (tf::Pipeflow&, T&&)
-     * @param handler User-provided logic to process the fetched item.
-     * @return tf::Pipe configured as a SERIAL source.
-     */
-    template<typename Handler>
-    auto build_source(Handler&& handler) {
-        return tf::Pipe{tf::PipeType::SERIAL, [this, handler = std::forward<Handler>(handler)](tf::Pipeflow& pf) mutable {
-             T data; 
-             if(this->try_pop(data)) {
-                 handler(pf, std::move(data));
-             } else {
-                 pf.stop();
-             }
-        }};
-    }
-
-    /**
-     * @brief Tries to pop an item for the pipeline source.
-     * @return true if item popped, false if queue is empty (signal to pf.stop())
-     * @thread_safety Thread-safe, designed to be called from the SERIAL source pipe.
-     */
-    bool try_pop(T& out_item) {
-        if constexpr (is_moodycamel_queue<Queue>::value) {
-            return queue_.try_dequeue(out_item);
-        } else {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if(queue_.empty()) {
-                return false;
-            }
-            out_item = std::move(queue_.front());
-            queue_.pop();
-            return true;
+        if (!is_running_.load(std::memory_order_relaxed)) {
+          is_running_.store(true, std::memory_order_relaxed);
+          trigger = true;
         }
+      }
+      if (trigger)
+        schedule();
+      return true;
     }
+  }
 
-    /**
-     * @brief Checks if the reactor is idle and empty.
-     */
-    bool is_finished() const {
-        // Approximate check for shutdown logic
-        if constexpr (is_moodycamel_queue<Queue>::value) {
-            return !is_running_.load(std::memory_order_acquire) && queue_.size_approx() == 0;
-        } else {
-            std::lock_guard<std::mutex> lock(mutex_);
-            return !is_running_.load(std::memory_order_relaxed) && queue_.empty();
-        }
-    }
+  /**
+   * @brief Generates a serial source pipe that acts as an adapter
+   *        between the driver's queue and the pipeline's data flow.
+   * @tparam Handler Callable with signature (tf::Pipeflow&, T&&)
+   * @param handler User-provided logic to process the fetched item.
+   * @return tf::Pipe configured as a SERIAL source.
+   */
+  template <typename Handler> auto build_source(Handler &&handler) {
+    return tf::Pipe{tf::PipeType::SERIAL,
+                    [this, handler = std::forward<Handler>(handler)](
+                        tf::Pipeflow &pf) mutable {
+                      T data;
+                      if (this->try_pop(data)) {
+                        handler(pf, std::move(data));
+                      } else {
+                        pf.stop();
+                      }
+                    }};
+  }
 
-    /**
-     * @brief Blocking wait until all data is consumed and pipeline stops.
-     */
-    void wait_done() {
-        while(!is_finished()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
+  /**
+   * @brief Tries to pop an item for the pipeline source.
+   * @return true if item popped, false if queue is empty (signal to pf.stop())
+   * @thread_safety Thread-safe, designed to be called from the SERIAL source
+   * pipe.
+   */
+  bool try_pop(T &out_item) {
+    if constexpr (is_moodycamel_queue<Queue>::value) {
+      return queue_.try_dequeue(out_item);
+    } else {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (queue_.empty()) {
+        return false;
+      }
+      out_item = std::move(queue_.front());
+      queue_.pop();
+      return true;
     }
+  }
+
+  /**
+   * @brief Checks if the reactor is idle and empty.
+   */
+  bool is_finished() const {
+    // Approximate check for shutdown logic
+    if constexpr (is_moodycamel_queue<Queue>::value) {
+      return !is_running_.load(std::memory_order_acquire) &&
+             queue_.size_approx() == 0;
+    } else {
+      std::lock_guard<std::mutex> lock(mutex_);
+      return !is_running_.load(std::memory_order_relaxed) && queue_.empty();
+    }
+  }
+
+  /**
+   * @brief Blocking wait until all data is consumed and pipeline stops.
+   */
+  void wait_done() {
+    while (!is_finished()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
 
 private:
-   // Simple trait to detect moodycamel-like API (enqueue/try_dequeue)
-   template<typename Q, typename = void>
-   struct is_moodycamel_queue : std::false_type {};
+  // Simple trait to detect moodycamel-like API (enqueue/try_dequeue)
+  template <typename Q, typename = void>
+  struct is_moodycamel_queue : std::false_type {};
 
-   template<typename Q>
-   struct is_moodycamel_queue<Q, std::void_t<decltype(std::declval<Q>().enqueue(std::declval<T>())), 
-                                             decltype(std::declval<Q>().try_dequeue(std::declval<T&>()))>> : std::true_type {};
+  template <typename Q>
+  struct is_moodycamel_queue<
+      Q,
+      std::void_t<decltype(std::declval<Q>().enqueue(std::declval<T>())),
+                  decltype(std::declval<Q>().try_dequeue(std::declval<T &>()))>>
+      : std::true_type {};
 
-    void schedule() {
-        // Rescheduling logic called from Taskflow callback
-        if constexpr (is_moodycamel_queue<Queue>::value) {
-            // Lock-Free Shutdown Logic:
-            // 1. Check if queue is likely empty to avoid expensive atomic ops if not needed.
-            if(queue_.size_approx() == 0) {
-                 // 2. Set running to false tentatively.
-                 // We must effectively ensure that no items were pushed *before* we set running=false.
-                 // But producers set running=true *after* pushing.
-                 // Race:
-                 // P: Push Item -> CAS(F->T) [fail, currently running]
-                 // C: Check Empty (True) -> Store(F) -> Return
-                 // Result: Item sits in queue, consumer stopped. Processor Halted.
-                 
-                 // Correct Lock-Free Protocol (Consumer Side):
-                 
-                 // Step A: Tentatively assert we are stopping.
-                 is_running_.store(false, std::memory_order_seq_cst);
-                 
-                 // Step B: Double check the queue AFTER declaring stop.
-                 // If queue is NOT empty, we must restart ourselves.
-                 // Because if a producer pushed right before Step A, they saw Running=True and did nothing.
-                 // We are now responsible for that item.
-                 
-                 // Note: size_approx is not strictly linearizable, but for robust awakening,
-                 // we rely on the fact that if producer pushed, it's visible.
-                 // A safer check is to try one last dequeue? No, we are in schedule() which is outside the pipeline loop.
-                 // We just need to trigger the graph again if not empty.
-                 
-                 if(queue_.size_approx() > 0) {
-                     // Oops, raced. Someone pushed data but didn't wake us because we were "running".
-                     // But now we are "stopped".
-                     // We must switch back to running and continue.
-                     bool expected = false;
-                     if(is_running_.compare_exchange_strong(expected, true)) {
-                         executor_.run(taskflow_, [this](){ schedule(); });
-                     }
-                     return;
-                 }
-                 
-                 // If queue is truly empty, we are successfully stopped.
-                 return;
-            }
-            // else: queue has items, loop again.
-             executor_.run(taskflow_, [this](){ schedule(); });
+  void schedule() {
+    // Rescheduling logic called from Taskflow callback
+    if constexpr (is_moodycamel_queue<Queue>::value) {
+      // Lock-Free Shutdown Logic:
+      // 1. Check if queue is likely empty to avoid expensive atomic ops if not
+      // needed.
+      if (queue_.size_approx() == 0) {
+        // 2. Set running to false tentatively.
+        // We must effectively ensure that no items were pushed *before* we set
+        // running=false. But producers set running=true *after* pushing. Race:
+        // P: Push Item -> CAS(F->T) [fail, currently running]
+        // C: Check Empty (True) -> Store(F) -> Return
+        // Result: Item sits in queue, consumer stopped. Processor Halted.
 
-        } else {
-            // Standard Queue Logic
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                if(queue_.empty()) {
-                    is_running_.store(false, std::memory_order_relaxed);
-                    return;
-                }
-                // Keep running state
-            }
-            executor_.run(taskflow_, [this](){ schedule(); });
+        // Correct Lock-Free Protocol (Consumer Side):
+
+        // Step A: Tentatively assert we are stopping.
+        is_running_.store(false, std::memory_order_seq_cst);
+
+        // Step B: Double check the queue AFTER declaring stop.
+        // If queue is NOT empty, we must restart ourselves.
+        // Because if a producer pushed right before Step A, they saw
+        // Running=True and did nothing. We are now responsible for that item.
+
+        // Note: size_approx is not strictly linearizable, but for robust
+        // awakening, we rely on the fact that if producer pushed, it's visible.
+        // A safer check is to try one last dequeue? No, we are in schedule()
+        // which is outside the pipeline loop. We just need to trigger the graph
+        // again if not empty.
+
+        if (queue_.size_approx() > 0) {
+          // Oops, raced. Someone pushed data but didn't wake us because we were
+          // "running". But now we are "stopped". We must switch back to running
+          // and continue.
+          bool expected = false;
+          if (is_running_.compare_exchange_strong(expected, true)) {
+            executor_.run(taskflow_, [this]() { schedule(); });
+          }
+          return;
         }
-    }
 
-    tf::Executor& executor_;
-    tf::Taskflow& taskflow_;
-    size_t capacity_;
-    
-    mutable std::mutex mutex_; // Used for state transition protection (Running <-> Stopped)
-    Queue queue_;
-    std::atomic<bool> is_running_{false};
+        // If queue is truly empty, we are successfully stopped.
+        return;
+      }
+      // else: queue has items, loop again.
+      executor_.run(taskflow_, [this]() { schedule(); });
+
+    } else {
+      // Standard Queue Logic
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (queue_.empty()) {
+          is_running_.store(false, std::memory_order_relaxed);
+          return;
+        }
+        // Keep running state
+      }
+      executor_.run(taskflow_, [this]() { schedule(); });
+    }
+  }
+
+  tf::Executor &executor_;
+  tf::Taskflow &taskflow_;
+  size_t capacity_;
+
+  mutable std::mutex
+      mutex_; // Used for state transition protection (Running <-> Stopped)
+  Queue queue_;
+  std::atomic<bool> is_running_{false};
 };
 
 NSE_TASKFLOW

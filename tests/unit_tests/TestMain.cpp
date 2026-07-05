@@ -17,10 +17,10 @@
 #include <glog/logging.h>
 
 #include <folly/Portability.h>
+#include <folly/executors/GlobalExecutor.h>
 #include <folly/init/Init.h>
 #include <folly/portability/GFlags.h>
 #include <folly/portability/GTest.h>
-#include <folly/executors/GlobalExecutor.h>
 #include <zpp/core/server.h>
 #if 0
 // Define gflags for controlling folly global executors
@@ -44,9 +44,9 @@ DEFINE_uint32(folly_global_io_executor_threads, 0,
  * to - and indeed should typically not - define their own main() functions
  * @file
  */
-FOLLY_ATTR_WEAK int main(int argc, char** argv);
+FOLLY_ATTR_WEAK int main(int argc, char **argv);
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   // Enable glog logging to stderr by default.
   FLAGS_logtostderr = true;
 
