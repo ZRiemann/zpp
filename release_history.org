@@ -3,6 +3,14 @@
 
 * Release History
 
+** v0.8.0 - 2026-07-09
+*** Changes
+- Add the transport-independent =z::wire::writer=, =reader=, and =size_counter= APIs under =zpp/wire/= for bounds-checked fixed-buffer encoding, symmetric decoding, and encoded-size calculation through matching operation sequences.
+- Optimize little-endian scalar reads and writes with fixed-size =memcpy= on native little-endian systems and a shared byte-swap conversion on big-endian systems.
+
+*** Verification
+- Add focused unit coverage for byte order, writer/reader completion, writer/size-counter parity, accounting, truncated input, and overflow without partial operations.
+
 ** v0.7.0 - 2026-07-05
 *** Release Positioning Summary
 - Feature release from =v0.6.0= to =v0.7.0=, centered on reusable NNG protocol wrappers and repository-wide C++ formatting.
