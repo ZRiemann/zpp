@@ -3,6 +3,14 @@
 
 * Release History
 
+** v0.9.1 - 2026-07-10
+*** Changes
+- Add socket id context to =z::nng::socket= logs across socket open/close, option set/get, pipe-notify events, listen/dial lifecycle paths, and inline send/recv error reporting.
+- Ignore expected =NNG_ETIMEDOUT= receive results in =replier::on_receive()= to avoid emitting error logs for timeout-driven polling loops.
+
+*** Verification
+- Keep NNG socket and request/reply behavior unchanged while improving runtime observability and reducing timeout log noise.
+
 ** v0.9.0 - 2026-07-10
 *** Changes
 - Add the transport-independent =z::wire::msg_header= API for fixed-layout message header encoding/decoding and compatibility checks with bounded wire buffers.

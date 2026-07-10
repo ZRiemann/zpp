@@ -233,7 +233,9 @@ void replier::stop() {
 
 void replier::on_receive(aio_ctx &ctx, nng_err result) noexcept {
   if (result != NNG_OK) {
-    nng2err(component_, act_recv, result);
+    if (result != NNG_ETIMEDOUT) {
+      nng2err(component_, act_recv, result);
+    }
     ctx.recv();
     return;
   }

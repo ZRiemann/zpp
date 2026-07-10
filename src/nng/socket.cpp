@@ -15,7 +15,8 @@ int open_socket(socket &target, std::string_view context,
   nng_socket opened{};
   const auto rv = open_fn(&opened);
   if (rv != 0) {
-    nng2err(cmp_socket, context, rv);
+    nng2errf(cmp_socket, context, "id={} error={} message={}", target.id(), rv,
+             nng_strerror(static_cast<::nng_err>(rv)));
     return rv;
   }
   target.reset(opened);
@@ -55,8 +56,9 @@ void log_pipe_event(std::string_view event, pipe &observed_pipe) {
   }
 
   nng2dbg(cmp_pipe_notify, event,
-          "pipe={} socket={} listener={} dialer={} self={} peer={}",
-          observed_pipe.id(), nng_socket_id(observed_pipe.socket()),
+          "id={} pipe={} socket={} listener={} dialer={} self={} peer={}",
+          nng_socket_id(observed_pipe.socket()), observed_pipe.id(),
+          nng_socket_id(observed_pipe.socket()),
           nng_listener_id(observed_pipe.listener()),
           nng_dialer_id(observed_pipe.dialer()),
           observed_pipe.get_address(false), observed_pipe.get_address(true));
@@ -122,9 +124,11 @@ void socket::close() {
   if (!valid()) {
     return;
   }
+  const auto closed_id = id();
   const auto rv = nng_socket_close(sock_);
   if (rv != 0) {
-    nng2err(cmp_socket, act_close, rv);
+    nng2errf(cmp_socket, act_close, "id={} error={} message={}", closed_id, rv,
+             nng_strerror(static_cast<::nng_err>(rv)));
   }
   pipe_notify_enabled_ = false;
   sock_ = NNG_SOCKET_INITIALIZER;
@@ -138,7 +142,7 @@ void socket::reset(nng_socket opened) {
 
 int socket::pipe_notify(bool enable) {
   if (!valid()) {
-    nng2errf(cmp_pipe_notify, act_validate, "invalid socket");
+    nng2errf(cmp_pipe_notify, act_validate, "id={} invalid socket", id());
     return NNG_ECLOSED;
   }
 
@@ -181,8 +185,9 @@ void socket::pipe_event_callback(nng_pipe pipe, nng_pipe_ev event, void *arg) {
     target->on_pipe_remove_post(wrapped_pipe);
     break;
   default:
-    nng2errf(cmp_pipe_notify, act_device, "unknown pipe event={} pipe={}",
-             static_cast<int>(event), nng_pipe_id(pipe));
+    nng2errf(cmp_pipe_notify, act_device, "id={} unknown pipe event={} pipe={}",
+             nng_socket_id(wrapped_pipe.socket()), static_cast<int>(event),
+             nng_pipe_id(pipe));
     break;
   }
 }
@@ -196,8 +201,8 @@ int socket::install_pipe_notifications(nng_pipe_cb callback, void *arg) {
       nng_pipe_notify(sock_, NNG_PIPE_EV_REM_POST, callback, arg);
   if (add_pre != 0 || add_post != 0 || remove_post != 0) {
     nng2errf(cmp_pipe_notify, act_start,
-             "failed add_pre={} add_post={} remove_post={}", strerr(add_pre),
-             strerr(add_post), strerr(remove_post));
+             "id={} failed add_pre={} add_post={} remove_post={}", id(),
+             strerr(add_pre), strerr(add_post), strerr(remove_post));
     if (add_pre != 0) {
       return add_pre;
     }
@@ -319,10 +324,11 @@ int socket::get_options(socket_options &options) const {
 int socket::set_bool(const char *name, bool v) {
   const auto ret = nng_socket_set_bool(sock_, name, v);
   if (ret != 0) {
-    nng2errf(cmp_socket, act_set_bool, "nng_socket_set_bool failed: {}",
-             strerr(ret));
+    nng2errf(cmp_socket, act_set_bool, "id={} nng_socket_set_bool failed: {}",
+             id(), strerr(ret));
   } else {
-    nng2dbg(cmp_socket, act_set_bool, "nng_socket_set_bool: {}={}", name, v);
+    nng2dbg(cmp_socket, act_set_bool, "id={} nng_socket_set_bool: {}={}", id(),
+            name, v);
   }
   return ret;
 }
@@ -330,10 +336,11 @@ int socket::set_bool(const char *name, bool v) {
 int socket::get_bool(const char *name, bool *v) const {
   const auto ret = nng_socket_get_bool(sock_, name, v);
   if (ret != 0) {
-    nng2errf(cmp_socket, act_get_bool, "nng_socket_get_bool failed: {}",
-             strerr(ret));
+    nng2errf(cmp_socket, act_get_bool, "id={} nng_socket_get_bool failed: {}",
+             id(), strerr(ret));
   } else {
-    nng2dbg(cmp_socket, act_get_bool, "nng_socket_get_bool: {}={}", name, *v);
+    nng2dbg(cmp_socket, act_get_bool, "id={} nng_socket_get_bool: {}={}", id(),
+            name, *v);
   }
   return ret;
 }
@@ -341,10 +348,11 @@ int socket::get_bool(const char *name, bool *v) const {
 int socket::set_int(const char *name, int v) {
   const auto ret = nng_socket_set_int(sock_, name, v);
   if (ret != 0) {
-    nng2errf(cmp_socket, act_set_int, "nng_socket_set_int failed: {}",
-             strerr(ret));
+    nng2errf(cmp_socket, act_set_int, "id={} nng_socket_set_int failed: {}",
+             id(), strerr(ret));
   } else {
-    nng2dbg(cmp_socket, act_set_int, "nng_socket_set_int: {}={}", name, v);
+    nng2dbg(cmp_socket, act_set_int, "id={} nng_socket_set_int: {}={}", id(),
+            name, v);
   }
   return ret;
 }
@@ -352,10 +360,11 @@ int socket::set_int(const char *name, int v) {
 int socket::get_int(const char *name, int *v) const {
   const auto ret = nng_socket_get_int(sock_, name, v);
   if (ret != 0) {
-    nng2errf(cmp_socket, act_get_int, "nng_socket_get_int failed: {}",
-             strerr(ret));
+    nng2errf(cmp_socket, act_get_int, "id={} nng_socket_get_int failed: {}",
+             id(), strerr(ret));
   } else {
-    nng2dbg(cmp_socket, act_get_int, "nng_socket_get_int: {}={}", name, *v);
+    nng2dbg(cmp_socket, act_get_int, "id={} nng_socket_get_int: {}={}", id(),
+            name, *v);
   }
   return ret;
 }
@@ -363,10 +372,11 @@ int socket::get_int(const char *name, int *v) const {
 int socket::set_size(const char *name, std::size_t v) {
   const auto ret = nng_socket_set_size(sock_, name, v);
   if (ret != 0) {
-    nng2errf(cmp_socket, act_set_size, "nng_socket_set_size failed: {}",
-             strerr(ret));
+    nng2errf(cmp_socket, act_set_size, "id={} nng_socket_set_size failed: {}",
+             id(), strerr(ret));
   } else {
-    nng2dbg(cmp_socket, act_set_size, "nng_socket_set_size: {}={}", name, v);
+    nng2dbg(cmp_socket, act_set_size, "id={} nng_socket_set_size: {}={}", id(),
+            name, v);
   }
   return ret;
 }
@@ -374,10 +384,11 @@ int socket::set_size(const char *name, std::size_t v) {
 int socket::get_size(const char *name, std::size_t *v) const {
   const auto ret = nng_socket_get_size(sock_, name, v);
   if (ret != 0) {
-    nng2errf(cmp_socket, act_get_size, "nng_socket_get_size failed: {}",
-             strerr(ret));
+    nng2errf(cmp_socket, act_get_size, "id={} nng_socket_get_size failed: {}",
+             id(), strerr(ret));
   } else {
-    nng2dbg(cmp_socket, act_get_size, "nng_socket_get_size: {}={}", name, *v);
+    nng2dbg(cmp_socket, act_get_size, "id={} nng_socket_get_size: {}={}", id(),
+            name, *v);
   }
   return ret;
 }
@@ -385,10 +396,11 @@ int socket::get_size(const char *name, std::size_t *v) const {
 int socket::set_ms(const char *name, nng_duration v) {
   const auto ret = nng_socket_set_ms(sock_, name, v);
   if (ret != 0) {
-    nng2errf(cmp_socket, act_set_ms, "nng_socket_set_ms failed: {}",
+    nng2errf(cmp_socket, act_set_ms, "id={} nng_socket_set_ms failed: {}", id(),
              strerr(ret));
   } else {
-    nng2dbg(cmp_socket, act_set_ms, "nng_socket_set_ms: {}={}", name, v);
+    nng2dbg(cmp_socket, act_set_ms, "id={} nng_socket_set_ms: {}={}", id(),
+            name, v);
   }
   return ret;
 }
@@ -396,48 +408,49 @@ int socket::set_ms(const char *name, nng_duration v) {
 int socket::get_ms(const char *name, nng_duration *v) const {
   const auto ret = nng_socket_get_ms(sock_, name, v);
   if (ret != 0) {
-    nng2errf(cmp_socket, act_get_ms, "nng_socket_get_ms failed: {}",
+    nng2errf(cmp_socket, act_get_ms, "id={} nng_socket_get_ms failed: {}", id(),
              strerr(ret));
   } else {
-    nng2dbg(cmp_socket, act_get_ms, "nng_socket_get_ms: {}={}", name, *v);
+    nng2dbg(cmp_socket, act_get_ms, "id={} nng_socket_get_ms: {}={}", id(),
+            name, *v);
   }
   return ret;
 }
 
 z::err_t socket::listen(const endpoint &target) {
   if (!valid()) {
-    nng2errf(cmp_socket, act_listen, "invalid socket");
+    nng2errf(cmp_socket, act_listen, "id={} invalid socket", id());
     return z::ERR_FAIL;
   }
   std::string error;
   if (remove_stale_ipc_socket(target.url, &error) != z::ERR_OK) {
-    nng2errf(cmp_socket, act_listen, "{}", error);
+    nng2errf(cmp_socket, act_listen, "id={} {}", id(), error);
     return z::ERR_FAIL;
   }
   const auto rv = nng_listen(sock_, target.url.c_str(), nullptr, 0);
   if (rv != 0) {
-    nng2err(cmp_socket, act_listen, rv);
-    nng2errf(cmp_socket, act_listen, "url={}", target.url);
+    nng2errf(cmp_socket, act_listen, "id={} error={} message={} url={}", id(),
+             rv, nng_strerror(static_cast<::nng_err>(rv)), target.url);
     return z::ERR_FAIL;
   }
-  nng2inf(cmp_socket, act_listen, "transport={} url={}",
+  nng2inf(cmp_socket, act_listen, "id={} transport={} url={}", id(),
           transport_name(target.transport), target.url);
   return z::ERR_OK;
 }
 
 z::err_t socket::dial(const endpoint &target, bool nonblock) {
   if (!valid()) {
-    nng2errf(cmp_socket, act_dial, "invalid socket");
+    nng2errf(cmp_socket, act_dial, "id={} invalid socket", id());
     return z::ERR_FAIL;
   }
   const int flags = nonblock ? NNG_FLAG_NONBLOCK : 0;
   const auto rv = nng_dial(sock_, target.url.c_str(), nullptr, flags);
   if (rv != 0) {
-    nng2err(cmp_socket, act_dial, rv);
-    nng2errf(cmp_socket, act_dial, "url={}", target.url);
+    nng2errf(cmp_socket, act_dial, "id={} error={} message={} url={}", id(), rv,
+             nng_strerror(static_cast<::nng_err>(rv)), target.url);
     return z::ERR_FAIL;
   }
-  nng2inf(cmp_socket, act_dial, "transport={} url={}",
+  nng2inf(cmp_socket, act_dial, "id={} transport={} url={}", id(),
           transport_name(target.transport), target.url);
   return z::ERR_OK;
 }

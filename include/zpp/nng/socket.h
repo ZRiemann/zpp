@@ -111,7 +111,8 @@ public:
     const auto ret = nng_sendmsg(sock_, msg.msg_, flags);
     if (ret != 0) {
       // ret = NNG_EAGAIN is normal in non-blocking mode
-      nng2errf(cmp_socket, act_send, "nng_send failed: {}", strerr(ret));
+      nng2errf(cmp_socket, act_send, "id={} nng_send failed: {}", id(),
+               strerr(ret));
     } else {
       msg.msg_ = nullptr;
     }
@@ -135,7 +136,8 @@ public:
     const auto ret = nng_recvmsg(sock_, &received, flags);
     if (ret != 0) {
       // flags = 0 blocks until a message arrives.
-      nng2errf(cmp_socket, act_recv, "nng_recv failed: {}", strerr(ret));
+      nng2errf(cmp_socket, act_recv, "id={} nng_recv failed: {}", id(),
+               strerr(ret));
     } else {
       if (msg.msg_ != nullptr) {
         nng_msg_free(msg.msg_);
