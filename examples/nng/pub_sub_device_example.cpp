@@ -1,6 +1,7 @@
 #include "pub_sub_device_example.h"
 
 #include <utility>
+#include <vector>
 
 #include <zpp/error.h>
 #include <zpp/spdlog.h>
@@ -26,17 +27,18 @@ err_t pub_sub_device_example::configure() {
             argv_[1]);
     return ERR_FAIL;
   }
-  ingress_ = std::move(config.ingress);
-  egress_ = std::move(config.egress);
-  if (config.socket) {
-    socket_options_ = *config.socket;
-  }
-  return ERR_OK;
+  std::vector<nng::endpoint> ingress;
+  ingress.push_back(std::move(config.ingress));
+  return device_.configure(
+      "pub_sub_device_example", std::move(ingress), std::move(config.egress),
+      config.socket ? &*config.socket : nullptr,
+      config.transport ? &*config.transport : nullptr,
+      config.dialer ? &*config.dialer : nullptr,
+      config.listener ? &*config.listener : nullptr);
 }
 
 err_t pub_sub_device_example::run() {
-  return device_.start("pub_sub_device_example", ingress_, egress_,
-                       socket_options_);
+  return device_.start();
 }
 
 err_t pub_sub_device_example::stop() {

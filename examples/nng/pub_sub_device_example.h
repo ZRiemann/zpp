@@ -1,11 +1,7 @@
 #pragma once
 
-#include <vector>
-
-#include <zpp/nng/endpoint.h>
 #include <zpp/nng/engine.h>
 #include <zpp/nng/protocols/pub_sub_device.h>
-#include <zpp/nng/socket.h>
 
 NSB_APP
 
@@ -23,9 +19,6 @@ public:
   err_t stop() override;
 
 private:
-  nng::endpoint ingress_;
-  std::vector<nng::endpoint> egress_;
-  nng::socket_options socket_options_;
   nng::pub_sub_device device_;
 };
 

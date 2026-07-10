@@ -35,9 +35,10 @@ Examples can also be started directly:
 ```
 
 PUB sends one counter per second into the raw SUB-to-PUB device. The device
-dials the configured ingress and listens on every configured egress endpoint.
-SUB processes forwarded messages through three managed receive AIOs on one
-default context so every message is delivered once.
+uses the same configured lifecycle as the other endpoint protocols, so its
+ingress and egress sides can each mix listen and dial endpoints. SUB processes
+forwarded messages through three managed receive AIOs on one default context so
+every message is delivered once.
 PUSH sends one counter per second. REQ/REP use three managed contexts: the
 requester keeps three requests in flight and correlates out-of-order replies
 with stable hints, while the replier processes up to three transactions

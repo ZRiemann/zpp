@@ -583,11 +583,38 @@ TEST(NngPubSubDevice, RejectsInvalidEndpoint) {
   const z::nng::socket_options options;
 
   EXPECT_NE(
-      device.start("invalid",
-                   {"inproc://zpp.runtime.pub-sub-device.invalid",
-                    z::nng::transport::inproc, z::nng::endpoint_role::listen},
-                   {}, options),
+      device.configure(
+          "invalid",
+          {{"inproc://zpp.runtime.pub-sub-device.invalid",
+            z::nng::transport::inproc, z::nng::endpoint_role::listen}},
+          {}, &options),
       z::ERR_OK);
+  EXPECT_TRUE(device.ingress_endpoints().empty());
+  EXPECT_TRUE(device.egress_endpoints().empty());
+}
+
+TEST(NngPubSubDevice, RollsBackWhenAnEndpointCannotStart) {
+  z::nng::nng runtime;
+  z::nng::pub_sub_device device;
+  const auto ingress_url =
+      unique_inproc_url("pub-sub-device-rollback-ingress", &device);
+  const auto duplicate_egress_url =
+      unique_inproc_url("pub-sub-device-rollback-egress", &device);
+
+  ASSERT_EQ(device.configure("rollback-test",
+                             {{ingress_url, z::nng::transport::inproc,
+                               z::nng::endpoint_role::dial}},
+                             {{duplicate_egress_url, z::nng::transport::inproc,
+                               z::nng::endpoint_role::listen},
+                              {duplicate_egress_url, z::nng::transport::inproc,
+                               z::nng::endpoint_role::listen}}),
+            z::ERR_OK);
+  EXPECT_FALSE(device.ingress_endpoints().empty());
+  EXPECT_FALSE(device.egress_endpoints().empty());
+  EXPECT_NE(device.start(), z::ERR_OK);
+  EXPECT_TRUE(device.ingress_endpoints().empty());
+  EXPECT_TRUE(device.egress_endpoints().empty());
+  device.stop();
 }
 
 TEST(NngPubSubDevice, ForwardsPublisherMessagesToSubscriber) {
@@ -608,17 +635,144 @@ TEST(NngPubSubDevice, ForwardsPublisherMessagesToSubscriber) {
                                  {""}),
             z::ERR_OK);
   ASSERT_EQ(publisher.start(), z::ERR_OK);
-  ASSERT_EQ(device.start("unit-test",
-                         {ingress_url, z::nng::transport::inproc,
-                          z::nng::endpoint_role::dial},
-                         {{egress_url, z::nng::transport::inproc,
-                           z::nng::endpoint_role::listen}},
-                         options),
+  ASSERT_EQ(device.configure("unit-test",
+                             {{ingress_url, z::nng::transport::inproc,
+                               z::nng::endpoint_role::dial}},
+                             {{egress_url, z::nng::transport::inproc,
+                               z::nng::endpoint_role::listen}},
+                             &options),
             z::ERR_OK);
+  ASSERT_EQ(device.start(), z::ERR_OK);
   ASSERT_EQ(subscriber.start(1), z::ERR_OK);
   nng_msleep(50);
 
   constexpr std::string_view payload{"forwarded-pub-sub"};
+  for (auto attempts = 0; attempts < 100 && !subscriber.contains(payload);
+       ++attempts) {
+    z::nng::message outbound{std::size_t{0}};
+    ASSERT_EQ(outbound.append(payload.data(), payload.size()), NNG_OK);
+    const int result = publisher.send(outbound);
+    ASSERT_TRUE(result == NNG_OK || result == NNG_EAGAIN);
+    nng_msleep(10);
+  }
+  EXPECT_TRUE(subscriber.contains(payload));
+
+  subscriber.stop();
+  device.stop();
+  publisher.stop();
+}
+
+TEST(NngPubSubDevice, SupportsMixedIngressAndEgressEndpointRoles) {
+  z::nng::nng runtime;
+  z::nng::publisher publisher;
+  z::nng::pub_sub_device device;
+  recording_subscriber subscriber;
+  const auto publisher_listen_url =
+      unique_inproc_url("pub-sub-device-publisher-listen", &publisher);
+  const auto device_ingress_listen_url =
+      unique_inproc_url("pub-sub-device-ingress-listen", &device);
+  const auto device_egress_listen_url =
+      unique_inproc_url("pub-sub-device-egress-listen", &device);
+  const auto subscriber_listen_url =
+      unique_inproc_url("pub-sub-device-subscriber-listen", &subscriber);
+  const z::nng::socket_options options;
+
+  ASSERT_EQ(publisher.configure({{publisher_listen_url,
+                                  z::nng::transport::inproc,
+                                  z::nng::endpoint_role::listen},
+                                 {device_ingress_listen_url,
+                                  z::nng::transport::inproc,
+                                  z::nng::endpoint_role::dial}}),
+            z::ERR_OK);
+  ASSERT_EQ(subscriber.configure({{device_egress_listen_url,
+                                   z::nng::transport::inproc,
+                                   z::nng::endpoint_role::dial},
+                                  {subscriber_listen_url,
+                                   z::nng::transport::inproc,
+                                   z::nng::endpoint_role::listen}},
+                                 {""}),
+            z::ERR_OK);
+  ASSERT_EQ(device.configure("unit-test-mixed",
+                             {{publisher_listen_url,
+                               z::nng::transport::inproc,
+                               z::nng::endpoint_role::dial},
+                              {device_ingress_listen_url,
+                               z::nng::transport::inproc,
+                               z::nng::endpoint_role::listen}},
+                             {{device_egress_listen_url,
+                               z::nng::transport::inproc,
+                               z::nng::endpoint_role::listen},
+                              {subscriber_listen_url,
+                               z::nng::transport::inproc,
+                               z::nng::endpoint_role::dial}},
+                             &options),
+            z::ERR_OK);
+  EXPECT_EQ(device.ingress_endpoints().size(), 2U);
+  EXPECT_EQ(device.egress_endpoints().size(), 2U);
+
+  ASSERT_EQ(subscriber.start(1), z::ERR_OK);
+  ASSERT_EQ(publisher.start(), z::ERR_OK);
+  ASSERT_EQ(device.start(), z::ERR_OK);
+  nng_msleep(50);
+
+  constexpr std::string_view payload{"forwarded-pub-sub-mixed"};
+  for (auto attempts = 0; attempts < 100 && !subscriber.contains(payload);
+       ++attempts) {
+    z::nng::message outbound{std::size_t{0}};
+    ASSERT_EQ(outbound.append(payload.data(), payload.size()), NNG_OK);
+    const int result = publisher.send(outbound);
+    ASSERT_TRUE(result == NNG_OK || result == NNG_EAGAIN);
+    nng_msleep(10);
+  }
+  EXPECT_TRUE(subscriber.contains(payload));
+
+  subscriber.stop();
+  device.stop();
+  device.stop();
+  publisher.stop();
+  EXPECT_TRUE(device.ingress_endpoints().empty());
+  EXPECT_TRUE(device.egress_endpoints().empty());
+}
+
+TEST(NngPubSubDevice, SupportsMultipleIngressAndEgressEndpoints) {
+  z::nng::nng runtime;
+  z::nng::publisher publisher;
+  z::nng::pub_sub_device device;
+  recording_subscriber subscriber;
+  const auto first_ingress_url =
+      unique_inproc_url("pub-sub-device-ingress-a", &publisher);
+  const auto second_ingress_url =
+      unique_inproc_url("pub-sub-device-ingress-b", &publisher);
+  const auto first_egress_url =
+      unique_inproc_url("pub-sub-device-egress-a", &device);
+  const auto second_egress_url =
+      unique_inproc_url("pub-sub-device-egress-b", &device);
+
+  ASSERT_EQ(publisher.configure({{first_ingress_url, z::nng::transport::inproc,
+                                  z::nng::endpoint_role::listen},
+                                 {second_ingress_url, z::nng::transport::inproc,
+                                  z::nng::endpoint_role::listen}}),
+            z::ERR_OK);
+  ASSERT_EQ(subscriber.configure({{second_egress_url, z::nng::transport::inproc,
+                                   z::nng::endpoint_role::dial}},
+                                 {""}),
+            z::ERR_OK);
+  ASSERT_EQ(publisher.start(), z::ERR_OK);
+  ASSERT_EQ(device.configure("unit-test-multi",
+                             {{first_ingress_url, z::nng::transport::inproc,
+                               z::nng::endpoint_role::dial},
+                              {second_ingress_url, z::nng::transport::inproc,
+                               z::nng::endpoint_role::dial}},
+                             {{first_egress_url, z::nng::transport::inproc,
+                               z::nng::endpoint_role::listen},
+                              {second_egress_url, z::nng::transport::inproc,
+                               z::nng::endpoint_role::listen}}),
+            z::ERR_OK);
+  ASSERT_EQ(device.start(), z::ERR_OK);
+  ASSERT_EQ(subscriber.start(1), z::ERR_OK);
+  nng_msleep(50);
+
+  constexpr std::string_view payload{"forwarded-pub-sub-multi"};
   for (auto attempts = 0; attempts < 100 && !subscriber.contains(payload);
        ++attempts) {
     z::nng::message outbound{std::size_t{0}};

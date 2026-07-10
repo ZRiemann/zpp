@@ -3,13 +3,16 @@
 
 * 发布历史
 
-** 未发布
+** v0.9.0 - 2026-07-10
 *** 变更内容
 - 在 =zpp/wire/= 下新增与传输层无关的 =z::wire::writer=、=reader= 和 =size_counter=，支持带边界检查的定长缓冲区编码、对称解码，以及通过相同操作序列计算编码长度。
+- 新增 =z::wire::msg_header=，用于定长消息头的编码、解码与兼容性检查。
 - 在 native little-endian 系统上使用定长 =memcpy= 优化标量读写，在 big-endian 系统上复用统一的字节翻转转换。
+- 将 =pub_sub_device= 调整为 =configure() -> start() -> stop()= 生命周期，ingress 与 egress 两侧均支持同时配置 listen 和 dial endpoint。
 
 *** 验证
 - 新增聚焦单元测试，覆盖字节序、writer/reader 完整状态、writer/size-counter 一致性、计数、截断输入，以及溢出时不产生部分操作。
+- 新增 =wire_msg_header_test.cpp=，并扩展 NNG runtime 测试覆盖 =pub_sub_device= 的配置与启动路径。
 
 ** v0.7.0 - 2026-07-05
 *** 发布定位摘要

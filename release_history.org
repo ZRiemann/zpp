@@ -3,6 +3,15 @@
 
 * Release History
 
+** v0.9.0 - 2026-07-10
+*** Changes
+- Add the transport-independent =z::wire::msg_header= API for fixed-layout message header encoding/decoding and compatibility checks with bounded wire buffers.
+- Refactor =pub_sub_device= to a two-phase lifecycle of =configure() -> start() -> stop()= and allow both ingress and egress endpoint sets to mix listen and dial roles.
+- Update the pub/sub device example and NNG example documentation to match the new endpoint and lifecycle model.
+
+*** Verification
+- Add =wire_msg_header_test.cpp= and extend NNG runtime tests for =pub_sub_device= configuration, startup, and endpoint-role behavior.
+
 ** v0.8.0 - 2026-07-09
 *** Changes
 - Add the transport-independent =z::wire::writer=, =reader=, and =size_counter= APIs under =zpp/wire/= for bounds-checked fixed-buffer encoding, symmetric decoding, and encoded-size calculation through matching operation sequences.
