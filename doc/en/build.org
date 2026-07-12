@@ -36,7 +36,13 @@ through builder flags:
 - =--with-folly=: enable the Folly module and related examples/tests.
 - =--with-nng=: enable the NNG module and examples.
 - =--with-taskflow=: enable Taskflow examples.
+- =--with-hpx=: enable the =zpp::hpx= Sender/Receiver integration module.
 - =--with-hpx-examples=: enable HPX examples.
+
+=--with-hpx-examples= implies =--with-hpx=. The optional module is exported as
+the =zpp_hpx= package with the =zpp::hpx= target. Configuration verifies that
+the installed HPX package was built from the current =zeta_forge/3rd/hpx=
+commit with stdexec enabled.
 
 Example:
 
@@ -82,3 +88,9 @@ cmake --build build/Debug
 
 The old =cbuild= helper is no longer the recommended entry for zpp because it
 may miss the installed zeta_forge dependency package environment.
+
+Direct CMake users enabling =ZPP_BUILD_HPX_MODULE= must also pass
+=ZPP_HPX_EXPECTED_GIT_COMMIT= with the exact commit from
+=zeta_forge/3rd/hpx= and set =ZPP_HPX_DEPENDENCY_CMAKE_DIR= to
+=zeta_forge/builder/hpx/cmake/conan_compat/packages=. The project builder
+supplies both automatically.

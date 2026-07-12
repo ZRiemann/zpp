@@ -3,6 +3,16 @@
 
 * Release History
 
+** v0.10.0 - 2026-07-12
+*** Changes
+- Rename the HPX wrapper namespace from =z::zhpx= to =z::hpx= and keep the public wrapper surface aligned under =zpp/hpx/= and =z::hpx::exec=.
+- Add =z::hpx::exec= wrapper exports for sender/receiver concepts, factories, schedulers, algorithms, adapters, and lifecycle helpers as thin forwards over HPX/stdexec compatibility bindings.
+- Add explicit performance warnings in HPX exec wrapper docs for frequent future/sender boundary conversions (for example =from_future()= and =into_future()=) to discourage per-message or per-small-task conversion on hot paths.
+- Add explicit performance warnings for unnecessary scheduler switches (=starts_on=, =continues_on=, =on=, =transfer=) and overly fine-grained task decomposition with =schedule()= and tiny =then()= stages.
+
+*** Verification
+- Keep wrapper APIs intentionally thin and behaviorally equivalent to the underlying HPX/stdexec semantics while improving call-site guidance for performance-sensitive pipelines.
+
 ** v0.9.1 - 2026-07-10
 *** Changes
 - Add socket id context to =z::nng::socket= logs across socket open/close, option set/get, pipe-notify events, listen/dial lifecycle paths, and inline send/recv error reporting.

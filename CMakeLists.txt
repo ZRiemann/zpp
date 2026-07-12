@@ -20,9 +20,14 @@ project(zpp VERSION ${ZPP_PROJECT_VERSION})
 option(ZPP_BUILD_FOLLY_MODULE "Build zpp folly module" OFF)
 option(ZPP_BUILD_NNG_MODULE "Build zpp nng module" OFF)
 option(ZPP_BUILD_TASKFLOW_MODULE "Build zpp taskflow examples/module support" OFF)
+option(ZPP_BUILD_HPX_MODULE "Build zpp HPX integration module" OFF)
 option(ZPP_BUILD_TESTS "Build zpp tests" ON)
 option(ZPP_BUILD_EXAMPLES "Build zpp examples" ON)
-option(ZPP_BUILD_HPX_EXAMPLES "Build zpp HPX examples" ON)
+option(ZPP_BUILD_HPX_EXAMPLES "Build zpp HPX examples" OFF)
+
+if(ZPP_BUILD_HPX_EXAMPLES)
+    set(ZPP_BUILD_HPX_MODULE ON CACHE BOOL "Build zpp HPX integration module" FORCE)
+endif()
 
 set(ZETA_CMAKE_UTIL_DIR "" CACHE PATH "Path to zeta_forge/cmake_util")
 if(NOT ZETA_CMAKE_UTIL_DIR OR NOT EXISTS "${ZETA_CMAKE_UTIL_DIR}/common.cmake")
@@ -64,6 +69,22 @@ if(TARGET spdlog::spdlog_header_only AND NOT TARGET spdlog::spdlog)
         INTERFACE_LINK_LIBRARIES spdlog::spdlog_header_only
     )
 endif()
+
+if(ZPP_BUILD_HPX_MODULE)
+    if(NOT ZPP_HPX_DEPENDENCY_CMAKE_DIR OR
+       NOT EXISTS "${ZPP_HPX_DEPENDENCY_CMAKE_DIR}/AsioConfig.cmake" OR
+       NOT EXISTS "${ZPP_HPX_DEPENDENCY_CMAKE_DIR}/HwlocConfig.cmake")
+        message(FATAL_ERROR
+            "ZPP_HPX_DEPENDENCY_CMAKE_DIR must point to the zeta_forge HPX "
+            "compatibility package directory. Build through ./zbuild.py or "
+            "pass zeta_forge/builder/hpx/cmake/conan_compat/packages."
+        )
+    endif()
+    list(PREPEND CMAKE_PREFIX_PATH "${ZPP_HPX_DEPENDENCY_CMAKE_DIR}")
+    find_package(Asio CONFIG REQUIRED)
+    find_package(Hwloc CONFIG REQUIRED)
+    find_package(HPX CONFIG REQUIRED)
+endif()
 if(NOT TARGET spdlog::spdlog)
     message(FATAL_ERROR
         "spdlog::spdlog not found. Install zeta_forge deps first with: "
@@ -93,6 +114,7 @@ endif()
 
 add_subdirectory(src)
 if(ZPP_BUILD_TESTS)
+    enable_testing()
     add_subdirectory(tests)
 endif()
 

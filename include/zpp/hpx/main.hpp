@@ -33,9 +33,9 @@ NSE_HPX
  */
 int hpx_main(int argc, char *argv[]) {
 #ifdef SVR_NAME
-  return z::zhpx::run_server<SVR_NAME>(argc, argv);
+  return z::hpx::run_server<SVR_NAME>(argc, argv);
 #else
-  return z::zhpx::run_server<z::zhpx::server>(argc, argv);
+  return z::hpx::run_server<z::hpx::server>(argc, argv);
 #endif
 }
 

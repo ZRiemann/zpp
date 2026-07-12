@@ -88,3 +88,47 @@ if(ZPP_BUILD_FOLLY_MODULE)
 
     add_run_target(gtest_folly ARGS --folly_global_cpu_executor_threads=16 --folly_global_io_executor_threads=4)
 endif()
+
+if(TARGET zpp::hpx)
+    add_executable(gtest_hpx_exec
+        hpx_exec_test.cpp
+        hpx_exec_header_adapters.cpp
+        hpx_exec_header_algorithms.cpp
+        hpx_exec_header_consumers.cpp
+        hpx_exec_header_core.cpp
+        hpx_exec_header_exec.cpp
+        hpx_exec_header_factories.cpp
+        hpx_exec_header_schedulers.cpp
+    )
+
+    target_link_libraries(gtest_hpx_exec PRIVATE
+        cxx_options
+        zpp::hpx
+        GTest::gtest_main
+    )
+
+    gtest_discover_tests(gtest_hpx_exec
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        DISCOVERY_TIMEOUT 30
+        PROPERTIES TIMEOUT 10
+    )
+
+    add_executable(gtest_hpx_exec_runtime
+        hpx_exec_runtime_test.cpp
+    )
+
+    target_link_libraries(gtest_hpx_exec_runtime PRIVATE
+        cxx_options
+        zpp::hpx
+        GTest::gtest
+    )
+
+    add_test(
+        NAME hpx_exec_runtime
+        COMMAND gtest_hpx_exec_runtime
+    )
+    set_tests_properties(hpx_exec_runtime PROPERTIES TIMEOUT 15)
+
+    add_run_target(gtest_hpx_exec)
+    add_run_target(gtest_hpx_exec_runtime)
+endif()

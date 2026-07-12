@@ -6,7 +6,7 @@
 
 NSB_APP
 
-class server : public z::zhpx::server {
+class server : public z::hpx::server {
 public:
   server(int argc, char **argv);
   ~server() override;
@@ -15,7 +15,7 @@ public:
   err_t wait_stop() override;
 };
 
-server::server(int argc, char **argv) : z::zhpx::server(argc, argv) {
+server::server(int argc, char **argv) : z::hpx::server(argc, argv) {
   spd_inf("physical_cores: {}", z::sys::physical_cores());
   spd_inf("hpx_cores: {}", hpx::get_os_thread_count());
 }

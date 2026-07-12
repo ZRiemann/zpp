@@ -32,11 +32,11 @@
 #endif
 
 #ifndef NSB_HPX
-#define NSB_HPX NSB_ZPP namespace zhpx {
+#define NSB_HPX NSB_ZPP namespace hpx {
 #define NSE_HPX                                                                \
   NSE_ZPP                                                                      \
   }
-#define USE_HPX using namespace z::zhpx;
+#define USE_HPX using namespace z::hpx;
 #endif
 
 #ifndef NSB_CUDA

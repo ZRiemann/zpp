@@ -17,7 +17,7 @@
 NSB_APP
 
 USE_ZPP
-class server : public z::zhpx::server {
+class server : public z::hpx::server {
 public:
   server(int argc, char **argv);
   ~server() override;
@@ -33,7 +33,7 @@ private:
 };
 
 server::server(int argc, char **argv)
-    : z::zhpx::server(argc, argv),
+    : z::hpx::server(argc, argv),
       _executor(std::max(1, (int)z::sys::physical_cores() -
                                 (int)hpx::get_os_thread_count()),
                 tf::make_worker_interface<z::ztf::affine_worker>()),

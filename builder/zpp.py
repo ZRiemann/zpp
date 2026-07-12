@@ -26,6 +26,7 @@ class ZppBuildArgs(CommonBuildArgs):
     build_tests: bool
     build_examples: bool
     build_hpx_examples: bool
+    build_hpx_module: bool
     build_folly_module: bool
     build_nng_module: bool
     build_taskflow_module: bool
@@ -71,6 +72,37 @@ class ZppBuilder(CMakeProjectBuilder):
     @property
     def hpx_cmake_dir(self) -> Path:
         return self.repo_config.install_prefix / "lib" / "cmake" / "HPX"
+
+    @property
+    def hpx_source_dir(self) -> Path:
+        return self.repo_config.source_dir("ZETA_HPX_SRC_DIR")
+
+    @property
+    def hpx_git_commit(self) -> str:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(self.hpx_source_dir), "rev-parse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise RuntimeError(
+                f"Unable to read the zeta_forge HPX source commit from {self.hpx_source_dir}"
+            ) from exc
+        return result.stdout.strip()
+
+    def configured_hpx_git_commit(self) -> str | None:
+        cache_path = self.build_dir / "CMakeCache.txt"
+        if not cache_path.is_file():
+            return None
+        cache_lines = cache_path.read_text(
+            encoding="utf-8", errors="ignore"
+        ).splitlines()
+        for raw_line in cache_lines:
+            if raw_line.startswith("ZPP_HPX_EXPECTED_GIT_COMMIT:"):
+                return raw_line.split("=", 1)[1].strip()
+        return None
 
     @property
     def hpx_config_file(self) -> Path:
@@ -156,41 +188,65 @@ class ZppBuilder(CMakeProjectBuilder):
                 "Build/install Folly through zeta_forge first, for example: "
                 "$ZETAX_ROOT/zeta_forge/zbuild.py folly --rebuild --install"
             )
-        if self.typed_args.build_hpx_examples and not self.hpx_config_file.is_file():
+        if self.typed_args.build_hpx_module and not self.hpx_source_dir.is_dir():
+            raise RuntimeError(
+                f"zeta_forge HPX source directory not found: {self.hpx_source_dir}\n"
+                "Initialize it with: git -C \"$ZETAX_ROOT/zeta_forge\" "
+                "submodule update --init --recursive 3rd/hpx"
+            )
+        if self.typed_args.build_hpx_module and not self.hpx_config_file.is_file():
             raise RuntimeError(
                 f"HPX package config not found: {self.hpx_config_file}\n"
                 "Build/install HPX through zeta_forge first, for example: "
                 "git -C \"$ZETAX_ROOT/zeta_forge\" submodule update --init --recursive 3rd/hpx && "
                 "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
             )
-        if self.typed_args.build_hpx_examples and not self.hpx_asio_config_file.is_file():
+        if self.typed_args.build_hpx_module and not self.hpx_asio_config_file.is_file():
             raise RuntimeError(
                 f"HPX Asio compatibility package config not found: {self.hpx_asio_config_file}\n"
                 "Build/install HPX through zeta_forge first, for example: "
                 "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
             )
-        if self.typed_args.build_hpx_examples and not self.hpx_hwloc_config_file.is_file():
+        if self.typed_args.build_hpx_module and not self.hpx_hwloc_config_file.is_file():
             raise RuntimeError(
                 f"HPX Hwloc compatibility package config not found: {self.hpx_hwloc_config_file}\n"
                 "Build/install HPX through zeta_forge first, for example: "
                 "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
             )
-        if self.typed_args.build_hpx_examples:
+        if self.typed_args.build_hpx_module:
             _ = self.hpx_asio_root
+            _ = self.hpx_git_commit
 
     def configure_dependencies(self) -> list[Path]:
-        return [
+        dependencies = [
             self.script_path,
             Path(__file__),
             self.source_dir / "VERSION",
             self.source_dir / "CMakeConfig.h.in",
         ]
+        if self.typed_args.build_hpx_module:
+            dependencies.extend(
+                [
+                    self.hpx_config_file,
+                    self.hpx_asio_config_file,
+                    self.hpx_hwloc_config_file,
+                ]
+            )
+        return dependencies
+
+    def should_configure(self) -> bool:
+        if (
+            self.typed_args.build_hpx_module
+            and self.configured_hpx_git_commit() != self.hpx_git_commit
+        ):
+            return True
+        return super().should_configure()
 
     def configure_command(self) -> list[object]:
         cmake_prefix_paths = [str(self.zeta_deps_cmake_dir), str(self.repo_config.install_prefix)]
         if self.typed_args.build_folly_module:
             cmake_prefix_paths.append(str(self.folly_cmake_dir))
-        if self.typed_args.build_hpx_examples:
+        if self.typed_args.build_hpx_module:
             cmake_prefix_paths.append(str(self.hpx_cmake_dir))
             cmake_prefix_paths.append(str(self.hpx_conan_compat_packages_dir))
 
@@ -215,6 +271,7 @@ class ZppBuilder(CMakeProjectBuilder):
             f"-DZPP_BUILD_FOLLY_MODULE={cmake_bool(self.typed_args.build_folly_module)}",
             f"-DZPP_BUILD_NNG_MODULE={cmake_bool(self.typed_args.build_nng_module)}",
             f"-DZPP_BUILD_TASKFLOW_MODULE={cmake_bool(self.typed_args.build_taskflow_module)}",
+            f"-DZPP_BUILD_HPX_MODULE={cmake_bool(self.typed_args.build_hpx_module)}",
             f"-DZPP_BUILD_TESTS={cmake_bool(self.typed_args.build_tests)}",
             f"-DZPP_BUILD_EXAMPLES={cmake_bool(self.typed_args.build_examples)}",
             f"-DZPP_BUILD_HPX_EXAMPLES={cmake_bool(self.typed_args.build_hpx_examples)}",
@@ -227,7 +284,7 @@ class ZppBuilder(CMakeProjectBuilder):
             )
         if self.typed_args.build_taskflow_module:
             command.append(f"-DTASKFLOW_ROOT={self.taskflow_source_dir}")
-        if self.typed_args.build_hpx_examples:
+        if self.typed_args.build_hpx_module:
             command.extend(
                 [
                     "-DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON",
@@ -235,6 +292,8 @@ class ZppBuilder(CMakeProjectBuilder):
                     f"-DAsio_DIR={self.hpx_conan_compat_packages_dir}",
                     f"-DHwloc_DIR={self.hpx_conan_compat_packages_dir}",
                     f"-DASIO_ROOT={self.hpx_asio_root}",
+                    f"-DZPP_HPX_DEPENDENCY_CMAKE_DIR={self.hpx_conan_compat_packages_dir}",
+                    f"-DZPP_HPX_EXPECTED_GIT_COMMIT={self.hpx_git_commit}",
                 ]
             )
         return command
@@ -250,6 +309,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-tests", action="store_true")
     parser.add_argument("--no-examples", action="store_true")
     parser.add_argument("--with-hpx-examples", action="store_true")
+    parser.add_argument("--with-hpx", action="store_true")
     parser.add_argument("--with-folly", action="store_true")
     parser.add_argument("--with-nng", action="store_true")
     parser.add_argument("--with-taskflow", action="store_true")
@@ -266,13 +326,15 @@ def build_parser() -> argparse.ArgumentParser:
 def parse_args(argv: list[str] | None = None) -> ZppBuildArgs:
     namespace = build_parser().parse_args(argv)
     enable_all = namespace.all
+    build_hpx_examples = namespace.with_hpx_examples or enable_all
     return ZppBuildArgs(
         build_type=namespace.build_type,
         install=namespace.install,
         rebuild=namespace.rebuild,
         build_tests=not namespace.no_tests,
         build_examples=not namespace.no_examples,
-        build_hpx_examples=namespace.with_hpx_examples or enable_all,
+        build_hpx_examples=build_hpx_examples,
+        build_hpx_module=namespace.with_hpx or build_hpx_examples or enable_all,
         build_folly_module=namespace.with_folly or enable_all,
         build_nng_module=namespace.with_nng or enable_all,
         build_taskflow_module=namespace.with_taskflow or enable_all,

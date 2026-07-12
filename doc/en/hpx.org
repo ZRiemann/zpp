@@ -10,13 +10,13 @@
 =zpp/hpx= is a thin wrapper over HPX that lets applications keep the familiar
 =z::server= lifecycle model while running under the HPX runtime.
 
-The recommended application shape is:
+The recommended service application shape is:
 
 #+begin_src cpp
-class server : public z::zhpx::server {
+class server : public z::hpx::server {
 public:
     server(int argc, char** argv)
-        : z::zhpx::server(argc, argv) {
+        : z::hpx::server(argc, argv) {
     }
 };
 
@@ -38,13 +38,13 @@ later startup phases are skipped. Once =run()= succeeds, =stop()= and
 =wait_stop()= still run even when =loop()= exits with an error. The lifecycle
 returns the first cleanup error code when cleanup fails.
 
-=z::zhpx::run_server_lifecycle<Server>()= contains the lifecycle orchestration.
-=z::zhpx::run_server<Server>()= calls that lifecycle and finalizes HPX only after
+=z::hpx::run_server_lifecycle<Server>()= contains the lifecycle orchestration.
+=z::hpx::run_server<Server>()= calls that lifecycle and finalizes HPX only after
 the server object has finished its full lifetime.
 
 ** Timer Behavior
 
-=z::zhpx::server= calls its cooperative timer every 1000ms by default. It uses
+=z::hpx::server= calls its cooperative timer every 1000ms by default. It uses
 =hpx::this_thread::sleep_for=, so it does not block underlying OS worker threads.
 
 Use =set_timer_interval(...)= in a derived server when a shorter shutdown or
@@ -69,3 +69,55 @@ HPX examples are enabled with:
 
 If HPX package configs are missing, build and install HPX through zeta_forge
 first.
+
+** Sender/Receiver Adapter
+
+=z::hpx::exec= is the project-level thin adapter for the Sender/Receiver API
+provided by the zeta_forge HPX source baseline. Applications should use:
+
+#+begin_src cpp
+#include <zpp/hpx/exec/exec.hpp>
+
+namespace ex = z::hpx::exec;
+
+auto sender = ex::just(21) | ex::then([](int value) {
+    return value * 2;
+});
+auto result = ex::sync_wait(std::move(sender));
+#+end_src
+
+Do not use =hpx::execution::experimental= directly in application code. The
+stable boundary is the explicitly exported =z::hpx::exec= subset, not every
+execution symbol available in a particular HPX checkout. This namespace is not
+a replacement for =hpx::async=, =hpx::future=, =hpx::promise=, or
+=hpx::dataflow=.
+
+The scheduling algorithms retain their underlying distinct semantics:
+=starts_on= selects where a sender starts, =continues_on= transfers subsequent
+completion, =on= applies the stdexec =on= scheduling contract, and =transfer=
+retains the separate HPX/stdexec compatibility contract. The adapter does not
+rewrite one operation in terms of another.
+
+=from_future= uses HPX's =as_sender=. =into_future= accepts only senders with
+zero or one value, one value alternative, no stopped completion, and only the
+error representation supported by HPX =make_future=. These constraints prevent
+information loss and avoid HPX's terminate-on-stopped behavior.
+
+=sync_wait= directly forwards the HPX execution CPO, which currently uses
+stdexec's blocking wait. Do not call it from the only HPX worker while waiting
+for work queued to the same pool. Runtime tests and examples use at least two
+HPX workers and enforce an external timeout.
+
+Enable and consume the optional module with:
+
+#+begin_src sh
+./zbuild.py --with-hpx --rebuild
+#+end_src
+
+#+begin_src cmake
+find_package(zpp_hpx CONFIG REQUIRED)
+target_link_libraries(my_target PRIVATE zpp::hpx)
+#+end_src
+
+The package validates the exact HPX Git commit recorded by the current
+=zeta_forge/3rd/hpx= checkout and requires its stdexec-enabled build.

@@ -40,7 +40,7 @@ NSB_HPX
  *     file_sink->set_level(spdlog::level::info);
  *
  *     // 2. Secondary Sink: HPX Console
- *     auto hpx_sink = std::make_shared<z::zhpx::hpx_sink_mt>();
+ *     auto hpx_sink = std::make_shared<z::hpx::hpx_sink_mt>();
  *     hpx_sink->set_level(spdlog::level::err);
  *
  *     // Combine

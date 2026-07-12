@@ -67,7 +67,7 @@ TEST(HpxServerLifecycleTest, ConfigureFailureSkipsStartupAndCleanup) {
   char app[] = "test";
   char *argv[] = {app};
 
-  EXPECT_EQ(z::ERR_FAIL, z::zhpx::run_server_lifecycle<fake_server>(1, argv));
+  EXPECT_EQ(z::ERR_FAIL, z::hpx::run_server_lifecycle<fake_server>(1, argv));
 
   const std::vector<std::string> expected{"construct", "configure", "destruct"};
   EXPECT_EQ(expected, events());
@@ -80,7 +80,7 @@ TEST(HpxServerLifecycleTest, RunFailureSkipsLoopAndCleanup) {
   char *argv[] = {app};
 
   EXPECT_EQ(z::ERR_TIMEOUT,
-            z::zhpx::run_server_lifecycle<fake_server>(1, argv));
+            z::hpx::run_server_lifecycle<fake_server>(1, argv));
 
   const std::vector<std::string> expected{"construct", "configure", "run",
                                           "destruct"};
@@ -94,7 +94,7 @@ TEST(HpxServerLifecycleTest, StopFailureStillWaitsAndReturnsFirstCleanupError) {
   char app[] = "test";
   char *argv[] = {app};
 
-  EXPECT_EQ(z::ERR_FAIL, z::zhpx::run_server_lifecycle<fake_server>(1, argv));
+  EXPECT_EQ(z::ERR_FAIL, z::hpx::run_server_lifecycle<fake_server>(1, argv));
 
   const std::vector<std::string> expected{
       "construct", "configure", "run", "loop", "stop", "wait_stop", "destruct"};
@@ -108,7 +108,7 @@ TEST(HpxServerLifecycleTest, WaitStopFailureIsReturnedWhenStopSucceeds) {
   char *argv[] = {app};
 
   EXPECT_EQ(z::ERR_TIMEOUT,
-            z::zhpx::run_server_lifecycle<fake_server>(1, argv));
+            z::hpx::run_server_lifecycle<fake_server>(1, argv));
 
   const std::vector<std::string> expected{
       "construct", "configure", "run", "loop", "stop", "wait_stop", "destruct"};
@@ -120,7 +120,7 @@ TEST(HpxServerLifecycleTest, SuccessfulLifecycleReturnsOk) {
   char app[] = "test";
   char *argv[] = {app};
 
-  EXPECT_EQ(z::ERR_OK, z::zhpx::run_server_lifecycle<fake_server>(1, argv));
+  EXPECT_EQ(z::ERR_OK, z::hpx::run_server_lifecycle<fake_server>(1, argv));
 
   const std::vector<std::string> expected{
       "construct", "configure", "run", "loop", "stop", "wait_stop", "destruct"};
