@@ -43,7 +43,8 @@ enum class sink_format {
 struct file_sink_config {
   /// Enables this file sink when true.
   bool enabled{false};
-  /// Output file name.
+  /// Output file name; supports leading `~`, `$VAR`, and `${VAR}` expansion.
+  /// Initialization fails when a referenced environment variable is undefined.
   std::string file_name;
   /// Maximum size of each rotated file in MiB.
   std::size_t max_file_size_mb{32};
@@ -69,7 +70,8 @@ struct config {
   bool rotating_file{false};
   /// Rotate/truncate the legacy runtime file sink on open.
   bool rotate_on_open{true};
-  /// Legacy runtime file name.
+  /// Legacy runtime file name; supports `~`, `$VAR`, and `${VAR}` expansion.
+  /// Initialization fails when a referenced environment variable is undefined.
   std::string file_name{"server.log"};
   /// Legacy runtime file maximum size in MiB.
   std::size_t max_file_size_mb{32};

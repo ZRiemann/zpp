@@ -3,13 +3,17 @@
  * @brief Native-spdlog implementation for zpp logging initialization.
  */
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -429,6 +433,96 @@ bool should_log_level(spdlog::level::level_enum level) noexcept {
          (logger->should_log(level) || logger->should_backtrace());
 }
 
+std::optional<std::string> get_env_value(std::string_view name) {
+  if (name.empty()) {
+    return std::nullopt;
+  }
+  const std::string key{name};
+  const char *value = std::getenv(key.c_str());
+  if (value == nullptr) {
+    return std::nullopt;
+  }
+  return std::string{value};
+}
+
+void append_environment_variable(std::string_view name, std::string &expanded) {
+  if (name.empty()) {
+    throw std::runtime_error(
+        "log file path contains an empty environment variable reference");
+  }
+  const auto value = get_env_value(name);
+  if (!value.has_value()) {
+    throw std::runtime_error("log file path references undefined environment "
+                             "variable: " +
+                             std::string{name});
+  }
+  expanded.append(*value);
+}
+
+std::string expand_environment_variables(std::string_view file_name) {
+  std::string expanded;
+  expanded.reserve(file_name.size());
+  for (std::size_t pos = 0; pos < file_name.size();) {
+    if (file_name[pos] != '$') {
+      expanded.push_back(file_name[pos]);
+      ++pos;
+      continue;
+    }
+
+    if (pos + 1 >= file_name.size()) {
+      expanded.push_back('$');
+      ++pos;
+      continue;
+    }
+
+    if (file_name[pos + 1] == '{') {
+      const auto end = file_name.find('}', pos + 2);
+      if (end == std::string_view::npos) {
+        expanded.push_back('$');
+        ++pos;
+        continue;
+      }
+      const auto name = file_name.substr(pos + 2, end - pos - 2);
+      append_environment_variable(name, expanded);
+      pos = end + 1;
+      continue;
+    }
+
+    std::size_t end = pos + 1;
+    while (end < file_name.size() &&
+           (std::isalnum(static_cast<unsigned char>(file_name[end])) ||
+            file_name[end] == '_')) {
+      ++end;
+    }
+    if (end == pos + 1) {
+      expanded.push_back('$');
+      ++pos;
+      continue;
+    }
+    const auto name = file_name.substr(pos + 1, end - pos - 1);
+    append_environment_variable(name, expanded);
+    pos = end;
+  }
+  return expanded;
+}
+
+std::string expand_log_file_name(const std::string &file_name) {
+  if (file_name.empty()) {
+    return file_name;
+  }
+
+  std::string expanded = file_name;
+  if (expanded == "~" || expanded.rfind("~/", 0) == 0) {
+    const auto home = get_env_value("HOME");
+    if (!home.has_value() || home->empty()) {
+      throw std::runtime_error(
+          "log file path begins with '~' but HOME is undefined or empty");
+    }
+    expanded.replace(0, 1, *home);
+  }
+  return expand_environment_variables(expanded);
+}
+
 void create_parent_directory(const std::string &file_name) {
   const std::filesystem::path path(file_name);
   const auto parent = path.parent_path();
@@ -484,9 +578,10 @@ sink_bundle make_sinks(const z::log::config &cfg) {
   }
   if (cfg.rotating_file) {
     const auto max_size = cfg.max_file_size_mb * 1024 * 1024;
-    create_parent_directory(cfg.file_name);
+    const auto file_name = expand_log_file_name(cfg.file_name);
+    create_parent_directory(file_name);
     auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-        cfg.file_name, max_size, cfg.max_files, cfg.rotate_on_open);
+        file_name, max_size, cfg.max_files, cfg.rotate_on_open);
     sink->set_formatter(
         make_sink_formatter(z::log::sink_format::pattern, pattern, cfg));
     bundle.runtime_sinks.push_back(std::move(sink));
@@ -496,10 +591,12 @@ sink_bundle make_sinks(const z::log::config &cfg) {
         cfg.important_file.file_name.empty()
             ? cfg.logger_name + ".important.jsonl"
             : cfg.important_file.file_name;
+    const auto expanded_important_file_name =
+        expand_log_file_name(important_file_name);
     const auto max_size = cfg.important_file.max_file_size_mb * 1024 * 1024;
-    create_parent_directory(important_file_name);
+    create_parent_directory(expanded_important_file_name);
     auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-        important_file_name, max_size, cfg.important_file.max_files,
+        expanded_important_file_name, max_size, cfg.important_file.max_files,
         cfg.important_file.rotate_on_open);
     const std::string important_pattern = cfg.important_file.pattern.empty()
                                               ? pattern

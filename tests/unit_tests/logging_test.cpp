@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -14,6 +17,74 @@
 #include <zpp/system/tid.h>
 
 namespace {
+
+class scoped_env {
+public:
+  scoped_env(const char *name, std::optional<std::string> value) : name_(name) {
+    const char *old_value = std::getenv(name_.c_str());
+    if (old_value != nullptr) {
+      had_value_ = true;
+      old_value_ = old_value;
+    }
+    if (value.has_value()) {
+      set_value(*value);
+    } else {
+      unset_value();
+    }
+  }
+
+  ~scoped_env() noexcept {
+    if (had_value_) {
+      set_value_noexcept(old_value_);
+    } else {
+      unset_value_noexcept();
+    }
+  }
+
+  scoped_env(const scoped_env &) = delete;
+  scoped_env &operator=(const scoped_env &) = delete;
+
+private:
+  void set_value(const std::string &value) {
+#ifdef _WIN32
+    if (_putenv_s(name_.c_str(), value.c_str()) != 0) {
+#else
+    if (setenv(name_.c_str(), value.c_str(), 1) != 0) {
+#endif
+      throw std::runtime_error("failed to set test environment variable");
+    }
+  }
+
+  void unset_value() {
+#ifdef _WIN32
+    if (_putenv_s(name_.c_str(), "") != 0) {
+#else
+    if (unsetenv(name_.c_str()) != 0) {
+#endif
+      throw std::runtime_error("failed to unset test environment variable");
+    }
+  }
+
+  void set_value_noexcept(const std::string &value) noexcept {
+#ifdef _WIN32
+    (void)_putenv_s(name_.c_str(), value.c_str());
+#else
+    (void)setenv(name_.c_str(), value.c_str(), 1);
+#endif
+  }
+
+  void unset_value_noexcept() noexcept {
+#ifdef _WIN32
+    (void)_putenv_s(name_.c_str(), "");
+#else
+    (void)unsetenv(name_.c_str());
+#endif
+  }
+
+  std::string name_;
+  bool had_value_{false};
+  std::string old_value_;
+};
 
 std::string read_file(const std::filesystem::path &path) {
   std::ifstream in(path);
@@ -105,6 +176,80 @@ TEST(LoggingTest, RuntimeLevelShortCircuitsDisabledArguments) {
   EXPECT_EQ(content.find("debug"), std::string::npos);
   EXPECT_NE(content.find("W warn 1"), std::string::npos);
   std::filesystem::remove(path);
+}
+
+TEST(LoggingTest, LogFileNamesExpandEnvironmentVariablesAndHome) {
+  const auto root =
+      std::filesystem::current_path() / "zpp_logging_path_expand_test";
+  const auto env_dir = root / "env";
+  const auto home_dir = root / "home";
+  const auto runtime_path = env_dir / "runtime.log";
+  const auto important_path = env_dir / "important.jsonl";
+  const auto home_runtime_path = home_dir / "runtime.log";
+#ifndef _WIN32
+  const auto empty_runtime_path = root / "empty" / "runtime.log";
+#endif
+  std::filesystem::remove_all(root);
+
+  const scoped_env test_root{"ZPP_LOGGING_TEST_ROOT", root.string()};
+  const scoped_env test_home{"HOME", home_dir.string()};
+
+  auto cfg = file_config("$ZPP_LOGGING_TEST_ROOT/env/runtime.log");
+  cfg.important_file.enabled = true;
+  cfg.important_file.file_name = "${ZPP_LOGGING_TEST_ROOT}/env/important.jsonl";
+  cfg.important_file.max_file_size_mb = 1;
+  cfg.important_file.max_files = 1;
+  cfg.important_file.level = spdlog::level::warn;
+
+  z::log::init(cfg);
+  spd_war("expanded paths");
+  z::log::shutdown();
+
+  EXPECT_TRUE(std::filesystem::exists(runtime_path));
+  EXPECT_TRUE(std::filesystem::exists(important_path));
+  EXPECT_NE(read_file(runtime_path).find("W expanded paths"),
+            std::string::npos);
+  EXPECT_NE(read_file(important_path).find("expanded paths"),
+            std::string::npos);
+
+  auto home_cfg = file_config("~/runtime.log");
+  z::log::init(home_cfg);
+  spd_war("expanded home");
+  z::log::shutdown();
+
+  EXPECT_TRUE(std::filesystem::exists(home_runtime_path));
+  EXPECT_NE(read_file(home_runtime_path).find("W expanded home"),
+            std::string::npos);
+
+#ifndef _WIN32
+  const scoped_env empty{"ZPP_LOGGING_TEST_EMPTY", std::string{}};
+  auto empty_cfg =
+      file_config("$ZPP_LOGGING_TEST_EMPTY" + empty_runtime_path.string());
+  z::log::init(empty_cfg);
+  spd_war("expanded empty variable");
+  z::log::shutdown();
+
+  EXPECT_TRUE(std::filesystem::exists(empty_runtime_path));
+  EXPECT_NE(read_file(empty_runtime_path).find("W expanded empty variable"),
+            std::string::npos);
+#endif
+  std::filesystem::remove_all(root);
+}
+
+TEST(LoggingTest, LogFileNameRejectsUndefinedEnvironmentVariable) {
+  const scoped_env missing{"ZPP_LOGGING_TEST_MISSING", std::nullopt};
+  auto cfg = file_config("$ZPP_LOGGING_TEST_MISSING/runtime.log");
+
+  EXPECT_THROW(z::log::init(cfg), std::runtime_error);
+  z::log::shutdown();
+}
+
+TEST(LoggingTest, HomeLogFileNameRejectsMissingHome) {
+  const scoped_env missing_home{"HOME", std::nullopt};
+  auto cfg = file_config("~/runtime.log");
+
+  EXPECT_THROW(z::log::init(cfg), std::runtime_error);
+  z::log::shutdown();
 }
 
 TEST(LoggingTest, PatternThreadIdUsesZppShortThreadId) {

@@ -3,7 +3,17 @@
 
 * 发布历史
 
-** v1.11.1 - Unreleased
+** v1.11.2 - 2026-07-13
+*** 变更内容
+- 在创建 spdlog 文件 sink 前展开 runtime 与 important 日志文件名中的 =~=、=$VAR= 和 =${VAR}=，引用未定义变量时中止初始化并明确报错。
+- 在 =z::log::config= 中补充环境变量日志路径说明，并将 =doc/server.json= 调整为把日志写到 =$ZETAX_ROOT/logs/zpp/=。
+- 新增聚焦日志测试，覆盖展开后的 runtime 与 important 文件路径及变量缺失错误。
+- 新增 =doc/hpx.reference.ini= 作为 HPX 运行时参考配置。
+
+*** 验证
+- 保持现有 async 日志与 NNG runtime 覆盖，并补充展开后的 runtime/important 文件路径和缺失变量失败场景检查。
+
+** v1.11.1 - 2026-07-13 15:59:00
 *** 变更内容
 - 新增 =nng2imp(...)=（通过 =nng2log_important(...)=），让 NNG scoped important 日志复用 =component/action= 标签并走 important 通道输出。
 - 提取共享格式化逻辑 =nng2format(...)=，普通 NNG 日志与 important NNG 日志统一走 preformatted sink 路径。
@@ -15,7 +25,6 @@
 - 扩展 async 日志测试，验证 warn/important 在共享队列中的顺序以及 JSONL important 记录中的调用线程 id 保留。
 - 新增 NNG runtime 测试，验证 runtime =info= 关闭时 =nng2imp(...)= 仍能输出 important 记录。
 - 新增 pipe 生命周期测试，验证 =add-post/remove-post= 在 runtime 非 debug 级别下仍进入 important 通道，而 =add-pre= 不进入 important 输出。
-
 ** v1.11.0 - 2026-07-13
 *** 变更内容
 - 扩展 =z::log::config=，在保留旧 rotating runtime file 字段兼容的同时，新增结构化 important file 日志配置。

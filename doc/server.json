@@ -4,7 +4,7 @@
             "async":true,
             "console":true,
             "rotate_on_open": true,
-            "name":"server.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/server.log",
             "max_size":32,
             "rotats":3,
             "queue_size": 8192,
@@ -16,7 +16,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"zpp_hpx_basic.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/zpp_hpx_basic.log",
             "max_size":32,
             "rotats":3
         }
@@ -25,7 +25,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"example_hpx_taskflow.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/example_hpx_taskflow.log",
             "max_size":32,
             "rotats":3
         }
@@ -34,7 +34,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"seexample_hpx_basicrver.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/seexample_hpx_basicrver.log",
             "max_size":32,
             "rotats":3
         }
@@ -43,7 +43,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"server.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/server.log",
             "max_size":32,
             "rotats":3
         }
@@ -51,7 +51,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"zpp_core.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/zpp_core.log",
             "max_size":32,
             "rotats":3
         }
@@ -59,7 +59,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"zpp_taskflow.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/zpp_taskflow.log",
             "max_size":32,
             "rotats":3,
             "pattern":"%d %H:%M:%S.%f %t %^%L%$: %v\t%g:%#"
@@ -70,7 +70,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"server.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/server.log",
             "max_size":32,
             "rotats":3
         }
@@ -80,7 +80,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"test_folly.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/test_folly.log",
             "max_size":32,
             "rotats":3
         }
@@ -92,7 +92,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"thread_pool_benchmark.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/thread_pool_benchmark.log",
             "max_size":32,
             "rotats":3
         }
@@ -172,7 +172,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"engine.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/engine.log",
             "max_size":32,
             "rotats":3
         },
@@ -191,7 +191,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"publisher_example.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/publisher_example.log",
             "max_size":32,
             "rotats":3
         },
@@ -210,7 +210,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"pub_sub_device_example.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/pub_sub_device_example.log",
             "max_size":32,
             "rotats":3
         },
@@ -229,7 +229,7 @@
         "spd":{
             "async":true,
             "console":true,
-            "name":"subscriber_example.log",
+            "name":"${ZETAX_ROOT}/logs/zpp/subscriber_example.log",
             "max_size":32,
             "rotats":3
         },
@@ -245,27 +245,27 @@
         }
     },
     "pusher_example": {
-        "spd": {"async": true, "console": true, "name": "pusher_example.log", "max_size": 32, "rotats": 3},
+        "spd": {"async": true, "console": true, "name": "${ZETAX_ROOT}/logs/zpp/pusher_example.log", "max_size": 32, "rotats": 3},
         "nng_engine": {}
     },
     "puller_example": {
-        "spd": {"async": true, "console": true, "name": "puller_example.log", "max_size": 32, "rotats": 3},
+        "spd": {"async": true, "console": true, "name": "${ZETAX_ROOT}/logs/zpp/puller_example.log", "max_size": 32, "rotats": 3},
         "nng_engine": {}
     },
     "requester_example": {
-        "spd": {"async": true, "console": true, "name": "requester_example.log", "max_size": 32, "rotats": 3},
+        "spd": {"async": true, "console": true, "name": "${ZETAX_ROOT}/logs/zpp/requester_example.log", "max_size": 32, "rotats": 3},
         "nng_engine": {}
     },
     "replier_example": {
-        "spd": {"async": true, "console": true, "name": "replier_example.log", "max_size": 32, "rotats": 3},
+        "spd": {"async": true, "console": true, "name": "${ZETAX_ROOT}/logs/zpp/replier_example.log", "max_size": 32, "rotats": 3},
         "nng_engine": {}
     },
     "pair1_listen_example": {
-        "spd": {"async": true, "console": true, "name": "pair1_listen_example.log", "max_size": 32, "rotats": 3},
+        "spd": {"async": true, "console": true, "name": "${ZETAX_ROOT}/logs/zpp/pair1_listen_example.log", "max_size": 32, "rotats": 3},
         "nng_engine": {}
     },
     "pair1_dial_example": {
-        "spd": {"async": true, "console": true, "name": "pair1_dial_example.log", "max_size": 32, "rotats": 3},
+        "spd": {"async": true, "console": true, "name": "${ZETAX_ROOT}/logs/zpp/pair1_dial_example.log", "max_size": 32, "rotats": 3},
         "nng_engine": {}
     }
 

@@ -3,6 +3,16 @@
 
 * Release History
 
+** v1.11.2 - 2026-07-13
+*** Changes
+- Expand =~=, =$VAR=, and =${VAR}= in runtime and important log file names before creating spdlog file sinks, and fail initialization when a referenced variable is undefined.
+- Document environment-variable-aware log file names in =z::log::config= and update =doc/server.json= to write logs under =$ZETAX_ROOT/logs/zpp/=.
+- Add focused logging coverage for expanded runtime and important file paths, including missing-variable failures.
+- Add =doc/hpx.reference.ini= as the HPX runtime reference configuration.
+
+*** Verification
+- Keep the existing async logging and NNG runtime coverage, and add focused checks for expanded runtime and important file paths plus missing-variable failures.
+
 ** v1.11.1 - 2026-07-13 15:59:00
 *** Changes
 - Add =nng2imp(...)= via =nng2log_important(...)= so NNG-scoped important records reuse =component/action= tags while writing through the important channel.
@@ -15,7 +25,6 @@
 - Extend async logging tests to verify warn/important queue ordering and caller thread-id preservation in JSONL important logs.
 - Add NNG runtime tests proving =nng2imp(...)= still emits important records when runtime =info= logging is disabled.
 - Add pipe lifecycle tests proving =add-post/remove-post= are emitted to the important channel independently of runtime debug level, while =add-pre= remains excluded from important output.
-
 ** v1.11.0 - 2026-07-13
 *** Changes
 - Extend =z::log::config= with optional structured important file logging while preserving the legacy rotating runtime file fields.
