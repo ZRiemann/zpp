@@ -59,6 +59,24 @@ through the HPX command line. Example run entries can pass options such as:
 --hpx:threads=3
 #+end_src
 
+=doc/hpx.ini= is the curated template for commonly customized runtime settings.
+=doc/zh-CN/hpx.ini= provides the same setting set with detailed Chinese guidance
+covering accepted values, recommended starting points, rationale, effects, and
+related settings. Both files leave every assignment commented so loading either
+template does not replace defaults compiled into the installed HPX. Copy one for
+an application, uncomment only the required overrides, and load it together with
+the zpp JSON configuration:
+
+#+begin_src sh
+./your_hpx_application server.json service \
+  --hpx:config=/path/to/hpx.ini \
+  --hpx:dump-config
+#+end_src
+
+Use =doc/hpx.reference.ini= when a less common, build-dependent, or
+plugin-specific HPX setting is needed. Application and zpp module settings stay
+in the JSON file; the HPX INI file configures the HPX runtime.
+
 ** Building HPX Examples
 
 HPX examples are enabled with:
