@@ -32,17 +32,17 @@ namespace {
 class pipe_observer_socket : public z::nng::socket {
 public:
   void on_pipe_add_pre(z::nng::pipe &pipe) override {
-    (void)pipe;
+    z::nng::socket::on_pipe_add_pre(pipe);
     ++add_pre_count;
   }
 
   void on_pipe_add_post(z::nng::pipe &pipe) override {
-    (void)pipe;
+    z::nng::socket::on_pipe_add_post(pipe);
     ++add_post_count;
   }
 
   void on_pipe_remove_post(z::nng::pipe &pipe) override {
-    (void)pipe;
+    z::nng::socket::on_pipe_remove_post(pipe);
     ++remove_post_count;
   }
 
@@ -110,6 +110,18 @@ std::string read_file(const std::filesystem::path &path) {
   std::ostringstream out;
   out << in.rdbuf();
   return out.str();
+}
+
+std::vector<std::string> read_lines(const std::filesystem::path &path) {
+  std::ifstream in(path);
+  std::vector<std::string> lines;
+  std::string line;
+  while (std::getline(in, line)) {
+    if (!line.empty()) {
+      lines.push_back(line);
+    }
+  }
+  return lines;
 }
 
 std::size_t count_substring(std::string_view text, std::string_view needle) {
@@ -442,6 +454,69 @@ TEST(NngRuntime, SocketPipeNotifyDispatchesCallbacks) {
   dialer.close();
   EXPECT_TRUE(wait_for_count(listener.remove_post_count, 1));
   EXPECT_EQ(listener.pipe_notify(false), 0);
+}
+
+TEST(NngRuntime, PipeLifecycleImportantLogIsIndependentOfDebugLevel) {
+  const auto runtime_path =
+      std::filesystem::current_path() / "zpp_pipe_lifecycle_runtime_test.log";
+  const auto important_path = std::filesystem::current_path() /
+                              "zpp_pipe_lifecycle_important_test.jsonl";
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+  auto cfg = file_log_config(runtime_path);
+  cfg.async = true;
+  cfg.level = spdlog::level::warn;
+  cfg.important_file.enabled = true;
+  cfg.important_file.file_name = important_path.string();
+  cfg.important_file.max_file_size_mb = 1;
+  cfg.important_file.max_files = 1;
+  cfg.important_file.level = spdlog::level::warn;
+  cfg.important_file.format = z::log::sink_format::jsonl;
+
+  z::log::init(cfg);
+  {
+    z::nng::nng runtime;
+    pipe_observer_socket listener;
+    z::nng::socket dialer;
+    const z::nng::endpoint listener_endpoint{
+        "ipc:///tmp/zpp-pipe-lifecycle-important.sock",
+        z::nng::transport::ipc,
+        z::nng::endpoint_role::listen,
+    };
+    const z::nng::endpoint dialer_endpoint{
+        listener_endpoint.url,
+        z::nng::transport::ipc,
+        z::nng::endpoint_role::dial,
+    };
+
+    ASSERT_EQ(listener.pair0_open(), 0);
+    ASSERT_EQ(dialer.pair0_open(), 0);
+    ASSERT_EQ(listener.pipe_notify(), 0);
+    ASSERT_EQ(listener.listen(listener_endpoint), z::ERR_OK);
+    ASSERT_EQ(dialer.dial(dialer_endpoint), z::ERR_OK);
+    EXPECT_TRUE(wait_for_count(listener.add_pre_count, 1));
+    EXPECT_TRUE(wait_for_count(listener.add_post_count, 1));
+
+    dialer.close();
+    EXPECT_TRUE(wait_for_count(listener.remove_post_count, 1));
+    EXPECT_EQ(listener.pipe_notify(false), 0);
+  }
+  z::log::shutdown();
+
+  const auto runtime_content = read_file(runtime_path);
+  EXPECT_EQ(runtime_content.find("[nng:pipe-notify:"), std::string::npos);
+
+  const auto important_content = read_file(important_path);
+  EXPECT_EQ(
+      count_substring(important_content, "\"component\":\"nng.pipe-notify\""),
+      2U);
+  EXPECT_EQ(count_substring(important_content, "\"action\":\"add-post\""), 1U);
+  EXPECT_EQ(count_substring(important_content, "\"action\":\"remove-post\""),
+            1U);
+  EXPECT_EQ(count_substring(important_content, "\"action\":\"add-pre\""), 0U);
+
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
 }
 
 TEST(NngPubSub, RejectsInvalidConfiguration) {
@@ -1044,6 +1119,48 @@ TEST(NngRuntime, NngScopedInfoLogFollowsRuntimeLevel) {
   EXPECT_EQ(content.find("hidden"), std::string::npos);
   EXPECT_EQ(content.find("[nng:test:source-location]"), std::string::npos);
   std::filesystem::remove(path);
+}
+
+TEST(NngRuntime, NngScopedImportantLogUsesImportantChannel) {
+  const auto runtime_path =
+      std::filesystem::current_path() / "zpp_nng_imp_runtime_test.log";
+  const auto important_path =
+      std::filesystem::current_path() / "zpp_nng_imp_important_test.jsonl";
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+  auto cfg = file_log_config(runtime_path);
+  cfg.level = spdlog::level::warn;
+  cfg.pattern = "%v";
+  cfg.important_file.enabled = true;
+  cfg.important_file.file_name = important_path.string();
+  cfg.important_file.max_file_size_mb = 1;
+  cfg.important_file.max_files = 1;
+  cfg.important_file.level = spdlog::level::warn;
+  cfg.important_file.format = z::log::sink_format::jsonl;
+
+  int evaluated = 0;
+  z::log::init(cfg);
+  nng2inf(z::nng::cmp_test, z::nng::act_source_location, "hidden {}",
+          ++evaluated);
+  EXPECT_EQ(evaluated, 0);
+  nng2imp(z::nng::cmp_test, z::nng::act_source_location, "important {}",
+          ++evaluated);
+  EXPECT_EQ(evaluated, 1);
+  z::log::shutdown();
+
+  const auto runtime_content = read_file(runtime_path);
+  EXPECT_EQ(runtime_content.find("important 1"), std::string::npos);
+
+  const auto lines = read_lines(important_path);
+  ASSERT_EQ(lines.size(), 1);
+  EXPECT_NE(lines[0].find("\"level\":\"info\""), std::string::npos);
+  EXPECT_NE(lines[0].find("\"component\":\"nng.test\""), std::string::npos);
+  EXPECT_NE(lines[0].find("\"action\":\"source-location\""), std::string::npos);
+  EXPECT_NE(lines[0].find("[nng:test:source-location] important 1"),
+            std::string::npos);
+
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
 }
 
 TEST(NngRuntime, NngOptionErrorSkipsSuccessfulResults) {

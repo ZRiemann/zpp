@@ -49,21 +49,31 @@ void log_pipe_options(pipe &observed_pipe) {
 }
 #endif
 
-void log_pipe_event(std::string_view event, pipe &observed_pipe) {
-#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
-  if (!spd_should_log(spdlog::level::debug)) {
-    return;
+void log_pipe_event(std::string_view event, pipe &observed_pipe,
+                    bool is_important) {
+  if (is_important) {
+    nng2imp(cmp_pipe_notify, event,
+            "id={} pipe={} socket={} listener={} dialer={} self={} peer={}",
+            nng_socket_id(observed_pipe.socket()), observed_pipe.id(),
+            nng_socket_id(observed_pipe.socket()),
+            nng_listener_id(observed_pipe.listener()),
+            nng_dialer_id(observed_pipe.dialer()),
+            observed_pipe.get_address(false), observed_pipe.get_address(true));
+  } else {
+    nng2dbg(cmp_pipe_notify, event,
+            "id={} pipe={} socket={} listener={} dialer={} self={} peer={}",
+            nng_socket_id(observed_pipe.socket()), observed_pipe.id(),
+            nng_socket_id(observed_pipe.socket()),
+            nng_listener_id(observed_pipe.listener()),
+            nng_dialer_id(observed_pipe.dialer()),
+            observed_pipe.get_address(false), observed_pipe.get_address(true));
   }
 
-  nng2dbg(cmp_pipe_notify, event,
-          "id={} pipe={} socket={} listener={} dialer={} self={} peer={}",
-          nng_socket_id(observed_pipe.socket()), observed_pipe.id(),
-          nng_socket_id(observed_pipe.socket()),
-          nng_listener_id(observed_pipe.listener()),
-          nng_dialer_id(observed_pipe.dialer()),
-          observed_pipe.get_address(false), observed_pipe.get_address(true));
+#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
   if (event == "add-post") {
-    log_pipe_options(observed_pipe);
+    if (spd_should_log(spdlog::level::debug)) {
+      log_pipe_options(observed_pipe);
+    }
   }
 #else
   (void)event;
@@ -156,15 +166,15 @@ int socket::pipe_notify(bool enable) {
 }
 
 void socket::on_pipe_add_pre(pipe &observed_pipe) {
-  log_pipe_event("add-pre", observed_pipe);
+  log_pipe_event("add-pre", observed_pipe, false);
 }
 
 void socket::on_pipe_add_post(pipe &observed_pipe) {
-  log_pipe_event("add-post", observed_pipe);
+  log_pipe_event("add-post", observed_pipe, true);
 }
 
 void socket::on_pipe_remove_post(pipe &observed_pipe) {
-  log_pipe_event("remove-post", observed_pipe);
+  log_pipe_event("remove-post", observed_pipe, true);
 }
 
 void socket::pipe_event_callback(nng_pipe pipe, nng_pipe_ev event, void *arg) {

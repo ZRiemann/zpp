@@ -577,10 +577,15 @@ void init(const config &cfg) {
   if (sinks.important_sink) {
     auto direct_sink =
         std::make_shared<important_direct_sink>(sinks.important_sink);
-    g_spd_important_log = std::make_shared<spdlog::logger>(
-        cfg.logger_name + ".important", std::move(direct_sink));
+    if (cfg.async) {
+      g_spd_important_log = std::make_shared<spdlog::async_logger>(
+          cfg.logger_name + ".important", std::move(direct_sink), g_spd_pool,
+          spdlog::async_overflow_policy::block);
+    } else {
+      g_spd_important_log = std::make_shared<spdlog::logger>(
+          cfg.logger_name + ".important", std::move(direct_sink));
+    }
     g_spd_important_log->set_level(spdlog::level::trace);
-    g_spd_important_log->flush_on(spdlog::level::info);
   } else {
     g_spd_important_log = make_fallback_logger();
   }

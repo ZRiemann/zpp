@@ -3,6 +3,7 @@
 #include "defs.h"
 
 #include <string_view>
+#include <utility>
 
 #include <zpp/spdlog.h>
 
@@ -133,16 +134,12 @@ inline constexpr char act_callback[] = "callback";
 /// NNG log action tag for NNG internal logger bridge messages.
 inline constexpr char act_logger[] = "logger";
 
-/// Logs an NNG-scoped message with component and action tags.
+/// Formats an NNG-scoped message with component and action tags.
 template <typename... Args>
-inline void nng2log(spdlog::source_loc source, spdlog::level::level_enum lvl,
-                    std::string_view component, std::string_view action,
-                    spdlog::format_string_t<Args...> fmt_str, Args &&...args) {
-  if (!spd_should_log(lvl)) {
-    return;
-  }
-
-  spdlog::memory_buf_t buffer;
+inline void nng2format(spdlog::memory_buf_t &buffer, std::string_view component,
+                       std::string_view action,
+                       spdlog::format_string_t<Args...> fmt_str,
+                       Args &&...args) {
 #ifdef SPDLOG_USE_STD_FORMAT
   fmt_lib::format_to(std::back_inserter(buffer), "[nng:{}:{}] ", component,
                      action);
@@ -155,8 +152,29 @@ inline void nng2log(spdlog::source_loc source, spdlog::level::level_enum lvl,
                   spdlog::details::to_string_view(fmt_str),
                   fmt::make_format_args(args...));
 #endif
+}
+
+/// Logs an NNG-scoped message with component and action tags.
+template <typename... Args>
+inline void nng2log(spdlog::source_loc source, spdlog::level::level_enum lvl,
+                    std::string_view component, std::string_view action,
+                    spdlog::format_string_t<Args...> fmt_str, Args &&...args) {
+  spdlog::memory_buf_t buffer;
+  nng2format(buffer, component, action, fmt_str, std::forward<Args>(args)...);
   z::log::log_preformatted(source, lvl,
                            spdlog::string_view_t{buffer.data(), buffer.size()});
+}
+
+/// Logs an NNG-scoped important message with component and action tags.
+template <typename... Args>
+inline void
+nng2log_important(spdlog::source_loc source, std::string_view component,
+                  std::string_view action,
+                  spdlog::format_string_t<Args...> fmt_str, Args &&...args) {
+  spdlog::memory_buf_t buffer;
+  nng2format(buffer, component, action, fmt_str, std::forward<Args>(args)...);
+  z::log::log_important_preformatted(
+      source, spdlog::string_view_t{buffer.data(), buffer.size()});
 }
 
 NSE_NNG
@@ -167,11 +185,21 @@ NSE_NNG
                          lvl, component, action, __VA_ARGS__)                  \
        : (void)0)
 
+#define nng2imp_if(component, action, ...)                                     \
+  (z::log::should_log_important()                                              \
+       ? z::nng::nng2log_important(                                            \
+             spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, component,  \
+             action, __VA_ARGS__)                                              \
+       : (void)0)
+
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_INFO
 #define nng2inf(component, action, ...)                                        \
   nng2log_if(spdlog::level::info, component, action, __VA_ARGS__)
+#define nng2imp(component, action, ...)                                        \
+  nng2imp_if(component, action, __VA_ARGS__)
 #else
 #define nng2inf(component, action, ...) (void)0
+#define nng2imp(component, action, ...) (void)0
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_ERROR

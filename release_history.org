@@ -3,18 +3,34 @@
 
 * Release History
 
-** v0.11.0 - Unreleased
+** v1.11.1 - 2026-07-13 15:59:00
+*** Changes
+- Add =nng2imp(...)= via =nng2log_important(...)= so NNG-scoped important records reuse =component/action= tags while writing through the important channel.
+- Refactor NNG scoped formatting by extracting shared =nng2format(...)= logic, and route both normal and important NNG logs through preformatted sinks.
+- Change important logger initialization in =z::log::init(...)= to use =spdlog::async_logger= in async mode with the shared queue (blocking overflow policy), instead of a direct logger with per-record flush.
+- Split pipe lifecycle logging behavior in =z::nng::socket=: =add-post/remove-post= now emit important records, while =add-pre= and option dumps remain debug-scoped.
+- Keep important JSONL output schema and structured prefix parsing behavior, while preserving throttling for repeated NNG internal logger bridge messages.
+
+*** Verification
+- Extend async logging tests to verify warn/important queue ordering and caller thread-id preservation in JSONL important logs.
+- Add NNG runtime tests proving =nng2imp(...)= still emits important records when runtime =info= logging is disabled.
+- Add pipe lifecycle tests proving =add-post/remove-post= are emitted to the important channel independently of runtime debug level, while =add-pre= remains excluded from important output.
+
+** v1.11.0 - 2026-07-13
 *** Changes
 - Extend =z::log::config= with optional structured important file logging while preserving the legacy rotating runtime file fields.
 - Add =spd_imp(...)= as an independent important-channel entry point that writes normal =info= records to the runtime log and the important JSONL log without adding an extra =important= JSON field.
+- Add =nng2imp(...)= so NNG-scoped important records reuse the existing component/action tag format.
+- Route async important records through the shared spdlog queue, preserve queue submission order with runtime records, and avoid synchronous per-record flushes in NNG callbacks.
+- Record established and removed NNG pipes as important lifecycle events independently of the runtime debug level, while keeping pre-add details and option dumps at debug level.
 - Add JSONL formatting for important logs with stable service, node, run, process/thread, source-location, component, action, and message fields.
 - Parse common message prefixes such as =[ctp-md:login-rsp]= and =[nng:socket:create]= into structured =component= and =action= fields.
 - Extend =z::server= =spd= JSON parsing with =service=, =node=, =run_id=, and =important= sink settings.
 - Rate-limit repeated NNG internal logger bridge records by level, facility, message id, and message so important logs keep the first occurrence and periodic summaries instead of every retry.
 
 *** Verification
-- Add logging tests for warn+ JSONL important sinks, direct =spd_imp(...)= info records, legacy runtime file compatibility, and async preservation of the zpp short thread id.
-- Add NNG runtime logging coverage that repeated internal records are suppressed while different levels or messages still pass through.
+- Add logging tests for warn+ JSONL important sinks, direct =spd_imp(...)= info records, legacy runtime file compatibility, async preservation of the zpp short thread id, and shared-queue warn/important ordering.
+- Add NNG runtime logging coverage that repeated internal records are suppressed while different levels or messages still pass through, that =nng2imp(...)= writes to the important channel when runtime =info= logging is disabled, and that pipe lifecycle events follow the important/debug split.
 
 ** v0.10.0 - 2026-07-12
 *** Changes

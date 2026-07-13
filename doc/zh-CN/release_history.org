@@ -3,18 +3,34 @@
 
 * 发布历史
 
-** v0.11.0 - Unreleased
+** v1.11.1 - Unreleased
+*** 变更内容
+- 新增 =nng2imp(...)=（通过 =nng2log_important(...)=），让 NNG scoped important 日志复用 =component/action= 标签并走 important 通道输出。
+- 提取共享格式化逻辑 =nng2format(...)=，普通 NNG 日志与 important NNG 日志统一走 preformatted sink 路径。
+- 调整 =z::log::init(...)= 中 important logger 初始化：在 async 模式下改为 =spdlog::async_logger= 并复用共享队列（blocking overflow policy），不再使用 direct logger 的逐条 flush 模式。
+- 调整 =z::nng::socket= 的 pipe 生命周期日志分流：=add-post/remove-post= 进入 important 通道，=add-pre= 与 option dump 保持 debug 级别。
+- 保持 important JSONL 输出 schema 与前缀结构化解析行为，同时继续保留 NNG internal logger bridge 重复消息节流策略。
+
+*** 验证
+- 扩展 async 日志测试，验证 warn/important 在共享队列中的顺序以及 JSONL important 记录中的调用线程 id 保留。
+- 新增 NNG runtime 测试，验证 runtime =info= 关闭时 =nng2imp(...)= 仍能输出 important 记录。
+- 新增 pipe 生命周期测试，验证 =add-post/remove-post= 在 runtime 非 debug 级别下仍进入 important 通道，而 =add-pre= 不进入 important 输出。
+
+** v1.11.0 - 2026-07-13
 *** 变更内容
 - 扩展 =z::log::config=，在保留旧 rotating runtime file 字段兼容的同时，新增结构化 important file 日志配置。
 - 新增独立 important 通道入口 =spd_imp(...)=，将普通 =info= 记录同时写入 runtime 日志和 important JSONL 日志，不额外增加 =important= JSON 字段。
+- 新增 =nng2imp(...)=，使 NNG scoped important 记录复用现有 component/action tag 格式。
+- async 模式下 important 记录复用 spdlog 队列，保持与 runtime 记录的队列提交顺序，并避免在 NNG 回调内逐条同步 flush。
+- 已建立和已移除的 NNG pipe 作为 important 生命周期事件记录，不再受 runtime debug 级别影响；add-pre 明细和 option dump 继续保持 debug 级别。
 - important 日志支持 JSONL formatter，稳定输出 service、node、run、进程/线程、源码位置、component、action 和 message 字段。
 - 将 =[ctp-md:login-rsp]=、=[nng:socket:create]= 等常见消息前缀解析为结构化 =component= 和 =action=。
 - =z::server= 的 =spd= JSON 解析新增 =service=、=node=、=run_id= 和 =important= sink 设置。
 - 在 zpp logger bridge 中按 level、facility、message id 和 message 对重复的 NNG 内部日志做节流，使 important 日志保留首条记录和周期性摘要，而不是每次重试都写入。
 
 *** 验证
-- 新增日志测试覆盖 =warn=+ JSONL important sink、=spd_imp(...)= 直写 info 记录、旧 runtime file 兼容，以及 async logger 下保留 zpp 短线程 id。
-- 新增 NNG runtime 日志测试，覆盖重复内部日志会被抑制，不同 level 或不同 message 仍正常透传。
+- 新增日志测试覆盖 =warn=+ JSONL important sink、=spd_imp(...)= 直写 info 记录、旧 runtime file 兼容、async logger 下保留 zpp 短线程 id，以及共享队列中的 warn/important 顺序。
+- 新增 NNG runtime 日志测试，覆盖重复内部日志会被抑制，不同 level 或不同 message 仍正常透传，验证 =nng2imp(...)= 在 runtime =info= 关闭时仍写入 important 通道，并验证 pipe 生命周期事件的 important/debug 分流。
 
 ** v0.9.0 - 2026-07-10
 *** 变更内容

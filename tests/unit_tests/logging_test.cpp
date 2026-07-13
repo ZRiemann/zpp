@@ -373,7 +373,7 @@ TEST(LoggingTest, ImportantMacroUsesIndependentChannelWhenRuntimeInfoDisabled) {
   std::filesystem::remove(important_path);
 }
 
-TEST(LoggingTest, AsyncImportantJsonlUsesCallingThreadId) {
+TEST(LoggingTest, AsyncImportantJsonlPreservesThreadIdAndQueueOrder) {
   const auto runtime_path =
       std::filesystem::current_path() / "zpp_logging_async_runtime_test.log";
   const auto important_path = std::filesystem::current_path() /
@@ -393,18 +393,31 @@ TEST(LoggingTest, AsyncImportantJsonlUsesCallingThreadId) {
   z::log::init(cfg);
   std::thread worker([&] {
     worker_tid = z::tid::id();
-    spd_war("[async-test:worker] payload");
+    spd_war("[async-test:worker-warn] payload");
+    spd_imp("[async-test:worker-important] payload");
   });
   worker.join();
   z::log::shutdown();
 
   const auto lines = read_lines(important_path);
-  ASSERT_EQ(lines.size(), 1);
-  rapidjson::Document doc;
-  ASSERT_FALSE(doc.Parse(lines[0].c_str()).HasParseError());
-  ASSERT_TRUE(doc.HasMember("tid"));
-  ASSERT_TRUE(doc["tid"].IsUint64());
-  EXPECT_EQ(doc["tid"].GetUint64(), static_cast<std::uint64_t>(worker_tid));
+  ASSERT_EQ(lines.size(), 2);
+  rapidjson::Document warn_doc;
+  ASSERT_FALSE(warn_doc.Parse(lines[0].c_str()).HasParseError());
+  expect_json_string(warn_doc, "level", "warn");
+  expect_json_string(warn_doc, "action", "worker-warn");
+  ASSERT_TRUE(warn_doc.HasMember("tid"));
+  ASSERT_TRUE(warn_doc["tid"].IsUint64());
+  EXPECT_EQ(warn_doc["tid"].GetUint64(),
+            static_cast<std::uint64_t>(worker_tid));
+
+  rapidjson::Document important_doc;
+  ASSERT_FALSE(important_doc.Parse(lines[1].c_str()).HasParseError());
+  expect_json_string(important_doc, "level", "info");
+  expect_json_string(important_doc, "action", "worker-important");
+  ASSERT_TRUE(important_doc.HasMember("tid"));
+  ASSERT_TRUE(important_doc["tid"].IsUint64());
+  EXPECT_EQ(important_doc["tid"].GetUint64(),
+            static_cast<std::uint64_t>(worker_tid));
 
   std::filesystem::remove(runtime_path);
   std::filesystem::remove(important_path);
