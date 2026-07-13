@@ -3,6 +3,7 @@
  */
 #include <csignal>
 #include <iostream>
+#include <string>
 
 #include <zpp/core/monitor.h>
 #include <zpp/core/server.h>
@@ -24,6 +25,79 @@ void new_failure_handler() {
 NSE_STATIC
 
 USE_ZPP
+
+namespace {
+
+bool parse_log_level(const std::string &value,
+                     spdlog::level::level_enum &out) {
+  if (value == "trace") {
+    out = spdlog::level::trace;
+  } else if (value == "debug") {
+    out = spdlog::level::debug;
+  } else if (value == "info") {
+    out = spdlog::level::info;
+  } else if (value == "warn" || value == "warning") {
+    out = spdlog::level::warn;
+  } else if (value == "err" || value == "error") {
+    out = spdlog::level::err;
+  } else if (value == "critical") {
+    out = spdlog::level::critical;
+  } else if (value == "off") {
+    out = spdlog::level::off;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+void read_log_level(json_view &conf, const char *key,
+                    spdlog::level::level_enum &out) {
+  std::string value;
+  if (ERR_OK == conf.get(key, value)) {
+    parse_log_level(value, out);
+  }
+}
+
+void read_sink_format(json_view &conf, const char *key,
+                      z::log::sink_format &out) {
+  std::string value;
+  if (ERR_OK != conf.get(key, value)) {
+    return;
+  }
+  if (value == "jsonl") {
+    out = z::log::sink_format::jsonl;
+  } else if (value == "pattern") {
+    out = z::log::sink_format::pattern;
+  }
+}
+
+void read_positive_size(json_view &conf, const char *key, std::size_t &out) {
+  int value = 0;
+  if (ERR_OK == conf.get(key, value) && value > 0) {
+    out = static_cast<std::size_t>(value);
+  }
+}
+
+void read_positive_seconds(json_view &conf, const char *key,
+                           std::chrono::seconds &out) {
+  int value = 0;
+  if (ERR_OK == conf.get(key, value) && value > 0) {
+    out = std::chrono::seconds(value);
+  }
+}
+
+void read_file_sink(json_view &conf, z::log::file_sink_config &out) {
+  conf.get("enabled", out.enabled);
+  conf.get("name", out.file_name);
+  conf.get("rotate_on_open", out.rotate_on_open);
+  conf.get("pattern", out.pattern);
+  read_positive_size(conf, "rotats", out.max_files);
+  read_positive_size(conf, "max_size", out.max_file_size_mb);
+  read_log_level(conf, "level", out.level);
+  read_sink_format(conf, "format", out.format);
+}
+
+} // namespace
 
 server::server() {
   tsc_init();
@@ -70,30 +144,35 @@ server::server(int argc, char **argv) : argc_(argc), argv_(argv) {
     json_view spd_conf;
     if (ERR_OK == conf.member(argv[2], svr_conf) &&
         ERR_OK == svr_conf.member("spd", spd_conf)) {
+      log_conf.service = argv[2];
       spd_conf.get("async", log_conf.async);
       spd_conf.get("console", log_conf.console);
       spd_conf.get("rotate_on_open", log_conf.rotate_on_open);
       spd_conf.get("name", log_conf.file_name);
       spd_conf.get("pattern", log_conf.pattern);
+      spd_conf.get("service", log_conf.service);
+      spd_conf.get("node", log_conf.node);
+      spd_conf.get("run_id", log_conf.run_id);
+      spd_conf.get("logger_name", log_conf.logger_name);
+      read_log_level(spd_conf, "level", log_conf.level);
+      read_log_level(spd_conf, "flush_level", log_conf.flush_level);
 
-      auto get_positive_size = [&](const char *key, std::size_t &out) {
-        int value = 0;
-        if (ERR_OK == spd_conf.get(key, value) && value > 0) {
-          out = static_cast<std::size_t>(value);
-        }
-      };
-      auto get_positive_seconds = [&](const char *key,
-                                      std::chrono::seconds &out) {
-        int value = 0;
-        if (ERR_OK == spd_conf.get(key, value) && value > 0) {
-          out = std::chrono::seconds(value);
-        }
-      };
-      get_positive_size("rotats", log_conf.max_files);
-      get_positive_size("max_size", log_conf.max_file_size_mb);
-      get_positive_size("queue_size", log_conf.queue_size);
-      get_positive_seconds("flush_interval_sec", log_conf.flush_interval);
+      read_positive_size(spd_conf, "rotats", log_conf.max_files);
+      read_positive_size(spd_conf, "max_size", log_conf.max_file_size_mb);
+      read_positive_size(spd_conf, "queue_size", log_conf.queue_size);
+      read_positive_seconds(spd_conf, "flush_interval_sec",
+                            log_conf.flush_interval);
 
+      json_view important_conf;
+      if (ERR_OK == spd_conf.member("important", important_conf)) {
+        read_file_sink(important_conf, log_conf.important_file);
+        if (log_conf.important_file.enabled &&
+            log_conf.important_file.file_name.empty()) {
+          log_conf.important_file.file_name =
+              log_conf.service.empty() ? "zpp.important.jsonl"
+                                       : log_conf.service + ".important.jsonl";
+        }
+      }
     } else {
       std::cout << "Waring: NOT find spd config item: " << argv[2] << std::endl;
     }

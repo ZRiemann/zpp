@@ -112,6 +112,19 @@ std::string read_file(const std::filesystem::path &path) {
   return out.str();
 }
 
+std::size_t count_substring(std::string_view text, std::string_view needle) {
+  std::size_t count = 0;
+  std::size_t offset = 0;
+  while (true) {
+    offset = text.find(needle, offset);
+    if (offset == std::string_view::npos) {
+      return count;
+    }
+    ++count;
+    offset += needle.size();
+  }
+}
+
 z::log::config file_log_config(const std::filesystem::path &path) {
   z::log::config cfg;
   cfg.console = false;
@@ -917,6 +930,37 @@ TEST(NngRuntime, InternalLogsBridgeToZppLogger) {
   EXPECT_NE(content.find("ZPPTEST"), std::string::npos);
   EXPECT_NE(content.find("bridge 7"), std::string::npos);
   EXPECT_NE(content.find("nng-runtime:1"), std::string::npos);
+  std::filesystem::remove(path);
+}
+
+TEST(NngRuntime, RepeatedInternalLogsAreRateLimited) {
+  const auto path =
+      std::filesystem::current_path() / "zpp_nng_bridge_rate_limit_test.log";
+  std::filesystem::remove(path);
+  auto cfg = file_log_config(path);
+  cfg.pattern = "%L %v";
+
+  z::log::init(cfg);
+  {
+    z::nng::nng runtime;
+    nng_log_warn("NNG-CONN-FAIL",
+                 "Failed connecting socket<42>: Connection refused");
+    nng_log_warn("NNG-CONN-FAIL",
+                 "Failed connecting socket<42>: Connection refused");
+    nng_log_warn("NNG-CONN-FAIL",
+                 "Failed connecting socket<42>: Connection refused");
+    nng_log_warn("ZPPTEST", "other warning should still appear %d", 1);
+    nng_log_warn("ZPPTEST", "other warning should still appear %d", 1);
+    nng_log_err("ZPPTEST", "other warning should still appear %d", 1);
+    nng_log_warn("ZPPTEST", "different warning should appear %d", 2);
+  }
+  z::log::shutdown();
+
+  const auto content = read_file(path);
+  EXPECT_EQ(count_substring(content, "NNG-CONN-FAIL"), 1U);
+  EXPECT_EQ(count_substring(content, "other warning should still appear 1"),
+            2U);
+  EXPECT_EQ(count_substring(content, "different warning should appear 2"), 1U);
   std::filesystem::remove(path);
 }
 

@@ -1,11 +1,14 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <vector>
 
+#include <rapidjson/document.h>
 #include <zpp/spd_log.h>
 #include <zpp/spdlog.h>
 #include <zpp/system/tid.h>
@@ -17,6 +20,18 @@ std::string read_file(const std::filesystem::path &path) {
   std::ostringstream out;
   out << in.rdbuf();
   return out.str();
+}
+
+std::vector<std::string> read_lines(const std::filesystem::path &path) {
+  std::ifstream in(path);
+  std::vector<std::string> lines;
+  std::string line;
+  while (std::getline(in, line)) {
+    if (!line.empty()) {
+      lines.push_back(line);
+    }
+  }
+  return lines;
 }
 
 z::log::config file_config(const std::filesystem::path &path) {
@@ -35,6 +50,13 @@ z::log::config file_config(const std::filesystem::path &path) {
 std::string short_tid(int tid) {
   const auto text = std::to_string(tid);
   return text.size() == 1 ? "0" + text : text;
+}
+
+void expect_json_string(const rapidjson::Document &doc, const char *name,
+                        const char *value) {
+  ASSERT_TRUE(doc.HasMember(name)) << name;
+  ASSERT_TRUE(doc[name].IsString()) << name;
+  EXPECT_STREQ(doc[name].GetString(), value);
 }
 
 } // namespace
@@ -207,4 +229,183 @@ TEST(LoggingTest, PrintfWrapperTruncatesLongMessagesSafely) {
   EXPECT_NE(content.find("I "), std::string::npos);
   EXPECT_LT(content.size(), long_message.size());
   std::filesystem::remove(path);
+}
+
+TEST(LoggingTest, ImportantJsonlSinkKeepsWarnAndErrorRecords) {
+  const auto runtime_path =
+      std::filesystem::current_path() / "zpp_logging_runtime_sink_test.log";
+  const auto important_path =
+      std::filesystem::current_path() / "zpp_logging_important_sink_test.jsonl";
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+  auto cfg = file_config(runtime_path);
+  cfg.service = "zpp-test";
+  cfg.node = "node-a";
+  cfg.run_id = "run-1";
+  cfg.important_file.enabled = true;
+  cfg.important_file.file_name = important_path.string();
+  cfg.important_file.max_file_size_mb = 1;
+  cfg.important_file.max_files = 1;
+  cfg.important_file.level = spdlog::level::warn;
+  cfg.important_file.format = z::log::sink_format::jsonl;
+
+  z::log::init(cfg);
+  spd_inf("[ctp-md:depth] ignored info");
+  spd_war("[ctp-md:login-rsp] warning {}", 7);
+  spd_err("[nng:socket:create] failed {}", 9);
+  z::log::shutdown();
+
+  const auto runtime_content = read_file(runtime_path);
+  EXPECT_NE(runtime_content.find("I [ctp-md:depth] ignored info"),
+            std::string::npos);
+
+  const auto lines = read_lines(important_path);
+  ASSERT_EQ(lines.size(), 2);
+
+  rapidjson::Document warn_doc;
+  ASSERT_FALSE(warn_doc.Parse(lines[0].c_str()).HasParseError());
+  expect_json_string(warn_doc, "level", "warn");
+  expect_json_string(warn_doc, "service", "zpp-test");
+  expect_json_string(warn_doc, "node", "node-a");
+  expect_json_string(warn_doc, "run_id", "run-1");
+  expect_json_string(warn_doc, "component", "ctp-md");
+  expect_json_string(warn_doc, "action", "login-rsp");
+  ASSERT_TRUE(warn_doc.HasMember("file"));
+  ASSERT_TRUE(warn_doc.HasMember("line"));
+  ASSERT_TRUE(warn_doc.HasMember("function"));
+  ASSERT_TRUE(warn_doc.HasMember("tid"));
+
+  rapidjson::Document err_doc;
+  ASSERT_FALSE(err_doc.Parse(lines[1].c_str()).HasParseError());
+  expect_json_string(err_doc, "level", "error");
+  expect_json_string(err_doc, "component", "nng.socket");
+  expect_json_string(err_doc, "action", "create");
+  expect_json_string(err_doc, "message", "[nng:socket:create] failed 9");
+
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+}
+
+TEST(LoggingTest, ImportantMacroWritesInfoOnlyToImportantChannel) {
+  const auto runtime_path =
+      std::filesystem::current_path() / "zpp_logging_imp_runtime_test.log";
+  const auto important_path =
+      std::filesystem::current_path() / "zpp_logging_imp_important_test.jsonl";
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+  auto cfg = file_config(runtime_path);
+  cfg.service = "zpp-test";
+  cfg.important_file.enabled = true;
+  cfg.important_file.file_name = important_path.string();
+  cfg.important_file.max_file_size_mb = 1;
+  cfg.important_file.max_files = 1;
+  cfg.important_file.level = spdlog::level::warn;
+  cfg.important_file.format = z::log::sink_format::jsonl;
+
+  z::log::init(cfg);
+  spd_inf("[system:heartbeat] ordinary info");
+  spd_imp("[system:startup] service started {}", 1);
+  spd_war("[system:shutdown] service stopped");
+  z::log::shutdown();
+
+  const auto runtime_content = read_file(runtime_path);
+  EXPECT_NE(runtime_content.find("I [system:heartbeat] ordinary info"),
+            std::string::npos);
+  EXPECT_NE(runtime_content.find("I [system:startup] service started 1"),
+            std::string::npos);
+
+  const auto lines = read_lines(important_path);
+  ASSERT_EQ(lines.size(), 2);
+
+  rapidjson::Document imp_doc;
+  ASSERT_FALSE(imp_doc.Parse(lines[0].c_str()).HasParseError());
+  expect_json_string(imp_doc, "level", "info");
+  expect_json_string(imp_doc, "component", "system");
+  expect_json_string(imp_doc, "action", "startup");
+  expect_json_string(imp_doc, "message", "[system:startup] service started 1");
+  EXPECT_FALSE(imp_doc.HasMember("important"));
+
+  rapidjson::Document warn_doc;
+  ASSERT_FALSE(warn_doc.Parse(lines[1].c_str()).HasParseError());
+  expect_json_string(warn_doc, "level", "warn");
+  expect_json_string(warn_doc, "component", "system");
+  expect_json_string(warn_doc, "action", "shutdown");
+
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+}
+
+TEST(LoggingTest, ImportantMacroUsesIndependentChannelWhenRuntimeInfoDisabled) {
+  const auto runtime_path =
+      std::filesystem::current_path() / "zpp_logging_imp_level_runtime.log";
+  const auto important_path =
+      std::filesystem::current_path() / "zpp_logging_imp_level_important.jsonl";
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+  auto cfg = file_config(runtime_path);
+  cfg.level = spdlog::level::warn;
+  cfg.important_file.enabled = true;
+  cfg.important_file.file_name = important_path.string();
+  cfg.important_file.max_file_size_mb = 1;
+  cfg.important_file.max_files = 1;
+  cfg.important_file.level = spdlog::level::warn;
+  cfg.important_file.format = z::log::sink_format::jsonl;
+
+  z::log::init(cfg);
+  int side_effects = 0;
+  spd_inf("[system:heartbeat] ordinary info {}", ++side_effects);
+  EXPECT_EQ(side_effects, 0);
+  spd_imp("[system:startup] service started {}", ++side_effects);
+  EXPECT_EQ(side_effects, 1);
+  z::log::shutdown();
+
+  const auto runtime_content = read_file(runtime_path);
+  EXPECT_EQ(runtime_content.find("service started 1"), std::string::npos);
+
+  const auto lines = read_lines(important_path);
+  ASSERT_EQ(lines.size(), 1);
+  rapidjson::Document doc;
+  ASSERT_FALSE(doc.Parse(lines[0].c_str()).HasParseError());
+  expect_json_string(doc, "level", "info");
+  expect_json_string(doc, "message", "[system:startup] service started 1");
+
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+}
+
+TEST(LoggingTest, AsyncImportantJsonlUsesCallingThreadId) {
+  const auto runtime_path =
+      std::filesystem::current_path() / "zpp_logging_async_runtime_test.log";
+  const auto important_path = std::filesystem::current_path() /
+                              "zpp_logging_async_important_test.jsonl";
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+  auto cfg = file_config(runtime_path);
+  cfg.async = true;
+  cfg.important_file.enabled = true;
+  cfg.important_file.file_name = important_path.string();
+  cfg.important_file.max_file_size_mb = 1;
+  cfg.important_file.max_files = 1;
+  cfg.important_file.level = spdlog::level::warn;
+  cfg.important_file.format = z::log::sink_format::jsonl;
+
+  int worker_tid = -1;
+  z::log::init(cfg);
+  std::thread worker([&] {
+    worker_tid = z::tid::id();
+    spd_war("[async-test:worker] payload");
+  });
+  worker.join();
+  z::log::shutdown();
+
+  const auto lines = read_lines(important_path);
+  ASSERT_EQ(lines.size(), 1);
+  rapidjson::Document doc;
+  ASSERT_FALSE(doc.Parse(lines[0].c_str()).HasParseError());
+  ASSERT_TRUE(doc.HasMember("tid"));
+  ASSERT_TRUE(doc["tid"].IsUint64());
+  EXPECT_EQ(doc["tid"].GetUint64(), static_cast<std::uint64_t>(worker_tid));
+
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
 }

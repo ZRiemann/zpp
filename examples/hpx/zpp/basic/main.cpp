@@ -17,7 +17,7 @@ public:
 
 server::server(int argc, char **argv) : z::hpx::server(argc, argv) {
   spd_inf("physical_cores: {}", z::sys::physical_cores());
-  spd_inf("hpx_cores: {}", hpx::get_os_thread_count());
+  spd_inf("hpx_cores: {}", ::hpx::get_os_thread_count());
 }
 server::~server() { spd_inf("zpp.hpx.basic server release"); }
 

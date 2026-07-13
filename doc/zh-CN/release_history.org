@@ -3,6 +3,19 @@
 
 * 发布历史
 
+** v0.11.0 - Unreleased
+*** 变更内容
+- 扩展 =z::log::config=，在保留旧 rotating runtime file 字段兼容的同时，新增结构化 important file 日志配置。
+- 新增独立 important 通道入口 =spd_imp(...)=，将普通 =info= 记录同时写入 runtime 日志和 important JSONL 日志，不额外增加 =important= JSON 字段。
+- important 日志支持 JSONL formatter，稳定输出 service、node、run、进程/线程、源码位置、component、action 和 message 字段。
+- 将 =[ctp-md:login-rsp]=、=[nng:socket:create]= 等常见消息前缀解析为结构化 =component= 和 =action=。
+- =z::server= 的 =spd= JSON 解析新增 =service=、=node=、=run_id= 和 =important= sink 设置。
+- 在 zpp logger bridge 中按 level、facility、message id 和 message 对重复的 NNG 内部日志做节流，使 important 日志保留首条记录和周期性摘要，而不是每次重试都写入。
+
+*** 验证
+- 新增日志测试覆盖 =warn=+ JSONL important sink、=spd_imp(...)= 直写 info 记录、旧 runtime file 兼容，以及 async logger 下保留 zpp 短线程 id。
+- 新增 NNG runtime 日志测试，覆盖重复内部日志会被抑制，不同 level 或不同 message 仍正常透传。
+
 ** v0.9.0 - 2026-07-10
 *** 变更内容
 - 在 =zpp/wire/= 下新增与传输层无关的 =z::wire::writer=、=reader= 和 =size_counter=，支持带边界检查的定长缓冲区编码、对称解码，以及通过相同操作序列计算编码长度。

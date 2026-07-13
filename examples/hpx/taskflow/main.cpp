@@ -35,12 +35,12 @@ private:
 server::server(int argc, char **argv)
     : z::hpx::server(argc, argv),
       _executor(std::max(1, (int)z::sys::physical_cores() -
-                                (int)hpx::get_os_thread_count()),
+                                (int)::hpx::get_os_thread_count()),
                 tf::make_worker_interface<z::ztf::affine_worker>()),
       _observer{_executor.make_observer<z::ztf::observer_worker_status>()} {
 
   spd_inf("physical_cores: {}", z::sys::physical_cores());
-  spd_inf("hpx_cores: {}", hpx::get_os_thread_count());
+  spd_inf("hpx_cores: {}", ::hpx::get_os_thread_count());
   spd_inf("executor num_workers: {}", _executor.num_workers());
 }
 server::~server() {}

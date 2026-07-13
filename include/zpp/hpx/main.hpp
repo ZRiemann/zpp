@@ -19,7 +19,7 @@ NSB_HPX
  */
 template <typename Server> int run_server(int argc, char **argv) {
   const err_t err = run_server_lifecycle<Server>(argc, argv);
-  const int finalize_result = hpx::finalize();
+  const int finalize_result = ::hpx::finalize();
   return ERR_OK == err ? finalize_result : static_cast<int>(err);
 }
 

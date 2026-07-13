@@ -31,20 +31,70 @@ extern std::shared_ptr<spdlog::logger> g_spd_log;
 NSB_ZPP
 namespace log {
 
-struct config {
-  bool async{false};
-  bool console{true};
-  bool rotating_file{false};
-  bool rotate_on_open{true};
-  std::string file_name{"server.log"};
+/// Log sink output format.
+enum class sink_format {
+  /// Format records through the configured spdlog pattern.
+  pattern,
+  /// Write one structured JSON object per log record.
+  jsonl,
+};
+
+/// Additional rotating file sink configuration.
+struct file_sink_config {
+  /// Enables this file sink when true.
+  bool enabled{false};
+  /// Output file name.
+  std::string file_name;
+  /// Maximum size of each rotated file in MiB.
   std::size_t max_file_size_mb{32};
+  /// Number of rotated files to keep.
   std::size_t max_files{3};
+  /// Truncate/rotate the active file when opening the sink.
+  bool rotate_on_open{true};
+  /// Minimum level accepted by this sink.
+  spdlog::level::level_enum level{spdlog::level::warn};
+  /// Sink output format.
+  sink_format format{sink_format::jsonl};
+  /// Pattern used when @ref format is @ref sink_format::pattern.
+  std::string pattern;
+};
+
+/// Native spdlog initialization configuration.
+struct config {
+  /// Use spdlog async logger when true.
+  bool async{false};
+  /// Enable colored stdout logging.
+  bool console{true};
+  /// Enable the legacy rotating runtime file sink.
+  bool rotating_file{false};
+  /// Rotate/truncate the legacy runtime file sink on open.
+  bool rotate_on_open{true};
+  /// Legacy runtime file name.
+  std::string file_name{"server.log"};
+  /// Legacy runtime file maximum size in MiB.
+  std::size_t max_file_size_mb{32};
+  /// Legacy runtime rotated file count.
+  std::size_t max_files{3};
+  /// Async logger queue size.
   std::size_t queue_size{8192};
+  /// Global periodic flush interval.
   std::chrono::seconds flush_interval{2};
+  /// Logger minimum level.
   spdlog::level::level_enum level{spdlog::level::trace};
+  /// Flush records at this level or higher.
   spdlog::level::level_enum flush_level{spdlog::level::warn};
+  /// Logger name.
   std::string logger_name{"zpp"};
+  /// Legacy text pattern.
   std::string pattern{"%d %H:%M:%S.%f %t %^%L%$: %v\t%g:%#"};
+  /// Logical service name written to JSONL sinks.
+  std::string service;
+  /// Logical node name written to JSONL sinks.
+  std::string node;
+  /// Per-run identifier written to JSONL sinks.
+  std::string run_id;
+  /// AI-agent focused important log sink.
+  file_sink_config important_file;
 };
 
 void init(const config &cfg = config{});
@@ -52,6 +102,9 @@ void shutdown() noexcept;
 void set_level(spdlog::level::level_enum level);
 void log_preformatted(spdlog::source_loc source, spdlog::level::level_enum lvl,
                       spdlog::string_view_t msg);
+void log_important_preformatted(spdlog::source_loc source,
+                                spdlog::string_view_t msg);
+bool should_log_important() noexcept;
 
 } // namespace log
 NSE_ZPP
@@ -76,6 +129,24 @@ inline void spd_logx(spdlog::source_loc source, spdlog::level::level_enum lvl,
                            spdlog::string_view_t{buffer.data(), buffer.size()});
 }
 
+template <typename... Args>
+inline void spd_logx_important(spdlog::source_loc source,
+                               spdlog::format_string_t<Args...> fmt_str,
+                               Args &&...args) {
+  spdlog::memory_buf_t buffer;
+#ifdef SPDLOG_USE_STD_FORMAT
+  fmt_lib::vformat_to(std::back_inserter(buffer),
+                      spdlog::details::to_string_view(fmt_str),
+                      fmt_lib::make_format_args(args...));
+#else
+  fmt::vformat_to(fmt::appender(buffer),
+                  spdlog::details::to_string_view(fmt_str),
+                  fmt::make_format_args(args...));
+#endif
+  z::log::log_important_preformatted(
+      source, spdlog::string_view_t{buffer.data(), buffer.size()});
+}
+
 inline bool spd_should_log(spdlog::level::level_enum lvl) noexcept {
   auto *logger = g_spd_log.get();
   return logger && lvl != spdlog::level::off &&
@@ -88,10 +159,19 @@ inline bool spd_should_log(spdlog::level::level_enum lvl) noexcept {
                   __VA_ARGS__)                                                 \
        : (void)0)
 
+#define spd_logx_important_if(...)                                             \
+  (z::log::should_log_important()                                              \
+       ? spd_logx_important(                                                   \
+             spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__},             \
+             __VA_ARGS__)                                                      \
+       : (void)0)
+
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_INFO
 #define spd_inf(...) spd_logx_if(spdlog::level::info, __VA_ARGS__)
+#define spd_imp(...) spd_logx_important_if(__VA_ARGS__)
 #else
 #define spd_inf(...) (void)0
+#define spd_imp(...) (void)0
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_ERROR

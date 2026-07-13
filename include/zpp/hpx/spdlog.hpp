@@ -68,13 +68,13 @@ protected:
     // Convert to string and send to HPX distributed stream.
     // usage of hpx::cout requires the HPX runtime to be active.
     // fmt::to_string copies the buffer to a std::string.
-    hpx::cout << fmt::to_string(formatted) << std::flush;
+    ::hpx::cout << fmt::to_string(formatted) << std::flush;
   }
 
   /**
    * @brief Flushes the HPX stream.
    */
-  void flush_() override { hpx::cout << std::flush; }
+  void flush_() override { ::hpx::cout << std::flush; }
 };
 
 using hpx_sink_mt = hpx_ostream_sink<std::mutex>;

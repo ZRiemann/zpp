@@ -57,7 +57,7 @@ public:
    * thread.
    */
   inline err_t timer() override {
-    hpx::this_thread::sleep_for(timer_interval_);
+    ::hpx::this_thread::sleep_for(timer_interval_);
     return ERR_OK;
   }
 

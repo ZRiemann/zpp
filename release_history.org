@@ -3,6 +3,19 @@
 
 * Release History
 
+** v0.11.0 - Unreleased
+*** Changes
+- Extend =z::log::config= with optional structured important file logging while preserving the legacy rotating runtime file fields.
+- Add =spd_imp(...)= as an independent important-channel entry point that writes normal =info= records to the runtime log and the important JSONL log without adding an extra =important= JSON field.
+- Add JSONL formatting for important logs with stable service, node, run, process/thread, source-location, component, action, and message fields.
+- Parse common message prefixes such as =[ctp-md:login-rsp]= and =[nng:socket:create]= into structured =component= and =action= fields.
+- Extend =z::server= =spd= JSON parsing with =service=, =node=, =run_id=, and =important= sink settings.
+- Rate-limit repeated NNG internal logger bridge records by level, facility, message id, and message so important logs keep the first occurrence and periodic summaries instead of every retry.
+
+*** Verification
+- Add logging tests for warn+ JSONL important sinks, direct =spd_imp(...)= info records, legacy runtime file compatibility, and async preservation of the zpp short thread id.
+- Add NNG runtime logging coverage that repeated internal records are suppressed while different levels or messages still pass through.
+
 ** v0.10.0 - 2026-07-12
 *** Changes
 - Rename the HPX wrapper namespace from =z::zhpx= to =z::hpx= and keep the public wrapper surface aligned under =zpp/hpx/= and =z::hpx::exec=.
