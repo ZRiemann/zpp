@@ -111,7 +111,7 @@ public:
     return ret;
   }
 
-private: // Consume
+public: // Consume
   inline bool _empty() noexcept {
     if (front_ptr_ != back_cached_) {
       try_move_next_chunk();
@@ -127,7 +127,7 @@ private: // Consume
   inline T &front() noexcept { return *front_ptr_; }
   inline void pop() noexcept { ++front_ptr_; }
 
-private: // Produce
+public: // Produce
   inline bool _full() noexcept {
     if (back_local_ < back_end_ptr_) {
       return false;
