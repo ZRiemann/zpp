@@ -3,6 +3,15 @@
 
 * 发布历史
 
+** v0.13.0 - 2026-07-28
+*** 变更内容
+- 新增 =z::wire::fixed_reader<N>= 与 =fixed_writer<N>=，用于编译期定长 wire 数据块：仅验证一次缓冲区长度，并在 Release 构建中省略逐操作边界检查。
+- 为 checked =reader=、=writer= 与 =size_counter= API 增加对称的无符号 8 位整数操作。
+- 现有 checked =reader= 与 =writer= API 保持不变，继续用于变长及不可信 wire 数据。
+
+*** 验证
+- 新增聚焦测试，覆盖 checked 无符号 8 位操作，以及 fixed reader/writer 的精确长度创建、字节序、标量及原始字节操作、完成状态统计和长度不匹配缓冲区。
+
 ** v0.12.0 - 2026-07-14
 *** 变更内容
 - 公开 =z::mpmc= 的底层消费与生产操作，包括 empty/full 检查、front/back 访问以及 push/pop 推进，支持调用方组合自定义队列流程。

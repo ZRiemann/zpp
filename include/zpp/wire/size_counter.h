@@ -20,6 +20,9 @@ public:
   /// Accounts for one raw byte.
   bool write_byte(std::byte) noexcept { return add(1); }
 
+  /// Accounts for an encoded unsigned 8-bit integer.
+  bool write_u8(std::uint8_t) noexcept { return add(sizeof(std::uint8_t)); }
+
   /// Accounts for an encoded unsigned 16-bit integer.
   bool write_u16(std::uint16_t) noexcept { return add(sizeof(std::uint16_t)); }
 

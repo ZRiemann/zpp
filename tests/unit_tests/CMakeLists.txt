@@ -11,6 +11,8 @@ add_executable(gtest_tsc
     logging_active_level_test.cpp
     stl_queue_test.cpp
     wire_msg_header_test.cpp
+    wire_fixed_reader_test.cpp
+    wire_fixed_writer_test.cpp
     wire_reader_test.cpp
     wire_size_counter_test.cpp
     wire_writer_test.cpp

@@ -30,6 +30,16 @@ public:
     return true;
   }
 
+  /// Reads an unsigned 8-bit integer.
+  bool read_u8(std::uint8_t &value) noexcept {
+    if (!ensure_available(1)) {
+      return false;
+    }
+    value = std::to_integer<std::uint8_t>(*current_++);
+    --remaining_;
+    return true;
+  }
+
   /// Reads an unsigned 16-bit little-endian integer.
   bool read_u16(std::uint16_t &value) noexcept { return read_unsigned(value); }
 

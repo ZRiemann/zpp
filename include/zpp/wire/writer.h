@@ -30,6 +30,16 @@ public:
     return true;
   }
 
+  /// Writes an unsigned 8-bit integer.
+  bool write_u8(std::uint8_t value) noexcept {
+    if (!ensure_available(1)) {
+      return false;
+    }
+    *current_++ = static_cast<std::byte>(value);
+    --remaining_;
+    return true;
+  }
+
   /// Writes an unsigned 16-bit integer in little-endian order.
   bool write_u16(std::uint16_t value) noexcept { return write_unsigned(value); }
 
