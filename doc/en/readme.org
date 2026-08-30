@@ -18,6 +18,7 @@ maintained in [[file:../../release_history.org][release_history.org]], with a
 ** Getting Started
 
 - [[file:./build.org][Build Guide]]
+- [[file:./lifecycle.org][Lifecycle Coordination]]
 - [[file:./hpx.org][HPX Integration Guide]]
 - [[file:./development.org][Development Guide]]
 

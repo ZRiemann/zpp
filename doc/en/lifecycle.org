@@ -1,0 +1,159 @@
+#+STARTUP: indent
+#+TITLE: z::lifecycle
+
+* Overview
+
+=z::lifecycle= is a generic Core synchronization primitive for coordinating the
+active-work lifetime of concurrently used objects and services.
+
+It is intentionally independent of NNG, HPX, databases, worker queues, and
+business logic.  It answers four questions only:
+
+1. May new work be admitted?
+2. How many admitted activities are still active?
+3. Has admission been quiesced?
+4. When is it safe for the owner to stop the protected resource?
+
+The public header is:
+
+#+begin_src cpp
+#include <zpp/core/lifecycle.h>
+#+end_src
+
+* State Model
+
+The control state is:
+
+#+begin_example
+stopped
+  |
+  | start()
+  v
+running
+  |
+  | quiesce()
+  v
+quiescing
+  |
+  | active_count() == 0
+  v
+drained condition
+  |
+  | owner stops protected resource
+  | lifecycle.stop()
+  v
+stopped
+#+end_example
+
+=drained= is a condition, not a fourth stored state.  It means admission is
+closed and no =lifecycle::guard= remains active.
+
+* Activity Guards
+
+=try_acquire()= admits work only while the lifecycle is running and returns a
+move-only =lifecycle::guard=.  Destroying or explicitly releasing the guard
+removes exactly one active activity.
+
+#+begin_src cpp
+z::lifecycle lifecycle;
+
+lifecycle.start();
+
+auto activity = lifecycle.try_acquire();
+if (!activity) {
+  // The owner is quiescing or stopped.
+  return;
+}
+
+do_work();
+// activity releases automatically.
+#+end_src
+
+A guard is an activity lease, not resource ownership.  A business object may
+combine a non-owning resource borrow with a guard:
+
+#+begin_src cpp
+struct pending_request {
+  z::nng::aio_ctx *context;     // Non-owning resource borrow.
+  z::lifecycle::guard activity; // Permission to keep using the owner lifetime.
+};
+#+end_src
+
+The =lifecycle= object MUST outlive every guard acquired from it.
+
+* Shutdown Contract
+
+Owners SHOULD use the following order:
+
+#+begin_src cpp
+lifecycle.quiesce();
+
+if (!lifecycle.wait_drained_for(timeout)) {
+  // Apply owner-specific escalation or cancellation policy.
+}
+
+protected_resource.stop();
+lifecycle.stop();
+#+end_src
+
+=quiesce()= closes admission but does not cancel admitted work.
+=wait_drained()= and =wait_drained_for()= wait only for guards.
+=stop()= never waits and succeeds only after the lifecycle is quiescing and
+drained (or when it is already stopped).
+
+This separation is deliberate.  =z::lifecycle= does not know whether a timeout
+should cancel an HPX task, close an NNG socket, abort a database operation, log
+a fatal error, or keep waiting.
+
+* Concurrency and Performance
+
+Admission and release use one packed atomic control word containing the state
+and active count.  The normal =try_acquire()/guard release= path does not take
+the drain mutex.
+
+The wait mutex and condition variable are used only by drain waiters and when a
+quiescing lifecycle reaches zero active activities.  Callers should still avoid
+acquiring a lifecycle guard for work that no longer borrows the protected
+resource after the callback returns.
+
+For example, an NNG SUB callback that decodes a message into an independent
+SPSC value normally does not need to keep a lifecycle guard for the downstream
+queue processing.
+
+* Intended Uses
+
+The same primitive can coordinate:
+
+- deferred NNG REP processing;
+- outstanding NNG REQ transactions;
+- HPX-owned business activities;
+- asynchronous database or storage operations;
+- worker or pipeline objects that must reject new work before shutdown;
+- application services that need explicit quiesce/drain ordering.
+
+* Non-Goals
+
+=z::lifecycle= MUST NOT become a scheduler or resource manager.  It does not:
+
+- create or own threads;
+- create, schedule, or cancel tasks;
+- own sockets, queues, databases, or runtimes;
+- stop protected resources;
+- store business callbacks or business state;
+- choose retry or timeout policy;
+- replace =shared_ptr= or C++ object lifetime rules.
+
+* NNG Deferred Reply Pattern
+
+A deferred REP handler may retain a managed =aio_ctx= as a non-owning borrow
+after =on_receive()= when the request also owns a lifecycle guard.
+
+The guard remains active through business processing and asynchronous reply
+submission, and is released only from send completion.  Shutdown must then:
+
+1. quiesce the lifecycle;
+2. wait for all deferred reply guards to drain;
+3. stop the replier;
+4. mark the lifecycle stopped.
+
+The zpp NNG lifecycle test covers this cross-thread deferred-reply pattern.

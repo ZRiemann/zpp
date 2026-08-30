@@ -3,6 +3,15 @@
 
 * Release History
 
+** v0.14.0 - 2026-08-30
+*** Changes
+- Add the reusable =z::lifecycle= core utility with atomic admission control, move-only activity guards, quiesce signaling, drain waiting, and explicit stop semantics.
+- Add focused lifecycle unit coverage and an NNG deferred-reply integration test to validate draining borrowed contexts before replier shutdown.
+- Add bilingual lifecycle design documentation and update the English/Chinese documentation indexes.
+
+*** Verification
+- Keep the existing unit-test entrypoints and add =lifecycle_test.cpp= plus =nng_lifecycle_test.cpp= coverage for lifecycle state transitions and NNG shutdown coordination.
+
 ** v0.13.0 - 2026-07-28
 *** Changes
 - Add =z::wire::fixed_reader<N>= and =fixed_writer<N>= for compile-time-sized wire blocks that validate the buffer length once and omit per-operation bounds checks in release builds.

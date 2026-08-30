@@ -17,6 +17,7 @@ zpp (ZetaX plus plus) 是一个 C++ 基础库，为 ZetaX 项目提供日志、J
 ** 快速开始
 
 - [[file:./构建指南.org][构建指南]]
+- [[file:./lifecycle.org][生命周期协调]]
 - [[file:./HPX封装指南.org][HPX 封装指南]]
 - [[file:./开发指南.org][开发指南]]
 
