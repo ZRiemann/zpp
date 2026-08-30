@@ -3,6 +3,15 @@
 
 * Release History
 
+** v0.13.0 - 2026-08-30
+*** Changes
+- Add the reusable =z::lifecycle= core utility with atomic admission control, move-only activity guards, quiesce signaling, drain waiting, and explicit stop semantics.
+- Add focused lifecycle unit coverage and an NNG deferred-reply integration test to validate draining borrowed contexts before replier shutdown.
+- Add bilingual lifecycle design documentation and update the English/Chinese documentation indexes.
+
+*** Verification
+- Keep the existing unit-test entrypoints and add =lifecycle_test.cpp= plus =nng_lifecycle_test.cpp= coverage for lifecycle state transitions and NNG shutdown coordination.
+
 ** v0.12.0 - 2026-07-14
 *** Changes
 - Expose the low-level consume and produce operations of =z::mpmc=, including empty/full checks, front/back access, and push/pop advancement for callers that need to compose custom queue workflows.

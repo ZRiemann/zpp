@@ -1,0 +1,153 @@
+#+STARTUP: indent
+#+TITLE: z::lifecycle
+
+* 概述
+
+=z::lifecycle= 是 zpp Core 中通用的并发生命周期协调原语，用于管理并发对象或
+服务的“活动工作期”。
+
+它不依赖 NNG、HPX、数据库、工作队列或具体业务逻辑，只负责回答四个问题：
+
+1. 当前是否还允许接纳新工作；
+2. 已经接纳的 activity 还有多少正在执行；
+3. 是否已经进入 quiescing；
+4. 何时可以安全停止被保护的资源。
+
+公共头文件：
+
+#+begin_src cpp
+#include <zpp/core/lifecycle.h>
+#+end_src
+
+* 状态模型
+
+控制状态为：
+
+#+begin_example
+stopped
+  |
+  | start()
+  v
+running
+  |
+  | quiesce()
+  v
+quiescing
+  |
+  | active_count() == 0
+  v
+drained 条件
+  |
+  | owner 停止受保护资源
+  | lifecycle.stop()
+  v
+stopped
+#+end_example
+
+=drained= 是条件而不是第四个持久状态，含义是：已经关闭 admission，且没有任何
+=lifecycle::guard= 仍处于活动状态。
+
+* Activity Guard
+
+=try_acquire()= 只在 running 状态接纳新工作，并返回 move-only 的
+=lifecycle::guard=。guard 析构或显式 =release()= 时准确释放一个 activity。
+
+#+begin_src cpp
+z::lifecycle lifecycle;
+
+lifecycle.start();
+
+auto activity = lifecycle.try_acquire();
+if (!activity) {
+  // 正在 quiescing，或者已经 stopped。
+  return;
+}
+
+do_work();
+// activity 自动释放。
+#+end_src
+
+guard 表达“活动期租约”，不表达资源所有权。业务对象可以同时持有非 owning 的资源
+借用和 guard：
+
+#+begin_src cpp
+struct pending_request {
+  z::nng::aio_ctx *context;     // 非 owning 的资源借用。
+  z::lifecycle::guard activity; // 继续使用 owner 活动期的许可。
+};
+#+end_src
+
+=lifecycle= 对象的生命周期 MUST 长于所有由它获取的 guard。
+
+* Shutdown 契约
+
+owner SHOULD 使用以下顺序：
+
+#+begin_src cpp
+lifecycle.quiesce();
+
+if (!lifecycle.wait_drained_for(timeout)) {
+  // 执行 owner 自己的升级、取消或错误策略。
+}
+
+protected_resource.stop();
+lifecycle.stop();
+#+end_src
+
+=quiesce()= 只关闭新 activity 的 admission，不取消已经接纳的工作。
+=wait_drained()= / =wait_drained_for()= 只等待 guard 退出。
+=stop()= 永不隐式等待；只有 lifecycle 已 quiescing 且 drained 时才成功，已经
+stopped 时也保持幂等成功。
+
+这种分离是刻意设计：=z::lifecycle= 不知道超时后应该取消 HPX task、关闭 NNG
+socket、中止数据库操作、记录 fatal，还是继续等待。
+
+* 并发与性能
+
+admission 与 release 使用一个 packed atomic control word，同时保存状态和 active
+count。正常的 =try_acquire()/guard release= 热路径不获取 drain mutex。
+
+等待 mutex 和 condition variable 只用于 drain waiter，以及 quiescing 状态下最后
+一个 activity 退出并变为零时的通知。
+
+调用方仍然不应为已经脱离受保护资源的工作无意义地持有 guard。例如 NNG SUB
+callback 已经把消息 decode 成独立 SPSC value 后，下游队列处理通常不需要继续持有
+NNG owner 的 lifecycle guard。
+
+* 适用场景
+
+同一个原语可以用于：
+
+- NNG REP deferred processing；
+- 未完成的 NNG REQ transaction；
+- HPX 管理的业务 activity；
+- 异步数据库或存储操作；
+- shutdown 前需要拒绝新工作的 worker / pipeline；
+- 需要显式 quiesce/drain 顺序的应用服务。
+
+* 非目标
+
+=z::lifecycle= MUST NOT 演变为 scheduler 或资源管理器。它不负责：
+
+- 创建或拥有线程；
+- 创建、调度或取消 task；
+- 拥有 socket、queue、database 或 runtime；
+- stop 被保护资源；
+- 保存业务 callback 或业务状态；
+- 决定 retry 和 timeout 策略；
+- 替代 =shared_ptr= 或 C++ 对象生命周期规则。
+
+* NNG Deferred Reply 模式
+
+REP handler 在 =on_receive()= 返回后，如果请求同时持有 lifecycle guard，可以把
+managed =aio_ctx= 作为非 owning borrow 留给异步业务处理。
+
+guard 必须覆盖业务处理、异步 reply submit，并直到 send completion 才释放。shutdown
+顺序必须是：
+
+1. quiesce lifecycle；
+2. 等待所有 deferred reply guard drain；
+3. stop replier；
+4. 将 lifecycle 标记为 stopped。
+
+zpp 的 NNG lifecycle 测试覆盖了该跨线程 deferred-reply 模式。

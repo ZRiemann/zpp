@@ -7,6 +7,7 @@ add_executable(gtest_tsc
     wall_time_legacy_test.cpp
     json_hpp_test.cpp
     hpx_server_lifecycle_test.cpp
+    lifecycle_test.cpp
     logging_test.cpp
     logging_active_level_test.cpp
     stl_queue_test.cpp
@@ -43,6 +44,7 @@ add_run_target(gtest_tsc)
 if(TARGET zpp::zpp_nng)
     add_executable(gtest_nng
         nng_endpoint_test.cpp
+        nng_lifecycle_test.cpp
         nng_protocol_test.cpp
         nng_task_test.cpp
         nng_runtime_test.cpp
