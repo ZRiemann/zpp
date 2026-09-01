@@ -5,6 +5,8 @@
 #include "util.h"
 
 NSB_NNG
+/// RAII owner for an NNG message with explicit duplication and movable
+/// ownership.
 class message {
 public:
 #pragma region Constructors and Destructor
@@ -30,6 +32,24 @@ public:
     if (ret != 0) {
       nng2errf(cmp_message, act_message, "nng_msg_dup failed: {}", strerr(ret));
     }
+  }
+  /// Message assignment cannot implicitly duplicate fallible NNG state.
+  message &operator=(const message &) = delete;
+
+  /// Moves ownership from another message wrapper.
+  message(message &&other) noexcept : msg_(other.release()) {}
+  /// Replaces the current message by moving ownership from another wrapper.
+  message &operator=(message &&other) noexcept {
+    if (this != &other) {
+      nng_msg *incoming = other.release();
+      if (msg_ != incoming) {
+        if (msg_ != nullptr) {
+          nng_msg_free(msg_);
+        }
+        msg_ = incoming;
+      }
+    }
+    return *this;
   }
 
   explicit message(nng_msg *msg) noexcept : msg_(msg) {}

@@ -3,6 +3,19 @@
 
 * Release History
 
+** v0.15.0 - 2026-09-01
+*** Changes
+- Add =noexcept= move construction and move assignment to =z::nng::message= so owned NNG messages can cross C++ ownership boundaries without duplication.
+- Leave moved-from wrappers empty, release an existing destination message during move assignment, and preserve the explicit deep-copy constructor.
+- Explicitly delete copy assignment to prevent shallow aliasing of the owned =nng_msg*= and its resulting double-free risk.
+
+*** Compatibility and Upgrade Notes
+- Direct construction from =std::move(message)= now transfers ownership instead of invoking the explicit duplicate constructor; direct-initialize from an lvalue for intentional duplication.
+- Copy assignment is no longer available. Existing callers must use move assignment for ownership transfer or explicit construction for duplication.
+
+*** Verification
+- Add focused NNG runtime coverage and compile-time type checks for move construction, move assignment over an existing message, self-move, moved-from state, and explicit duplication.
+
 ** v0.14.0 - 2026-08-30
 *** Changes
 - Add the reusable =z::lifecycle= core utility with atomic admission control, move-only activity guards, quiesce signaling, drain waiting, and explicit stop semantics.

@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -199,6 +200,11 @@ bool recv_nonblocking(nng_socket socket, std::string_view expected) {
 
 } // namespace
 
+static_assert(std::is_nothrow_move_constructible_v<z::nng::message>);
+static_assert(std::is_nothrow_move_assignable_v<z::nng::message>);
+static_assert(std::is_copy_constructible_v<z::nng::message>);
+static_assert(!std::is_copy_assignable_v<z::nng::message>);
+
 TEST(NngRuntime, MessageReleaseLeavesWrapperEmpty) {
   z::nng::message message{(size_t)0};
 
@@ -207,6 +213,60 @@ TEST(NngRuntime, MessageReleaseLeavesWrapperEmpty) {
   ASSERT_NE(released, nullptr);
   EXPECT_EQ(message.msg_, nullptr);
   nng_msg_free(released);
+}
+
+TEST(NngRuntime, MessageMovesOwnership) {
+  constexpr std::string_view payload{"move-message"};
+  z::nng::message source{std::size_t{0}};
+  ASSERT_EQ(source.append(payload.data(), payload.size()), NNG_OK);
+  nng_msg *owned = source.msg_;
+
+  z::nng::message moved{std::move(source)};
+
+  EXPECT_FALSE(source.valid());
+  ASSERT_TRUE(moved.valid());
+  EXPECT_EQ(moved.msg_, owned);
+  EXPECT_EQ(moved.length(), payload.size());
+  EXPECT_EQ((std::string_view{static_cast<const char *>(moved.body()),
+                              moved.length()}),
+            payload);
+}
+
+TEST(NngRuntime, MessageMoveAssignmentReplacesOwnership) {
+  constexpr std::string_view payload{"replace-message"};
+  z::nng::message source{std::size_t{0}};
+  ASSERT_EQ(source.append(payload.data(), payload.size()), NNG_OK);
+  nng_msg *owned = source.msg_;
+  z::nng::message target{std::size_t{0}};
+
+  target = std::move(source);
+
+  EXPECT_FALSE(source.valid());
+  ASSERT_TRUE(target.valid());
+  EXPECT_EQ(target.msg_, owned);
+  EXPECT_EQ((std::string_view{static_cast<const char *>(target.body()),
+                              target.length()}),
+            payload);
+
+  auto *self = &target;
+  target = std::move(*self);
+  EXPECT_TRUE(target.valid());
+  EXPECT_EQ(target.msg_, owned);
+}
+
+TEST(NngRuntime, MessageExplicitCopyStillDuplicates) {
+  constexpr std::string_view payload{"copy-message"};
+  z::nng::message source{std::size_t{0}};
+  ASSERT_EQ(source.append(payload.data(), payload.size()), NNG_OK);
+
+  z::nng::message duplicate{source};
+
+  ASSERT_TRUE(source.valid());
+  ASSERT_TRUE(duplicate.valid());
+  EXPECT_NE(source.msg_, duplicate.msg_);
+  EXPECT_EQ((std::string_view{static_cast<const char *>(duplicate.body()),
+                              duplicate.length()}),
+            payload);
 }
 
 TEST(NngRuntime, SocketOwnsAndMovesSocket) {
