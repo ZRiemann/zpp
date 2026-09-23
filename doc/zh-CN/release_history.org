@@ -3,6 +3,15 @@
 
 * 发布历史
 
+** v0.15.0 - 2026-09-23
+*** 变更内容
+- 为 =z::nng::listener_options= 增加可选的 POSIX IPC socket 权限，确保在 listener 启动前由 NNG 原子应用；未配置时保持原默认行为。
+- 拒绝非法 mode；显式权限在当前 transport 或平台不受支持时失败关闭。
+- 对端凭据继续复用现有 pipe typed option API，使下游命令端点可组合 0600 IPC 权限与内核提供的 peer identity。
+
+*** 验证
+- 新增聚焦 NNG 测试，覆盖 owner-only IPC listener 权限与非法 mode 拒绝。
+
 ** v0.13.0 - 2026-07-28
 *** 变更内容
 - 新增 =z::wire::fixed_reader<N>= 与 =fixed_writer<N>=，用于编译期定长 wire 数据块：仅验证一次缓冲区长度，并在 Release 构建中省略逐操作边界检查。

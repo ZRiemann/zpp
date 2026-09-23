@@ -3,6 +3,15 @@
 
 * Release History
 
+** v0.15.0 - 2026-09-23
+*** Changes
+- Extend =z::nng::listener_options= with an opt-in POSIX IPC socket mode applied before listener startup, preserving the existing default when unset.
+- Reject invalid modes and fail closed when an explicitly configured IPC permission is unsupported by the selected transport or platform.
+- Keep peer credential inspection on the existing typed pipe option API so downstream command endpoints can combine owner-only IPC access with kernel-reported peer identity.
+
+*** Verification
+- Add focused NNG coverage for owner-only IPC listener permissions and invalid mode rejection.
+
 ** v0.14.0 - 2026-08-30
 *** Changes
 - Add the reusable =z::lifecycle= core utility with atomic admission control, move-only activity guards, quiesce signaling, drain waiting, and explicit stop semantics.

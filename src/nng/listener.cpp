@@ -114,6 +114,16 @@ int listener::set_options(const listener_options *options,
     if (result != NNG_OK) {
       return result;
     }
+    if (options->ipc_permissions < -1 || options->ipc_permissions > 0777) {
+      return NNG_EINVAL;
+    }
+    if (options->ipc_permissions >= 0) {
+      const auto permissions_result =
+          set_int(NNG_OPT_IPC_PERMISSIONS, options->ipc_permissions);
+      if (permissions_result != NNG_OK) {
+        return permissions_result;
+      }
+    }
   }
   if (transport != nullptr) {
     auto result = set_bool(NNG_OPT_TCP_NODELAY, transport->tcp_no_delay);
@@ -137,6 +147,14 @@ int listener::get_options(listener_options *options,
         get_size(NNG_OPT_RECVMAXSZ, &listener_result.max_recv_size_bytes);
     if (result != NNG_OK) {
       return result;
+    }
+    int ipc_permissions{-1};
+    const auto permissions_result =
+        get_int(NNG_OPT_IPC_PERMISSIONS, &ipc_permissions);
+    if (permissions_result == NNG_OK) {
+      listener_result.ipc_permissions = ipc_permissions;
+    } else if (permissions_result != NNG_ENOTSUP) {
+      return permissions_result;
     }
   }
   if (transport != nullptr) {
