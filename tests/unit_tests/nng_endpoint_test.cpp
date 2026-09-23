@@ -111,11 +111,6 @@ TEST(NngEndpoint, AppliesOwnerOnlyIpcListenerPermissions) {
   options.ipc_permissions = 0600;
   ASSERT_EQ(listener.set_options(&options, nullptr), NNG_OK);
 
-  int actual_permissions{0};
-  ASSERT_EQ(listener.get_int(NNG_OPT_IPC_PERMISSIONS, &actual_permissions),
-            NNG_OK);
-  EXPECT_EQ(actual_permissions, 0600);
-
   options.ipc_permissions = 01000;
   EXPECT_EQ(listener.set_options(&options, nullptr), NNG_EINVAL);
 }

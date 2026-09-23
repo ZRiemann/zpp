@@ -148,14 +148,6 @@ int listener::get_options(listener_options *options,
     if (result != NNG_OK) {
       return result;
     }
-    int ipc_permissions{-1};
-    const auto permissions_result =
-        get_int(NNG_OPT_IPC_PERMISSIONS, &ipc_permissions);
-    if (permissions_result == NNG_OK) {
-      listener_result.ipc_permissions = ipc_permissions;
-    } else if (permissions_result != NNG_ENOTSUP) {
-      return permissions_result;
-    }
   }
   if (transport != nullptr) {
     auto result = get_bool(NNG_OPT_TCP_NODELAY, &transport_result.tcp_no_delay);
