@@ -15,10 +15,10 @@ From the zpp checkout:
 
 #+begin_src sh
 cd "$ZETAX_ROOT/zeta_forge"
-./zbuild.py deps --BUILD_TYPE=Debug --install
+./zbuild.py install deps --profile debug
 
 cd "$ZETAX_ROOT/zpp"
-./zbuild.py --BUILD_TYPE=Debug --rebuild
+./zbuild.py rebuild --profile debug
 #+end_src
 
 =ZETAX_ROOT= is the top-level ZetaX workspace root. In the standard layout,
@@ -26,50 +26,21 @@ cd "$ZETAX_ROOT/zpp"
 
 zpp does not run Conan. If =spdlog=, =fmt=, =RapidJSON=, or =GTest= package
 configs are missing, install the shared environment with
-=zeta_forge/zbuild.py deps --install= first.
+=zeta_forge/zbuild.py install deps= first.
 
-** Build Modules
+** Delivery Selection
 
-By default, zpp builds the core module and examples. Optional modules are enabled
-through builder flags:
-
-- =--with-folly=: enable the Folly module and related examples/tests.
-- =--with-nng=: enable the NNG module and examples.
-- =--with-taskflow=: enable Taskflow examples.
-- =--with-hpx=: enable the =zpp::hpx= Sender/Receiver integration module.
-- =--with-hpx-examples=: enable HPX examples.
-
-=--with-hpx-examples= implies =--with-hpx=. The optional module is exported as
-the =zpp_hpx= package with the =zpp::hpx= target. Configuration verifies that
-the installed HPX package was built from the current =zeta_forge/3rd/hpx=
-commit with stdexec enabled.
-
-Example:
-
+The default is the core library =zpp= only. Select =zpp_nng=, =zpp_folly=,
+=zpp_hpx= and examples by native target name. Selection derives CMake options;
+tests and examples are not implicitly included in build.
 #+begin_src sh
-./zbuild.py --rebuild --with-folly --with-nng --with-taskflow --with-hpx-examples
+./zbuild.py build zpp_nng zpp_hpx
+./zbuild.py test zpp_nng --profile debug
+./zbuild.py dev zpp_core --profile debug
+./zbuild.py install zpp
 #+end_src
-
-** Common Options
-
-- =./zbuild.py --rebuild --no-tests= builds without tests.
-- =./zbuild.py --rebuild --no-examples= builds without examples.
-- =./zbuild.py --rebuild --install= builds and installs zpp into the configured zeta_forge install prefix.
-
-** Run Entries
-
-zpp can list and execute runnable entries declared with =add_run_target(...)= in
-its =CMakeLists.txt= files:
-
-#+begin_src sh
-./zbuild.py runs
-./zbuild.py run zpp_core
-./zbuild.py run --BUILD_TYPE=Debug zpp_core
-#+end_src
-
-=runs= prints each run entry and the equivalent CMake command. =run= directly
-executes the already built binary with configured arguments for the selected
-build type. It does not configure the project or call =cmake --build=.
+=run= only launches existing outputs. =dev= builds and runs once. See
+[[file:../../BUILD.org][BUILD.org]] for defaults, installation scope and cleanup impact.
 
 ** Direct CMake Usage
 

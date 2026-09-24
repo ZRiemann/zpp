@@ -1,3 +1,5 @@
+set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME zpp_nng)
+
 find_package(nng CONFIG REQUIRED)
 
 file(GLOB_RECURSE ZPP_NNG_SOURCES CONFIGURE_DEPENDS "*.cpp" "*.c")
@@ -72,3 +74,6 @@ install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/zpp_nngConfigVersion.cmake
     DESTINATION lib/cmake/zpp_nng
 )
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/zpp/nng
+    DESTINATION include/zpp)

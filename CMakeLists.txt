@@ -88,7 +88,7 @@ endif()
 if(NOT TARGET spdlog::spdlog)
     message(FATAL_ERROR
         "spdlog::spdlog not found. Install zeta_forge deps first with: "
-        "$ENV{ZETAX_ROOT}/zeta_forge/zbuild.py deps --BUILD_TYPE=${CMAKE_BUILD_TYPE} --install"
+        "$ENV{ZETAX_ROOT}/zeta_forge/zbuild.py install deps --profile release (or debug)"
     )
 endif()
 

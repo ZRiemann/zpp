@@ -1,0 +1,26 @@
+#+TITLE: zpp build entry
+
+* Unified build entry
+The root entry uses =./zbuild.py <command> [deliverable ...] --profile release|debug=.
+The profile defaults to =release=. Run =./zbuild.py list= for targets and capabilities,
+and append =--dry-run= to inspect scope without executing. Unsupported actions fail.
+=check= performs non-mutating source/compiler checks; =test= prepares and runs native
+correctness suites. =run= requires an existing output; =dev= builds and runs (or
+uses the application's native watcher). Arguments after =--= are forwarded without
+logging. Cleanup affects the owning native engineering unit and selected profile;
+the plan names affected sibling outputs. Installations, data and shared caches stay intact.
+Host preparation and deployment are separate operations.
+
+Default: =zpp= only. Select =zpp_nng=, =zpp_folly=, =zpp_hpx= or native example
+names explicitly; selection derives native module options. =test= uses the configured
+native suite, not fictional per-output coverage. No default run target.
+#+begin_src sh
+./zbuild.py build
+./zbuild.py build zpp_nng zpp_hpx
+./zbuild.py test zpp_nng --profile debug
+./zbuild.py dev zpp_core --profile debug
+./zbuild.py install zpp_nng
+#+end_src
+The NNG installation includes its required core package; it never installs other
+optional integrations. HPX is a header-only interface whose native prerequisite is
+the core library. =check= runs CMake configuration and selected-target compilation.

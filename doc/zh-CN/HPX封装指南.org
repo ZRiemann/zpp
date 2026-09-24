@@ -77,7 +77,7 @@ HPX 线程数、scheduler、ini 等 runtime 参数仍通过 HPX 命令行传入�
 启用 HPX 示例：
 
 #+begin_src sh
-./zbuild.py --rebuild --with-hpx-examples
+./zbuild.py rebuild example_hpx_basic
 #+end_src
 
 如果缺少 HPX package config，请先通过 zeta_forge 构建并安装 HPX。
@@ -118,7 +118,7 @@ HPX worker，并由外部超时终止意外挂起。
 启用并消费可选模块：
 
 #+begin_src sh
-./zbuild.py --with-hpx --rebuild
+./zbuild.py rebuild zpp_hpx
 #+end_src
 
 #+begin_src cmake

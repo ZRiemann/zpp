@@ -1,56 +1,28 @@
 #!/usr/bin/env python3
+"""Locate Forge, then invoke the project-owned build definition."""
+
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 
-def _is_forge_root(candidate: Path) -> bool:
-    return (
-        (candidate / "common" / "zeta_forge" / "config.py").is_file()
-        and (candidate / "builder").is_dir()
-        and (candidate / "3rd").is_dir()
-    )
+def main() -> int:
+    root = Path(__file__).resolve().parent
+    workspace = Path(
+        os.path.expandvars(os.path.expanduser(os.environ.get("ZETAX_ROOT", str(root.parent))))
+    ).resolve()
+    common = workspace / "zeta_forge" / "common"
+    if not (common / "zeta_forge" / "build_cli.py").is_file():
+        print(f"Forge build library is missing: {common}", file=sys.stderr)
+        return 1
+    sys.path.insert(0, str(common))
+    from zeta_forge.build_cli import cli
+    from builder.zpp import project
 
-
-def _expand_path(raw_path: str) -> Path:
-    return Path(os.path.expandvars(os.path.expanduser(raw_path))).resolve()
-
-
-def _find_forge_root(start: Path) -> Path:
-    candidates: list[Path] = []
-
-    zetax_root_raw = os.environ.get("ZETAX_ROOT")
-    if zetax_root_raw:
-        candidates.append(_expand_path(zetax_root_raw) / "zeta_forge")
-
-    for candidate in [start, *start.parents]:
-        candidates.append(candidate)
-        candidates.append(candidate / "zeta_forge")
-
-    seen: set[Path] = set()
-    for candidate in candidates:
-        resolved = candidate.resolve()
-        if resolved in seen:
-            continue
-        seen.add(resolved)
-        if _is_forge_root(resolved):
-            return resolved
-
-    raise RuntimeError(
-        "Unable to locate zeta_forge root. "
-        "Set ZETAX_ROOT=/path/to/workspace and ensure "
-        "$ZETAX_ROOT/zeta_forge exists, or place zpp next to zeta_forge."
-    )
-
-
-SCRIPT_PATH = Path(__file__).resolve()
-FORGE_ROOT = _find_forge_root(SCRIPT_PATH.parent)
-sys.path.insert(0, str(FORGE_ROOT / "common"))
-
-from builder.zpp import cli
+    return cli(project(Path(__file__)))
 
 
 if __name__ == "__main__":
-    raise SystemExit(cli(SCRIPT_PATH, source_dir_default=SCRIPT_PATH.parent))
+    raise SystemExit(main())

@@ -8,12 +8,12 @@ After building the selected configuration, list or start a registered example
 with `zbuild.py`:
 
 ```sh
-./zbuild.py runs
-./zbuild.py run --BUILD_TYPE=Debug publisher_example
-./zbuild.py run --BUILD_TYPE=Debug pub_sub_device_example
-./zbuild.py run --BUILD_TYPE=Debug subscriber_example
-./zbuild.py run --BUILD_TYPE=Debug replier_example
-./zbuild.py run --BUILD_TYPE=Debug requester_example
+./zbuild.py list
+./zbuild.py run --profile debug publisher_example
+./zbuild.py run --profile debug pub_sub_device_example
+./zbuild.py run --profile debug subscriber_example
+./zbuild.py run --profile debug replier_example
+./zbuild.py run --profile debug requester_example
 ```
 
 The `run` command uses an existing build tree and does not build the executable.

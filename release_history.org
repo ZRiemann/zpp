@@ -3,6 +3,18 @@
 
 * Release History
 
+** v1.0.0 - 2026-09-24
+*** Changes
+- Replace the legacy =zbuild.py= flags and =runs/run= commands with the unified Forge command and deliverable interface, including profile selection and explicit optional modules.
+- Split core, NNG, Folly, and HPX installation components and their headers so selected packages can be installed independently with required core dependencies.
+- Update build instructions and dependency setup examples in the English and Chinese documentation.
+
+*** Compatibility and Upgrade Notes
+- Existing =zbuild.py= command lines must be migrated to =./zbuild.py <command> [deliverable ...] --profile release|debug=. Use =./zbuild.py list= to inspect available actions and deliverables.
+
+*** Verification
+- Inspect the staged diff and run =git diff --cached --check=; no build or test was run for this commit.
+
 ** v0.15.0 - 2026-09-01
 *** Changes
 - Add =noexcept= move construction and move assignment to =z::nng::message= so owned NNG messages can cross C++ ownership boundaries without duplication.

@@ -3,6 +3,18 @@
 
 * 发布历史
 
+** v1.0.0 - 2026-09-24
+*** 变更内容
+- 使用统一的 Forge 命令与交付物接口替换旧版 =zbuild.py= 参数及 =runs/run= 命令，支持 profile 选择和显式选择可选模块。
+- 将 core、NNG、Folly、HPX 的安装组件与头文件分开，使选定的包可连同所需 core 依赖独立安装。
+- 更新中英文构建说明和依赖安装命令示例。
+
+*** 兼容性与升级说明
+- 旧版 =zbuild.py= 命令行需迁移至 =./zbuild.py <command> [deliverable ...] --profile release|debug=；可通过 =./zbuild.py list= 查看可用操作与交付物。
+
+*** 验证
+- 检查暂存差异并执行 =git diff --cached --check=；本次提交未运行构建或测试。
+
 ** v0.15.0 - 2026-09-01
 *** 变更内容
 - 为 =z::nng::message= 新增 =noexcept= move 构造与 move 赋值，使 NNG 消息可在 C++ 所有权边界之间转移而无需复制。

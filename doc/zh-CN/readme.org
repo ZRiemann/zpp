@@ -28,10 +28,10 @@ zpp (ZetaX plus plus) 是一个 C++ 基础库，为 ZetaX 项目提供日志、J
 
 #+begin_src sh
 cd "$ZETAX_ROOT/zeta_forge"
-./zbuild.py deps --BUILD_TYPE=Debug --install
+./zbuild.py install deps --profile debug
 
 cd "$ZETAX_ROOT/zpp"
-./zbuild.py --BUILD_TYPE=Debug --rebuild
+./zbuild.py rebuild --profile debug
 #+end_src
 
 详见 [[file:./构建指南.org][构建指南]]。
@@ -44,3 +44,7 @@ cd "$ZETAX_ROOT/zpp"
 ** 许可证
 
 详见 [[file:../../LICENSE][LICENSE]]。
+
+* Current build contract
+
+See [[file:../../BUILD.org][Unified build entry, defaults and verification scope]].

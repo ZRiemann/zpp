@@ -30,10 +30,10 @@ The recommended entrypoint is =./zbuild.py=. It locates the shared
 
 #+begin_src sh
 cd "$ZETAX_ROOT/zeta_forge"
-./zbuild.py deps --BUILD_TYPE=Debug --install
+./zbuild.py install deps --profile debug
 
 cd "$ZETAX_ROOT/zpp"
-./zbuild.py --BUILD_TYPE=Debug --rebuild
+./zbuild.py rebuild --profile debug
 #+end_src
 
 See [[file:./build.org][Build Guide]] for optional modules and direct CMake usage.
@@ -46,3 +46,7 @@ See [[file:./build.org][Build Guide]] for optional modules and direct CMake usag
 ** License
 
 See [[file:../../LICENSE][LICENSE]].
+
+* Current build contract
+
+See [[file:../../BUILD.org][Unified build entry, defaults and verification scope]].

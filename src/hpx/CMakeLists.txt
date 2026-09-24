@@ -1,3 +1,5 @@
+set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME zpp_hpx)
+
 if(NOT ZPP_HPX_EXPECTED_GIT_COMMIT)
     message(FATAL_ERROR
         "ZPP_HPX_EXPECTED_GIT_COMMIT is required. Build zpp through ./zbuild.py "
@@ -82,3 +84,6 @@ install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/zpp_hpxConfigVersion.cmake
     DESTINATION lib/cmake/zpp_hpx
 )
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/zpp/hpx
+    DESTINATION include/zpp)

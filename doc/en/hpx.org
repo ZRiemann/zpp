@@ -82,7 +82,7 @@ in the JSON file; the HPX INI file configures the HPX runtime.
 HPX examples are enabled with:
 
 #+begin_src sh
-./zbuild.py --rebuild --with-hpx-examples
+./zbuild.py rebuild example_hpx_basic
 #+end_src
 
 If HPX package configs are missing, build and install HPX through zeta_forge
@@ -129,7 +129,7 @@ HPX workers and enforce an external timeout.
 Enable and consume the optional module with:
 
 #+begin_src sh
-./zbuild.py --with-hpx --rebuild
+./zbuild.py rebuild zpp_hpx
 #+end_src
 
 #+begin_src cmake

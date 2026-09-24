@@ -1,24 +1,14 @@
 from __future__ import annotations
 
-import argparse
-import signal
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from zeta_forge.cmake_builder import CMakeProjectBuilder, CommonBuildArgs, cmake_bool, common_build_argument_parser
+from zeta_forge.build_cli import Product, Project, Request
+from zeta_forge.cmake_builder import CMakeProjectBuilder, CommonBuildArgs, cmake_bool
+from zeta_forge.cmake_engine import CMAKE_ACTIONS, CMakeEngine
 from zeta_forge.config import load_repo_config
-from zeta_forge.process import CommandError, shell_join
-from zeta_forge.run_targets import (
-    RunTarget,
-    build_type_parser,
-    discover_run_targets,
-    find_run_target,
-    print_run_targets,
-    require_existing_build_tree,
-    require_existing_executable,
-)
+from zeta_forge.run_targets import discover_run_targets
 
 
 @dataclass(frozen=True)
@@ -33,7 +23,13 @@ class ZppBuildArgs(CommonBuildArgs):
 
 
 class ZppBuilder(CMakeProjectBuilder):
-    source_watch_patterns = ("CMakeLists.txt", "*.cmake", "*.cmake.in", "CMakeConfig.h.in", "VERSION")
+    source_watch_patterns = (
+        "CMakeLists.txt",
+        "*.cmake",
+        "*.cmake.in",
+        "CMakeConfig.h.in",
+        "VERSION",
+    )
     source_prune_dirs = ("build", "build_debug")
     uses_conan = False
 
@@ -59,11 +55,15 @@ class ZppBuilder(CMakeProjectBuilder):
 
     @property
     def missing_source_hint(self) -> str:
-        return "Set ZETA_ZPP_SRC_DIR to a local checkout or run from the zpp checkout with ./zbuild.py"
+        return (
+            "Set ZETA_ZPP_SRC_DIR to a local checkout or run from the zpp checkout with ./zbuild.py"
+        )
 
     @property
     def zeta_deps_cmake_dir(self) -> Path:
-        return self.repo_config.install_prefix / "lib" / "cmake" / "zeta_deps" / self.args.build_type
+        return (
+            self.repo_config.install_prefix / "lib" / "cmake" / "zeta_deps" / self.args.build_type
+        )
 
     @property
     def folly_cmake_dir(self) -> Path:
@@ -96,9 +96,7 @@ class ZppBuilder(CMakeProjectBuilder):
         cache_path = self.build_dir / "CMakeCache.txt"
         if not cache_path.is_file():
             return None
-        cache_lines = cache_path.read_text(
-            encoding="utf-8", errors="ignore"
-        ).splitlines()
+        cache_lines = cache_path.read_text(encoding="utf-8", errors="ignore").splitlines()
         for raw_line in cache_lines:
             if raw_line.startswith("ZPP_HPX_EXPECTED_GIT_COMMIT:"):
                 return raw_line.split("=", 1)[1].strip()
@@ -131,7 +129,7 @@ class ZppBuilder(CMakeProjectBuilder):
             / "build"
             / self.args.build_type
             / "generators"
-            / "asio-release-x86_64-data.cmake"
+            / f"asio-{self.args.build_type.lower()}-x86_64-data.cmake"
         )
 
     @property
@@ -140,11 +138,13 @@ class ZppBuilder(CMakeProjectBuilder):
             raise RuntimeError(
                 f"HPX Asio Conan metadata not found: {self.hpx_asio_data_file}\n"
                 "Rebuild HPX dependency metadata first, for example: "
-                "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
+                "$ZETAX_ROOT/zeta_forge/zbuild.py install hpx"
             )
 
-        package_folder_prefix = 'set(asio_PACKAGE_FOLDER_RELEASE "'
-        for raw_line in self.hpx_asio_data_file.read_text(encoding="utf-8", errors="ignore").splitlines():
+        package_folder_prefix = f'set(asio_PACKAGE_FOLDER_{self.args.build_type.upper()} "'
+        for raw_line in self.hpx_asio_data_file.read_text(
+            encoding="utf-8", errors="ignore"
+        ).splitlines():
             line = raw_line.strip()
             if line.startswith(package_folder_prefix) and line.endswith('")'):
                 package_root = Path(line[len(package_folder_prefix) : -2]).resolve()
@@ -157,7 +157,7 @@ class ZppBuilder(CMakeProjectBuilder):
                 )
 
         raise RuntimeError(
-            f"Unable to parse asio_PACKAGE_FOLDER_RELEASE from: {self.hpx_asio_data_file}\n"
+            f"Unable to parse profile-specific asio package folder from: {self.hpx_asio_data_file}\n"
             "Re-run zeta_forge HPX build/install to refresh Conan packages."
         )
 
@@ -172,46 +172,49 @@ class ZppBuilder(CMakeProjectBuilder):
             raise RuntimeError(
                 f"ZetaX dependency package configs not found: {self.zeta_deps_cmake_dir}\n"
                 "Install the shared dependency environment first with: "
-                "$ZETAX_ROOT/zeta_forge/zbuild.py deps --BUILD_TYPE="
-                f"{self.args.build_type} --install"
+                "$ZETAX_ROOT/zeta_forge/zbuild.py install deps --profile "
+                f"{self.args.build_type.lower()}"
             )
         if self.typed_args.build_taskflow_module and not self.taskflow_source_dir.is_dir():
             raise RuntimeError(
                 f"Taskflow source directory not found: {self.taskflow_source_dir}\n"
-                "Set ZETA_TASKFLOW_SRC_DIR to a local checkout or initialize the zeta_forge submodule with: git -C \"$ZETAX_ROOT/zeta_forge\" submodule update --init --recursive 3rd/taskflow"
+                'Set ZETA_TASKFLOW_SRC_DIR to a local checkout or initialize the zeta_forge submodule with: git -C "$ZETAX_ROOT/zeta_forge" submodule update --init --recursive 3rd/taskflow'
             )
         if self.typed_args.build_hpx_examples and not self.typed_args.build_examples:
-            raise RuntimeError("--with-hpx-examples requires examples to be enabled")
-        if self.typed_args.build_folly_module and not (self.folly_cmake_dir / "folly-config.cmake").is_file():
+            raise RuntimeError("HPX example selection requires native examples to be enabled")
+        if (
+            self.typed_args.build_folly_module
+            and not (self.folly_cmake_dir / "folly-config.cmake").is_file()
+        ):
             raise RuntimeError(
                 f"folly package config not found: {self.folly_cmake_dir}\n"
                 "Build/install Folly through zeta_forge first, for example: "
-                "$ZETAX_ROOT/zeta_forge/zbuild.py folly --rebuild --install"
+                "$ZETAX_ROOT/zeta_forge/zbuild.py install folly"
             )
         if self.typed_args.build_hpx_module and not self.hpx_source_dir.is_dir():
             raise RuntimeError(
                 f"zeta_forge HPX source directory not found: {self.hpx_source_dir}\n"
-                "Initialize it with: git -C \"$ZETAX_ROOT/zeta_forge\" "
+                'Initialize it with: git -C "$ZETAX_ROOT/zeta_forge" '
                 "submodule update --init --recursive 3rd/hpx"
             )
         if self.typed_args.build_hpx_module and not self.hpx_config_file.is_file():
             raise RuntimeError(
                 f"HPX package config not found: {self.hpx_config_file}\n"
                 "Build/install HPX through zeta_forge first, for example: "
-                "git -C \"$ZETAX_ROOT/zeta_forge\" submodule update --init --recursive 3rd/hpx && "
-                "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
+                'git -C "$ZETAX_ROOT/zeta_forge" submodule update --init --recursive 3rd/hpx && '
+                "$ZETAX_ROOT/zeta_forge/zbuild.py install hpx"
             )
         if self.typed_args.build_hpx_module and not self.hpx_asio_config_file.is_file():
             raise RuntimeError(
                 f"HPX Asio compatibility package config not found: {self.hpx_asio_config_file}\n"
                 "Build/install HPX through zeta_forge first, for example: "
-                "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
+                "$ZETAX_ROOT/zeta_forge/zbuild.py install hpx"
             )
         if self.typed_args.build_hpx_module and not self.hpx_hwloc_config_file.is_file():
             raise RuntimeError(
                 f"HPX Hwloc compatibility package config not found: {self.hpx_hwloc_config_file}\n"
                 "Build/install HPX through zeta_forge first, for example: "
-                "$ZETAX_ROOT/zeta_forge/zbuild.py hpx --rebuild --install"
+                "$ZETAX_ROOT/zeta_forge/zbuild.py install hpx"
             )
         if self.typed_args.build_hpx_module:
             _ = self.hpx_asio_root
@@ -299,141 +302,62 @@ class ZppBuilder(CMakeProjectBuilder):
         return command
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = common_build_argument_parser("Build zpp")
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Enable all optional project components (equivalent to all --with-* flags)",
-    )
-    parser.add_argument("--no-tests", action="store_true")
-    parser.add_argument("--no-examples", action="store_true")
-    parser.add_argument("--with-hpx-examples", action="store_true")
-    parser.add_argument("--with-hpx", action="store_true")
-    parser.add_argument("--with-folly", action="store_true")
-    parser.add_argument("--with-nng", action="store_true")
-    parser.add_argument("--with-taskflow", action="store_true")
-    parser.epilog = (
-        "Run entry commands:\n"
-        "  ./zbuild.py runs\n"
-        "  ./zbuild.py run zpp_core\n"
-        "  ./zbuild.py run --BUILD_TYPE=Debug zpp_core"
-    )
-    parser.formatter_class = argparse.RawDescriptionHelpFormatter
-    return parser
+def project(script_path: Path) -> Project:
+    root = script_path.resolve().parent
+    config = load_repo_config(script_path, project_source_defaults={"ZETA_ZPP_SRC_DIR": root})
+    examples = {
+        entry.name: entry.cmake_file.relative_to(root).parts[1]
+        for entry in discover_run_targets(root, root / "build" / "Release")
+        if entry.cmake_file.relative_to(root).parts[0] == "examples" and "$" not in entry.name
+    }
+    libraries = ("zpp", "zpp_nng", "zpp_folly", "zpp_hpx")
+    names = (*libraries, *examples)
 
+    def enabled(selected: tuple[str, ...]) -> set[str]:
+        return {name.removeprefix("zpp_") for name in selected if name in libraries[1:]} | {
+            examples[name] for name in selected if name in examples
+        }
 
-def parse_args(argv: list[str] | None = None) -> ZppBuildArgs:
-    namespace = build_parser().parse_args(argv)
-    enable_all = namespace.all
-    build_hpx_examples = namespace.with_hpx_examples or enable_all
-    return ZppBuildArgs(
-        build_type=namespace.build_type,
-        install=namespace.install,
-        rebuild=namespace.rebuild,
-        build_tests=not namespace.no_tests,
-        build_examples=not namespace.no_examples,
-        build_hpx_examples=build_hpx_examples,
-        build_hpx_module=namespace.with_hpx or build_hpx_examples or enable_all,
-        build_folly_module=namespace.with_folly or enable_all,
-        build_nng_module=namespace.with_nng or enable_all,
-        build_taskflow_module=namespace.with_taskflow or enable_all,
-    )
-
-
-def _project_source_defaults(source_dir_default: Path | None) -> dict[str, Path]:
-    project_source_defaults = {}
-    if source_dir_default is not None:
-        project_source_defaults["ZETA_ZPP_SRC_DIR"] = source_dir_default
-    return project_source_defaults
-
-
-def _build_dir(script_path: Path, build_type: str) -> Path:
-    return script_path.resolve().parent / "build" / build_type
-
-
-def run_entries(script_path: Path, argv: list[str], *, source_dir_default: Path | None = None) -> int:
-    parser = build_type_parser("./zbuild.py runs", "List zpp add_run_target entries")
-    namespace = parser.parse_args(argv)
-    repo_config = load_repo_config(script_path, project_source_defaults=_project_source_defaults(source_dir_default))
-    source_dir = repo_config.source_dir("ZETA_ZPP_SRC_DIR")
-    build_dir = _build_dir(script_path, namespace.build_type)
-    print_run_targets(discover_run_targets(source_dir, build_dir))
-    return 0
-
-
-def run_target_interactive(target: RunTarget) -> int:
-    require_existing_build_tree(target.build_dir)
-    require_existing_executable(target)
-
-    args = [str(target.executable_path), *target.resolved_args]
-    print(f"==> {shell_join(args)}", flush=True)
-
-    process = subprocess.Popen(args, cwd=str(target.working_dir), text=True)
-    interrupted = False
-    try:
-        return_code = process.wait()
-    except KeyboardInterrupt:
-        interrupted = True
-        print(
-            "Interrupted; waiting for run target to exit gracefully...",
-            file=sys.stderr,
+    def factory(request: Request, selected: tuple[str, ...]) -> ZppBuilder:
+        modules = enabled(selected)
+        args = ZppBuildArgs(
+            request.cmake_profile,
+            build_tests=request.action == "test",
+            build_examples=any(name in examples for name in selected),
+            build_hpx_examples=any(examples.get(name) == "hpx" for name in selected),
+            build_hpx_module="hpx" in modules,
+            build_folly_module="folly" in modules,
+            build_nng_module="nng" in modules,
+            build_taskflow_module="taskflow" in modules or "example_hpx_taskflow" in selected,
         )
-        try:
-            process.send_signal(signal.SIGINT)
-        except ProcessLookupError:
-            pass
+        return ZppBuilder(script_path=script_path, repo_config=config, args=args)
 
-        try:
-            return_code = process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            print(
-                "Run target did not exit after SIGINT; terminating...",
-                file=sys.stderr,
-            )
-            process.terminate()
-            try:
-                return_code = process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                return_code = process.wait()
+    def tests(selected: tuple[str, ...]) -> tuple[str, ...]:
+        modules = enabled(selected)
+        return (
+            "gtest_tsc",
+            *(("gtest_nng",) if "nng" in modules else ()),
+            *(("gtest_folly", "gtest_coro") if "folly" in modules else ()),
+            *(("gtest_hpx_exec", "gtest_hpx_exec_runtime") if "hpx" in modules else ()),
+        )
 
-    if interrupted and return_code != 0:
-        return 130
-
-    if return_code != 0:
-        raise CommandError(f"Command failed with exit code {return_code}: {shell_join(args)}")
-
-    return return_code
-
-
-def run_entry(script_path: Path, argv: list[str], *, source_dir_default: Path | None = None) -> int:
-    parser = build_type_parser("./zbuild.py run", "Run a zpp add_run_target entry from an existing build tree")
-    parser.add_argument("name", help="Run entry name, for example zpp_core")
-    namespace = parser.parse_args(argv)
-    repo_config = load_repo_config(script_path, project_source_defaults=_project_source_defaults(source_dir_default))
-    source_dir = repo_config.source_dir("ZETA_ZPP_SRC_DIR")
-    build_dir = _build_dir(script_path, namespace.build_type)
-    target = find_run_target(discover_run_targets(source_dir, build_dir), namespace.name)
-    return run_target_interactive(target)
-
-
-def main(script_path: Path, *, argv: list[str] | None = None, source_dir_default: Path | None = None) -> int:
-    argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] == "runs":
-        return run_entries(script_path, argv[1:], source_dir_default=source_dir_default)
-    if argv and argv[0] == "run":
-        return run_entry(script_path, argv[1:], source_dir_default=source_dir_default)
-
-    args = parse_args(argv)
-    repo_config = load_repo_config(script_path, project_source_defaults=_project_source_defaults(source_dir_default))
-    ZppBuilder(script_path=script_path, repo_config=repo_config, args=args).run()
-    return 0
-
-
-def cli(script_path: Path, *, source_dir_default: Path | None = None) -> int:
-    try:
-        return main(script_path, source_dir_default=source_dir_default)
-    except Exception as exc:
-        print(exc, file=sys.stderr)
-        return 1
+    engine = CMakeEngine(
+        root,
+        factory,
+        names,
+        test_targets=tests,
+        native_targets=lambda selected: tuple(
+            dict.fromkeys("zpp" if n == "zpp_hpx" else n for n in selected)
+        ),
+        components={name: tuple(dict.fromkeys(("zpp", name))) for name in libraries},
+    )
+    products = tuple(
+        Product(
+            name,
+            "cmake",
+            "Library" if name in libraries else "Example",
+            (*CMAKE_ACTIONS, *(("install",) if name in libraries else ("run", "dev"))),
+        )
+        for name in names
+    )
+    return Project("zpp", products, {"cmake": engine}, ("zpp",))

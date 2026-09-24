@@ -32,17 +32,17 @@
 Core 验证：
 
 #+begin_src sh
-./zbuild.py --BUILD_TYPE=Debug --rebuild
+./zbuild.py rebuild --profile debug
 ./build/Debug/tests/unit_tests/gtest_tsc
 #+end_src
 
 可选模块验证：
 
 #+begin_src sh
-./zbuild.py --BUILD_TYPE=Debug --with-folly --no-examples --rebuild
-./zbuild.py --BUILD_TYPE=Debug --with-nng --no-tests --no-examples --rebuild
-./zbuild.py --BUILD_TYPE=Debug --with-taskflow --no-tests --rebuild
-./zbuild.py --BUILD_TYPE=Debug --with-hpx-examples --rebuild
+./zbuild.py rebuild zpp_folly --profile debug
+./zbuild.py rebuild zpp_nng --profile debug
+./zbuild.py rebuild zpp_taskflow --profile debug
+./zbuild.py rebuild example_hpx_basic --profile debug
 #+end_src
 
 优先运行与改动模块相关的测试。避免把无关代码和文档变更混在同一次修改中。

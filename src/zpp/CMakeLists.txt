@@ -1,3 +1,5 @@
+set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME zpp)
+
 file(GLOB_RECURSE ZPP_SOURCES CONFIGURE_DEPENDS "*.cpp" "*.c")
 
 add_library(zpp STATIC
@@ -32,6 +34,9 @@ install(TARGETS zpp
 # 安装头文件
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
         DESTINATION include
+        PATTERN "folly" EXCLUDE
+        PATTERN "nng" EXCLUDE
+        PATTERN "hpx" EXCLUDE
 )
 
 # 导出 targets 文件，供 find_package(zpp CONFIG) 使用
@@ -64,7 +69,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/zppConfig.cmake
 "endif()\n"
 "set(_zpp_deps_dir \"\${_zpp_install_prefix}/lib/cmake/zeta_deps/\${_zpp_deps_build_type}\")\n"
 "if(NOT EXISTS \"\${_zpp_deps_dir}\")\n"
-"  message(FATAL_ERROR \"zpp requires zeta_forge deps package configs at: \${_zpp_deps_dir}. Run $ENV{ZETAX_ROOT}/zeta_forge/zbuild.py deps --BUILD_TYPE=\${_zpp_deps_build_type} --install first.\")\n"
+"  message(FATAL_ERROR \"zpp requires zeta_forge deps package configs at: \${_zpp_deps_dir}. Run $ENV{ZETAX_ROOT}/zeta_forge/zbuild.py install deps --profile release (or debug) first.\")\n"
 "endif()\n"
 "list(PREPEND CMAKE_PREFIX_PATH \"\${_zpp_deps_dir}\")\n"
 "find_dependency(Threads)\n"
@@ -77,7 +82,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/zppConfig.cmake
 "    set_target_properties(spdlog::spdlog PROPERTIES INTERFACE_LINK_LIBRARIES spdlog::spdlog_header_only)\n"
 "  endif()\n"
 "  if(NOT TARGET spdlog::spdlog)\n"
-"    message(FATAL_ERROR \"zpp requires spdlog::spdlog. Install zeta_forge deps first with: $ENV{ZETAX_ROOT}/zeta_forge/zbuild.py deps --install\")\n"
+"    message(FATAL_ERROR \"zpp requires spdlog::spdlog. Install zeta_forge deps first with: $ENV{ZETAX_ROOT}/zeta_forge/zbuild.py install deps\")\n"
 "  endif()\n"
 "endif()\n"
 "\n"

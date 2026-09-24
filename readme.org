@@ -22,20 +22,20 @@ translation in [[file:./doc/zh-CN/release_history.org][doc/zh-CN/release_history
 1. Prepare shared dependencies:
    #+begin_src sh
    cd "$ZETAX_ROOT/zeta_forge"
-   ./zbuild.py deps --BUILD_TYPE=Debug --install
+   ./zbuild.py install deps --profile debug
    #+end_src
 
 2. Build zpp:
    #+begin_src sh
    cd "$ZETAX_ROOT/zpp"
-   ./zbuild.py --BUILD_TYPE=Debug --rebuild
+   ./zbuild.py rebuild --profile debug
    #+end_src
 
 3. List or run entries:
    #+begin_src sh
-   ./zbuild.py runs
-   ./zbuild.py run zpp_core
-   ./zbuild.py run --BUILD_TYPE=Debug zpp_core
+   ./zbuild.py list
+   ./zbuild.py build zpp_core --profile debug
+   ./zbuild.py run zpp_core --profile debug
    #+end_src
 
 ** Documentation
@@ -64,3 +64,7 @@ translation in [[file:./doc/zh-CN/release_history.org][doc/zh-CN/release_history
 ** License
 
 See [[file:./LICENSE][LICENSE]].
+
+* Current build contract
+
+See [[file:BUILD.org][Unified build entry, defaults and verification scope]].

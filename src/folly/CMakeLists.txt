@@ -1,3 +1,5 @@
+set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME zpp_folly)
+
 # Pre-load folly's transitive dependencies before loading folly-targets.
 # folly's targets reference these, and we need them available upfront.
 find_package(OpenSSL CONFIG REQUIRED)
@@ -40,3 +42,6 @@ install(EXPORT zpp_follyTargets
 	DESTINATION lib/cmake/zpp_folly
 	FILE zpp_follyTargets.cmake
 )
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/zpp/folly
+    DESTINATION include/zpp)
