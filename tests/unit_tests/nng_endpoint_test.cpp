@@ -4,6 +4,9 @@
 
 #include <gtest/gtest.h>
 #include <zpp/nng/endpoint.h>
+#include <zpp/nng/listener.h>
+#include <zpp/nng/nng.h>
+#include <zpp/nng/socket.h>
 
 TEST(NngEndpoint, ParsesTransportFromUrls) {
   EXPECT_EQ(z::nng::parse_transport("tcp://127.0.0.1:58200"),
@@ -92,3 +95,23 @@ TEST(NngEndpoint, ValidatesNonEmptyEndpointLists) {
                   z::nng::endpoint_role::listen}}),
             z::ERR_OK);
 }
+
+#ifndef _WIN32
+TEST(NngEndpoint, AppliesOwnerOnlyIpcListenerPermissions) {
+  z::nng::nng runtime;
+  z::nng::socket socket;
+  ASSERT_EQ(socket.rep0_open(), NNG_OK);
+
+  z::nng::listener listener;
+  ASSERT_EQ(listener.create(socket.get(),
+                            "ipc:///tmp/zpp_nng_listener_options.sock"),
+            NNG_OK);
+
+  z::nng::listener_options options;
+  options.ipc_permissions = 0600;
+  ASSERT_EQ(listener.set_options(&options, nullptr), NNG_OK);
+
+  options.ipc_permissions = 01000;
+  EXPECT_EQ(listener.set_options(&options, nullptr), NNG_EINVAL);
+}
+#endif

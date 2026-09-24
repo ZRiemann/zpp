@@ -13,6 +13,11 @@ class url;
 struct listener_options {
   /// Maximum accepted incoming message size in bytes.
   std::size_t max_recv_size_bytes{1048576};
+  /// POSIX mode for an IPC socket, or -1 to keep the NNG default.
+  ///
+  /// NNG applies this option before the listener starts. Unsupported
+  /// transports or platforms fail closed when a non-negative value is set.
+  int ipc_permissions{-1};
 };
 /**
  * @class listener

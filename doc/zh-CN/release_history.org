@@ -3,6 +3,14 @@
 
 * 发布历史
 
+** v1.1.0 - 2026-09-24
+*** 变更内容
+- 为 =listener_options::ipc_permissions= 增加可选的 POSIX IPC socket 权限，在 NNG listener 启动前应用；未设置时保留 NNG 默认行为。
+- 拒绝 =0000= 至 =0777= 之外的 mode；显式权限不受支持时返回 NNG 错误。将 =NNG_OPT_IPC_PERMISSIONS= 视为只写选项，不通过 =listener::get_options()= 回读。
+
+*** 验证
+- 纳入 NNG 聚焦测试，覆盖成功配置 =0600= 和非法 mode 拒绝。检查合并差异并执行 =git diff --cached --check=；本次合并未运行构建或测试。
+
 ** v1.0.0 - 2026-09-24
 *** 变更内容
 - 使用统一的 Forge 命令与交付物接口替换旧版 =zbuild.py= 参数及 =runs/run= 命令，支持 profile 选择和显式选择可选模块。

@@ -3,6 +3,14 @@
 
 * Release History
 
+** v1.1.0 - 2026-09-24
+*** Changes
+- Add optional =listener_options::ipc_permissions= to apply a POSIX IPC socket mode before an NNG listener starts; leaving it unset preserves the NNG default.
+- Reject modes outside =0000= through =0777= and return the NNG error when explicit permissions are unsupported. Treat =NNG_OPT_IPC_PERMISSIONS= as write-only and do not read it back through =listener::get_options()=.
+
+*** Verification
+- Include focused NNG tests for successful =0600= configuration and invalid-mode rejection. Inspect the merge diff and run =git diff --cached --check=; no build or test was run for this merge.
+
 ** v1.0.0 - 2026-09-24
 *** Changes
 - Replace the legacy =zbuild.py= flags and =runs/run= commands with the unified Forge command and deliverable interface, including profile selection and explicit optional modules.
