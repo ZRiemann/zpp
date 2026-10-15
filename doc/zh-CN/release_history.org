@@ -1,9 +1,26 @@
 #+STARTUP: indent
 #+TITLE: zpp 发布历史
 
+版本标题使用 =vX.Y.Z - YYYY-MM-DDTHH:mm:ssZ=，时间统一为 =UTC= 的
+committer time，通常取根目录 =VERSION= 首次引入该版本的提交时间。
+历史上重新编号的 =v0.11.1= 和 =v0.11.2= 条目，分别取引入其记录内容的
+提交（=55eba70= 和 =c52b772=）时间。未独立发布的 =v0.1.0= 基线取首次
+记录它的提交（=c150285=）时间，不代表独立发布时间。
+新条目使用对应版本提交的时间；提交时间本身不表示已通过验收或完成部署。
+
 * 发布历史
 
-** v1.2.0 - 2026-10-15
+** v1.2.1 - 2026-10-15T06:21:38Z
+*** 变更内容
+- 扩展 HPX execution 回归覆盖，包括 shared future 重复使用、move-only 值、携带 scheduler 的未完成 future、异常和显式 stopped completion 处理。
+- 在现有双 worker 测试之外注册单 worker runtime 测试，每个进程设置 15 秒超时。
+- 更新中英文说明，澄清 HPX completion domain 的协作等待、通用阻塞 fallback 的限制和取消处理要求。
+- 统一发布标题的 UTC 时间格式，并说明历史条目的时间来源。
+
+*** 验证
+- 本次提交执行 =git diff --cached --check=；未额外运行测试或构建。
+
+** v1.2.0 - 2026-10-15T03:32:26Z
 *** 变更内容
 - 将 =dialer::set_addr= 替换为 =dialer::bind=，适配 NNG 2.0 RC 本地源地址绑定，并更新日志 action。
 - 新增 endpoint 聚焦测试，覆盖无效 dialer、非法源地址与绑定 loopback 后的通信。
@@ -17,7 +34,7 @@
 *** 验证
 - 本次提交执行 =git diff --cached --check=；未额外运行测试或构建。
 
-** v1.1.0 - 2026-09-24
+** v1.1.0 - 2026-09-24T10:13:35Z
 *** 变更内容
 - 为 =listener_options::ipc_permissions= 增加可选的 POSIX IPC socket 权限，在 NNG listener 启动前应用；未设置时保留 NNG 默认行为。
 - 拒绝 =0000= 至 =0777= 之外的 mode；显式权限不受支持时返回 NNG 错误。将 =NNG_OPT_IPC_PERMISSIONS= 视为只写选项，不通过 =listener::get_options()= 回读。
@@ -25,7 +42,7 @@
 *** 验证
 - 纳入 NNG 聚焦测试，覆盖成功配置 =0600= 和非法 mode 拒绝。检查合并差异并执行 =git diff --cached --check=；本次合并未运行构建或测试。
 
-** v1.0.0 - 2026-09-24
+** v1.0.0 - 2026-09-24T10:07:41Z
 *** 变更内容
 - 使用统一的 Forge 命令与交付物接口替换旧版 =zbuild.py= 参数及 =runs/run= 命令，支持 profile 选择和显式选择可选模块。
 - 将 core、NNG、Folly、HPX 的安装组件与头文件分开，使选定的包可连同所需 core 依赖独立安装。
@@ -37,7 +54,7 @@
 *** 验证
 - 检查暂存差异并执行 =git diff --cached --check=；本次提交未运行构建或测试。
 
-** v0.15.0 - 2026-09-01
+** v0.15.0 - 2026-09-01T13:25:33Z
 *** 变更内容
 - 为 =z::nng::message= 新增 =noexcept= move 构造与 move 赋值，使 NNG 消息可在 C++ 所有权边界之间转移而无需复制。
 - move 后源 wrapper 保持空状态；move 赋值会先释放目标原有消息，同时保留显式深复制构造。
@@ -50,7 +67,7 @@
 *** 验证
 - 新增聚焦 NNG runtime 测试和编译期类型检查，覆盖 move 构造、覆盖已有消息的 move 赋值、self-move、move 后源状态和显式复制。
 
-** v0.13.0 - 2026-07-28
+** v0.13.0 - 2026-07-28T05:36:42Z
 *** 变更内容
 - 新增 =z::wire::fixed_reader<N>= 与 =fixed_writer<N>=，用于编译期定长 wire 数据块：仅验证一次缓冲区长度，并在 Release 构建中省略逐操作边界检查。
 - 为 checked =reader=、=writer= 与 =size_counter= API 增加对称的无符号 8 位整数操作。
@@ -59,14 +76,14 @@
 *** 验证
 - 新增聚焦测试，覆盖 checked 无符号 8 位操作，以及 fixed reader/writer 的精确长度创建、字节序、标量及原始字节操作、完成状态统计和长度不匹配缓冲区。
 
-** v0.12.0 - 2026-07-14
+** v0.12.0 - 2026-07-14T09:45:22Z
 *** 变更内容
 - 公开 =z::mpmc= 的底层消费与生产操作，包括 empty/full 检查、front/back 访问以及 push/pop 推进，支持调用方组合自定义队列流程。
 
 *** 验证
 - 保持现有 STL 队列测试，并覆盖 =z::mpmc= 公共头文件接口。
 
-** v0.11.3 - 2026-07-13
+** v0.11.3 - 2026-07-13T10:51:55Z
 *** 变更内容
 - 在创建 spdlog 文件 sink 前展开 runtime 与 important 日志文件名中的 =~=、=$VAR= 和 =${VAR}=，引用未定义变量时中止初始化并明确报错。
 - 在 =z::log::config= 中补充环境变量日志路径说明，并将 =doc/server.json= 调整为把日志写到 =$ZETAX_ROOT/logs/zpp/=。
@@ -79,7 +96,7 @@
 - 保持现有 async 日志与 NNG runtime 覆盖，并补充展开后的 runtime/important 文件路径和缺失变量失败场景检查。
 - 使用现有 Release HPX basic 示例加载精简后的 =doc/hpx.ini= 和 =doc/zh-CN/hpx.ini=，并通过 =--hpx:dump-config= 检查生效的 runtime 配置。
 
-** v0.11.2 - 2026-07-13 15:59:00
+** v0.11.2 - 2026-07-13T08:02:55Z
 *** 变更内容
 - 新增 =nng2imp(...)=（通过 =nng2log_important(...)=），让 NNG scoped important 日志复用 =component/action= 标签并走 important 通道输出。
 - 提取共享格式化逻辑 =nng2format(...)=，普通 NNG 日志与 important NNG 日志统一走 preformatted sink 路径。
@@ -91,7 +108,7 @@
 - 扩展 async 日志测试，验证 warn/important 在共享队列中的顺序以及 JSONL important 记录中的调用线程 id 保留。
 - 新增 NNG runtime 测试，验证 runtime =info= 关闭时 =nng2imp(...)= 仍能输出 important 记录。
 - 新增 pipe 生命周期测试，验证 =add-post/remove-post= 在 runtime 非 debug 级别下仍进入 important 通道，而 =add-pre= 不进入 important 输出。
-** v0.11.1 - 2026-07-13
+** v0.11.1 - 2026-07-13T06:37:54Z
 *** 变更内容
 - 扩展 =z::log::config=，在保留旧 rotating runtime file 字段兼容的同时，新增结构化 important file 日志配置。
 - 新增独立 important 通道入口 =spd_imp(...)=，将普通 =info= 记录同时写入 runtime 日志和 important JSONL 日志，不额外增加 =important= JSON 字段。
@@ -107,7 +124,7 @@
 - 新增日志测试覆盖 =warn=+ JSONL important sink、=spd_imp(...)= 直写 info 记录、旧 runtime file 兼容、async logger 下保留 zpp 短线程 id，以及共享队列中的 warn/important 顺序。
 - 新增 NNG runtime 日志测试，覆盖重复内部日志会被抑制，不同 level 或不同 message 仍正常透传，验证 =nng2imp(...)= 在 runtime =info= 关闭时仍写入 important 通道，并验证 pipe 生命周期事件的 important/debug 分流。
 
-** v0.9.0 - 2026-07-10
+** v0.9.0 - 2026-07-10T02:06:46Z
 *** 变更内容
 - 在 =zpp/wire/= 下新增与传输层无关的 =z::wire::writer=、=reader= 和 =size_counter=，支持带边界检查的定长缓冲区编码、对称解码，以及通过相同操作序列计算编码长度。
 - 新增 =z::wire::msg_header=，用于定长消息头的编码、解码与兼容性检查。
@@ -118,7 +135,7 @@
 - 新增聚焦单元测试，覆盖字节序、writer/reader 完整状态、writer/size-counter 一致性、计数、截断输入，以及溢出时不产生部分操作。
 - 新增 =wire_msg_header_test.cpp=，并扩展 NNG runtime 测试覆盖 =pub_sub_device= 的配置与启动路径。
 
-** v0.7.0 - 2026-07-05
+** v0.7.0 - 2026-07-05T11:04:21Z
 *** 发布定位摘要
 - 从 =v0.6.0= 升级到 =v0.7.0=，核心是可复用 NNG 协议封装与仓库级 C++ 格式规范。
 - 对 =zpp::nng= 进行破坏性 API 清理，移除过时兼容接口并统一协议生命周期与所有权语义。
@@ -153,7 +170,7 @@
 - 原有 =socket::apply_options()= 调用需改为 =socket::set_options()= 并处理返回的 NNG 错误码。
 - 原先调用已移除 option wrapper 的代码需要改用当前 NNG 2.0 支持的接口。
 
-** v0.6.0 - 2026-06-08
+** v0.6.0 - 2026-06-08T04:27:30Z
 *** 发布定位摘要
 - 按功能版本发布，zpp 从 =v0.5.3= 升级到 =v0.6.0=，扩展可复用 NNG runtime 与系统工具 API。
 - 继续把下游无关的 NNG 基础组件抽象进可选 =zpp_nng= 模块。
@@ -174,7 +191,7 @@
 - 新增 =gtest_nng=，覆盖 endpoint helper 与新的 runtime socket/publisher 封装。
 - 新增 timer、wall-time、legacy wall-time、system 与 STL queue 测试，覆盖新工具 API 与重命名后的内部状态。
 
-** v0.5.3 - 2026-05-28
+** v0.5.3 - 2026-05-28T02:15:40Z
 *** 发布定位摘要
 - 打稳 =zpp/hpx= 薄封装生命周期，保持 =z::zhpx::server= 继承 =z::server= 的轻量使用方式。
 - 修正 HPX 入口错误码传播和 server 析构时机，为后续 HPX 扩展保留清晰边界。
@@ -191,7 +208,7 @@
 *** 验证
 - 新增 =hpx_server_lifecycle_test.cpp= 覆盖 =configure/run/stop/wait_stop= 失败路径和成功路径。
 
-** v0.5.2 - 2026-05-18
+** v0.5.2 - 2026-05-18T06:54:40Z
 *** 发布定位摘要
 - zpp 不再维护或运行自己的 Conan 配方，改为消费 =zeta_forge deps= 安装的共享依赖环境。
 - 明确职责边界：=zeta_forge= 作为唯一第三方依赖安装与配置管理入口，zpp 只消费该环境并输出自身库。
@@ -221,7 +238,7 @@
 - 从旧 Conan 构建目录升级时请先清理旧 build tree（如 =rm -rf build/<BUILD_TYPE>=），避免历史缓存干扰。
 - 版本升级只需要先更新 =VERSION=，CMake project version 会在 configure 阶段自动同步。
 
-** v0.5.1 - 2026-05-13
+** v0.5.1 - 2026-05-13T11:14:27Z
 *** 发布定位摘要
 - 修复 zpp 日志短线程号、队列 chunk 生命周期和 taskflow pipeline 运行稳定性。
 - 按补丁版本发布，zpp 从 =v0.5.0= 升级到 =v0.5.1=。
@@ -233,7 +250,7 @@
 - =pipeline_mpsc= 恢复复用 =z::mpmc=，并在 =wait_done()= 中等待 Taskflow run callback 完全退出，避免局部 pipeline 提前析构。
 - zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.5.1=。
 
-** v0.5.0 - 2026-05-13
+** v0.5.0 - 2026-05-13T04:00:13Z
 *** 发布定位摘要
 - 新增项目运行入口 CLI，统一列出并执行 =add_run_target= 预置命令。
 - 按功能版本发布，zpp 从 =v0.4.1= 升级到 =v0.5.0=。
@@ -244,7 +261,7 @@
 - =run <name>= 直接执行已有 build tree 中已经编译好的二进制文件及其预置参数，不自动 configure，也不调用 =cmake --build=。
 - zpp CMake project version 与仓库根 =VERSION= 升级到 =v0.5.0=。
 
-** v0.4.1 - 2026-05-13
+** v0.4.1 - 2026-05-13T02:47:58Z
 *** 发布定位摘要
 - 优化 zpp 日志宏的关闭级别成本，保持 =spd_inf= 等历史入口兼容。
 - 按补丁版本发布，zpp 从 =v0.4.0= 升级到 =v0.4.1=。
@@ -259,7 +276,7 @@
 *** 验证
 - 新增日志单元测试覆盖运行时短路、backtrace 缓存保留、printf 短路和 =SPDLOG_ACTIVE_LEVEL= 编译期裁剪场景。
 
-** v0.4.0 - 2026-05-13
+** v0.4.0 - 2026-05-13T01:49:59Z
 *** 发布定位摘要
 - 重构 zpp 日志初始化封装，保留原生 spdlog 热路径性能，同时简化初始化与生命周期管理。
 - 按接口重构发布，zpp 从 =v0.3.1= 升级到 =v0.4.0=。
@@ -274,7 +291,7 @@
 *** 验证
 - 新增 =logging_test.cpp= 覆盖 fallback logger、重复 shutdown、printf warn 等级和长消息截断场景。
 
-** v0.3.1 - 2026-05-11
+** v0.3.1 - 2026-05-11T12:42:57Z
 *** 发布定位摘要
 - 完成旧 =zpp/json.h= 到成熟 =zpp/json.hpp= API 的迁移，并硬删除旧头文件。
 - 按补丁版本发布，zpp 从 =v0.3.0= 升级到 =v0.3.1=；fortune 项目版本保持不变。
@@ -300,7 +317,7 @@
 - =./zbuild.py --BUILD_TYPE Debug --with-nng --no-tests --no-examples --rebuild= 通过。
 - =./zbuild.py --rebuild --with-hpx-examples --with-folly --with-nng --with-taskflow= 通过。
 
-** v0.3.0 - 2026-05-11
+** v0.3.0 - 2026-05-11T12:00:28Z
 *** 发布定位摘要
 - =z::json= 新增删除接口，公开 API 能力从配置读取/构建扩展到 object member 和 array item 删除。
 - 按语义化版本约定，本次接口增加从 =v0.2.x= 升级到 =v0.3.0=。
@@ -326,7 +343,7 @@
 - =./zbuild.py --BUILD_TYPE Debug= 通过。
 - =./build/Debug/tests/unit_tests/gtest_tsc= 通过，13 个测试全部通过。
 
-** v0.2.1 - 2026-05-11
+** v0.2.1 - 2026-05-11T05:36:56Z
 *** 发布定位摘要
 - 将 zpp 改造为面向开源用户的轻量默认构建：默认只构建 core 核心模块。
 - =folly=、=nng=、=taskflow= 等重依赖改为可选模块，默认关闭。
@@ -361,7 +378,7 @@
 - Taskflow 单模块：=./zbuild.py --BUILD_TYPE=Debug --with-taskflow --no-tests --no-examples --rebuild= 通过。
 - 组合模块：=./zbuild.py --BUILD_TYPE=Debug --with-folly --with-nng --with-taskflow --no-tests --no-examples --rebuild= 通过。
 
-** v0.2.0 - 2026-05-11
+** v0.2.0 - 2026-05-11T05:08:33Z
 *** 发布定位摘要
 - zpp 从遗留自带 CMake helper/submodule 构建模式迁移为独立 ZetaX 项目。
 - zpp 自己维护项目级 =builder/zpp.py= 和 =builder/conanfile.py=，公共构建生命周期复用 =zeta_forge=。
@@ -387,7 +404,7 @@
 - =./zbuild.py --help= 通过。
 - =./zbuild.py --BUILD_TYPE=Debug --no-tests --no-examples --rebuild= 通过，完成 Conan install、CMake configure 和静态库构建。
 
-** v0.1.0 - 2026-05-11
+** v0.1.0 - 2026-05-11T05:08:33Z
 *** 发布定位摘要
 - zpp 作为独立 ZetaX 项目接入 zeta_forge 的初始基线。
 - 该版本未作为独立 release 发布，后续迁移和版本记录整理并入 v0.2.0。

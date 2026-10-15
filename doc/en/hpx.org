@@ -120,11 +120,19 @@ rewrite one operation in terms of another.
 zero or one value, one value alternative, no stopped completion, and only the
 error representation supported by HPX =make_future=. These constraints prevent
 information loss and avoid HPX's terminate-on-stopped behavior.
+Scheduled senders can advertise stopped completion even when the normal path
+returns a value. Before =into_future=, handle cancellation explicitly, for
+example with =let_stopped= returning an =exception_ptr= error sender. The
+adapter does not silently discard cancellation or turn it into a default value.
 
-=sync_wait= directly forwards the HPX execution CPO, which currently uses
-stdexec's blocking wait. Do not call it from the only HPX worker while waiting
-for work queued to the same pool. Runtime tests and examples use at least two
-HPX workers and enforce an external timeout.
+=sync_wait= forwards the HPX/stdexec execution CPO. With the Forge HPX master
+baseline =6e97afa18a1a189d0147397ecb3400917aef2b94=, senders exposing the HPX
+completion domain use cooperative waiting on HPX tasks. This includes
+=schedule(thread_pool_scheduler)= and scheduler-aware =from_future(future,
+scheduler)= pipelines. The generic stdexec fallback can still block an OS
+worker: do not wait on pending same-pool work from the only worker without an
+HPX completion domain. Runtime regression tests exercise both one and two
+workers with a 15-second timeout per process.
 
 Enable and consume the optional module with:
 

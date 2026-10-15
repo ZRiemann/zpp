@@ -133,6 +133,12 @@ if(TARGET zpp::hpx)
     )
     set_tests_properties(hpx_exec_runtime PROPERTIES TIMEOUT 15)
 
+    add_test(
+        NAME hpx_exec_runtime_single_worker
+        COMMAND gtest_hpx_exec_runtime --hpx:threads=1
+    )
+    set_tests_properties(hpx_exec_runtime_single_worker PROPERTIES TIMEOUT 15)
+
     add_run_target(gtest_hpx_exec)
     add_run_target(gtest_hpx_exec_runtime)
 endif()

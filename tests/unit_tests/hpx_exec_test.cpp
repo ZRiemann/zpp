@@ -106,6 +106,29 @@ TEST(HpxExec, ConvertsVoidFutureToSender) {
   ASSERT_TRUE(result);
 }
 
+TEST(HpxExec, ReusesSharedFutureSender) {
+  auto sender = ex::from_future(hpx::make_ready_future(42).share());
+
+  auto first = ex::sync_wait(sender);
+  auto second = ex::sync_wait(sender);
+
+  ASSERT_TRUE(first);
+  ASSERT_TRUE(second);
+  EXPECT_EQ(42, std::get<0>(*first));
+  EXPECT_EQ(42, std::get<0>(*second));
+}
+
+TEST(HpxExec, ReusesExceptionalSharedFutureSender) {
+  auto future =
+      hpx::make_exceptional_future<int>(
+          std::make_exception_ptr(std::runtime_error("shared failure")))
+          .share();
+  auto sender = ex::from_future(future);
+
+  EXPECT_THROW(static_cast<void>(ex::sync_wait(sender)), std::runtime_error);
+  EXPECT_THROW(static_cast<void>(ex::sync_wait(sender)), std::runtime_error);
+}
+
 TEST(HpxExec, ConvertsMoveOnlyFutureValueToSender) {
   auto future = hpx::make_ready_future(std::make_unique<int>(42));
   auto result = ex::sync_wait(ex::from_future(std::move(future)));
@@ -134,6 +157,24 @@ TEST(HpxExec, ConvertsVoidSenderToFuture) {
   auto future = ex::into_future(ex::just());
 
   EXPECT_NO_THROW(future.get());
+}
+
+TEST(HpxExec, ConvertsMoveOnlySenderValueToFuture) {
+  auto future = ex::into_future(ex::just(std::make_unique<int>(42)));
+
+  auto value = future.get();
+  ASSERT_TRUE(value);
+  EXPECT_EQ(42, *value);
+}
+
+TEST(HpxExec, ConvertsExplicitlyHandledStopToFutureException) {
+  auto sender = ex::just_stopped() | ex::let_stopped([] {
+                  return ex::just_error(
+                      std::make_exception_ptr(std::runtime_error("cancelled")));
+                });
+  auto future = ex::into_future(std::move(sender));
+
+  EXPECT_THROW(static_cast<void>(future.get()), std::runtime_error);
 }
 
 TEST(HpxExec, PropagatesSenderExceptionThroughFuture) {

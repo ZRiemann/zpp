@@ -110,10 +110,17 @@ auto result = ex::sync_wait(std::move(sender));
 =from_future= 直接使用 HPX =as_sender=。=into_future= 只接受零值或单值、单一
 value alternative、不含 stopped completion，并且错误类型能由 HPX =make_future=
 表示的 sender；这些约束用于避免信息丢失和 HPX 在 stopped 路径上的 terminate 行为。
+Scheduled sender 即使正常路径返回一个值，也可能声明 stopped completion。
+调用 =into_future= 前应显式处理取消，例如通过 =let_stopped= 返回携带
+=exception_ptr= 的错误 sender；适配层不会静默丢弃取消或将其转为默认值。
 
-=sync_wait= 直接转发 HPX execution CPO，当前会使用 stdexec 的阻塞等待。不要在
-唯一的 HPX worker 中等待依赖同一线程池的 sender。runtime 测试和示例至少使用两个
-HPX worker，并由外部超时终止意外挂起。
+=sync_wait= 转发 HPX/stdexec execution CPO。在 Forge 的 HPX 主线基线
+=6e97afa18a1a189d0147397ecb3400917aef2b94= 中，暴露 HPX completion domain
+的 sender 会在 HPX task 上协作等待，包括 =schedule(thread_pool_scheduler)=
+和携带 scheduler 的 =from_future(future, scheduler)= 流水线。通用 stdexec
+fallback 仍可能阻塞 OS worker；不要在唯一 worker 上等待不带 HPX completion
+domain 且依赖同一线程池的未完成任务。runtime 回归分别使用单 worker 和双 worker，
+每个进程设置 15 秒超时。
 
 启用并消费可选模块：
 
