@@ -3,6 +3,20 @@
 
 * 发布历史
 
+** v1.2.0 - 2026-10-15
+*** 变更内容
+- 将 =dialer::set_addr= 替换为 =dialer::bind=，适配 NNG 2.0 RC 本地源地址绑定，并更新日志 action。
+- 新增 endpoint 聚焦测试，覆盖无效 dialer、非法源地址与绑定 loopback 后的通信。
+- 移除封装局部定义的 RapidJSON member iterator 宏，统一沿用默认配置。
+- 更新中英文文档，说明 NNG 升级步骤、Windows IPC 迁移和 RapidJSON 配置要求。
+
+*** 兼容性与升级说明
+- 原 =dialer::set_addr= 调用方需迁移至 =create -> bind -> start=，源 port 为零，并先安装更新后的 Forge NNG 依赖。
+- RapidJSON 配置变更后需重新构建 zpp 和 JSON 消费者。本次包含公开 API 替换，版本按用户指定采用 =v1.2.0=。
+
+*** 验证
+- 本次提交执行 =git diff --cached --check=；未额外运行测试或构建。
+
 ** v1.1.0 - 2026-09-24
 *** 变更内容
 - 为 =listener_options::ipc_permissions= 增加可选的 POSIX IPC socket 权限，在 NNG listener 启动前应用；未设置时保留 NNG 默认行为。

@@ -17,6 +17,29 @@
 #+end_src
 完整语义见 [[file:../../BUILD.org][BUILD.org]]。
 
+** NNG 2.0 RC 迁移
+
+Forge NNG 源码固定到 =v2.0.0-rc.1=，提交为
+=8fde97db953012882298254bc4753d53e9155bb6=。先安装新版 NNG，再构建和测试
+=zpp_nng=。完整步骤见
+[[file:../../../zeta_forge/doc/nng_upgrade_cn.org][工作区升级顺序]]。
+
+=dialer::set_addr= 替换为
+=int bind(const nng_sockaddr &local_address) noexcept=，对应上游
+=nng_dialer_bind=。调用顺序为 =create -> bind -> start=，源 port 必须为零。
+地址仅在调用期间借用，保留 NNG 错误码；不支持绑定的 transport 返回
+=NNG_ENOTSUP=。现有显式接收上限和消息所有权语义保持不变。
+
+Windows 的 =ipc://= 改为 AF_UNIX，与 =unix://= 等价；需要与旧应用通过
+named pipe 互联时使用 =winpipe://=。Linux IPC 路径保持原有含义。
+Windows 行为不包含在当前 Linux Release 验证流程中。
+
+#+begin_src sh
+./zbuild.py build zpp_nng --profile release
+./zbuild.py test zpp_nng --profile release
+./zbuild.py install zpp_nng --profile release
+#+end_src
+
 ** 直接使用 CMake
 
 直接使用 CMake 只建议用于高级或手动场景。zpp 的 CMake 配置阶段不再对

@@ -1,12 +1,98 @@
+#include <array>
+#include <cstring>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <zpp/nng/dialer.h>
 #include <zpp/nng/endpoint.h>
 #include <zpp/nng/listener.h>
 #include <zpp/nng/nng.h>
+#include <zpp/nng/pipe.h>
 #include <zpp/nng/socket.h>
+
+namespace {
+
+/// Returns an IPv4 loopback address with an ephemeral source port.
+nng_sockaddr loopback_address() noexcept {
+  nng_sockaddr address{};
+  address.s_in.sa_family = NNG_AF_INET;
+  constexpr std::array<unsigned char, 4> loopback{127, 0, 0, 1};
+  std::memcpy(&address.s_in.sa_addr, loopback.data(), loopback.size());
+  return address;
+}
+
+} // namespace
+
+TEST(NngEndpoint, RejectsBindingAnInvalidDialer) {
+  z::nng::nng runtime;
+  z::nng::dialer dialer;
+  EXPECT_EQ(dialer.bind(loopback_address()), NNG_ENOENT);
+}
+
+TEST(NngEndpoint, RejectsInvalidDialerSourceAddresses) {
+  z::nng::nng runtime;
+  z::nng::socket socket;
+  ASSERT_EQ(socket.pair0_open(), NNG_OK);
+
+  z::nng::dialer dialer;
+  ASSERT_EQ(dialer.create(socket.get(), "tcp://127.0.0.1:1"), NNG_OK);
+  EXPECT_EQ(dialer.bind(nng_sockaddr{}), NNG_EADDRINVAL);
+
+  auto address = loopback_address();
+  address.s_in.sa_port = 1;
+  EXPECT_EQ(dialer.bind(address), NNG_EADDRINVAL);
+  EXPECT_EQ(dialer.bind(loopback_address()), NNG_OK);
+}
+
+TEST(NngEndpoint, BindsDialerBeforeStartingLocalCommunication) {
+  z::nng::nng runtime;
+  z::nng::socket sender;
+  z::nng::socket receiver;
+  ASSERT_EQ(sender.pair0_open(), NNG_OK);
+  ASSERT_EQ(receiver.pair0_open(), NNG_OK);
+
+  z::nng::socket_options options;
+  options.send_timeout_ms = 1000;
+  options.recv_timeout_ms = 1000;
+  ASSERT_EQ(sender.set_options(options), NNG_OK);
+  ASSERT_EQ(receiver.set_options(options), NNG_OK);
+
+  z::nng::listener listener;
+  ASSERT_EQ(listener.create(receiver.get(), "tcp://127.0.0.1:0"), NNG_OK);
+  ASSERT_EQ(listener.start(), NNG_OK);
+  int port{0};
+  ASSERT_EQ(listener.get_int(NNG_OPT_BOUND_PORT, &port), NNG_OK);
+  ASSERT_GT(port, 0);
+
+  z::nng::dialer dialer;
+  const auto target_url = "tcp://127.0.0.1:" + std::to_string(port);
+  ASSERT_EQ(dialer.create(sender.get(), target_url), NNG_OK);
+  const auto local_address = loopback_address();
+  ASSERT_EQ(dialer.bind(local_address), NNG_OK);
+  ASSERT_EQ(dialer.start(0), NNG_OK);
+
+  constexpr std::string_view payload{"bound-dialer"};
+  z::nng::message outgoing{std::size_t{0}};
+  ASSERT_TRUE(outgoing.valid());
+  ASSERT_EQ(outgoing.append(payload.data(), payload.size()), NNG_OK);
+  ASSERT_EQ(sender.send(outgoing, 0), NNG_OK);
+  EXPECT_FALSE(outgoing.valid());
+
+  z::nng::message incoming;
+  ASSERT_EQ(receiver.recv(incoming), NNG_OK);
+  EXPECT_EQ(std::string_view(static_cast<const char *>(incoming.body()),
+                             incoming.length()),
+            payload);
+
+  const z::nng::pipe connection{incoming.pipe()};
+  nng_sockaddr peer_address{};
+  ASSERT_EQ(connection.peer_addr(peer_address), NNG_OK);
+  EXPECT_EQ(peer_address.s_in.sa_family, local_address.s_in.sa_family);
+  EXPECT_EQ(peer_address.s_in.sa_addr, local_address.s_in.sa_addr);
+}
 
 TEST(NngEndpoint, ParsesTransportFromUrls) {
   EXPECT_EQ(z::nng::parse_transport("tcp://127.0.0.1:58200"),

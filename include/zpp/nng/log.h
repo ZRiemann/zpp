@@ -107,8 +107,8 @@ inline constexpr char act_get_string[] = "get_string";
 inline constexpr char act_set_ms[] = "set_ms";
 /// NNG log action tag for get_ms option operations.
 inline constexpr char act_get_ms[] = "get_ms";
-/// NNG log action tag for set_addr option operations.
-inline constexpr char act_set_addr[] = "set_addr";
+/// NNG log action tag for binding a dialer's local source address.
+inline constexpr char act_bind[] = "bind";
 /// NNG log action tag for get_addr option operations.
 inline constexpr char act_get_addr[] = "get_addr";
 /// NNG log action tag for set_tls option operations.

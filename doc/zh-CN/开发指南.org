@@ -29,6 +29,11 @@
 
 ** 构建与测试
 
+JSON 封装沿用 RapidJSON 默认的 member iterator 配置。不要在单个头文件或源码中
+切换影响 ABI 的 RapidJSON 宏：直接包含 RapidJSON 与不同配置的封装混合链接，
+可能导致跨编译单元的对象成员查找崩溃。修改该配置后应重新构建 zpp 及其 JSON
+消费者。Important JSONL 日志测试同时覆盖同一程序中原生 RapidJSON 与封装的使用。
+
 Core 验证：
 
 #+begin_src sh

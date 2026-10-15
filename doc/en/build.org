@@ -42,6 +42,31 @@ tests and examples are not implicitly included in build.
 =run= only launches existing outputs. =dev= builds and runs once. See
 [[file:../../BUILD.org][BUILD.org]] for defaults, installation scope and cleanup impact.
 
+** NNG 2.0 RC Migration
+
+The Forge NNG source is pinned to =v2.0.0-rc.1= at
+=8fde97db953012882298254bc4753d53e9155bb6=. Install the updated NNG before
+building or testing =zpp_nng=. See the
+[[file:../../../zeta_forge/doc/nng_upgrade_cn.org][workspace upgrade sequence]].
+
+=dialer::set_addr= is replaced by
+=int bind(const nng_sockaddr &local_address) noexcept=, matching upstream
+=nng_dialer_bind=. Call =create -> bind -> start= with a zero source port.
+The address is borrowed only during the call. Errors retain NNG error codes,
+including =NNG_ENOTSUP= for transports without binding support.
+Existing explicit receive limits and message ownership remain unchanged.
+
+On Windows, NNG 2 uses AF_UNIX for =ipc://= (equivalent to =unix://=).
+Use =winpipe://= to retain named-pipe interoperability with older applications.
+Linux IPC paths keep their existing meaning. Windows behavior is not covered
+by the Linux Release verification procedure.
+
+#+begin_src sh
+./zbuild.py build zpp_nng --profile release
+./zbuild.py test zpp_nng --profile release
+./zbuild.py install zpp_nng --profile release
+#+end_src
+
 ** Direct CMake Usage
 
 Direct CMake usage is for advanced/manual scenarios only. It must pass explicit

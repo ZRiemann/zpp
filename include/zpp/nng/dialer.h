@@ -67,6 +67,13 @@ public:
   int create(nng_socket socket, const nng_url *target_url) noexcept;
   /// Creates a dialer from a parsed zpp URL object.
   int create(nng_socket socket, const url &target_url) noexcept;
+  /**
+   * @brief Configures the local source address before starting this dialer.
+   * @param local_address Address borrowed only for this call; use port zero.
+   * @return NNG_OK on success, otherwise an NNG error code.
+   * @note Create the dialer first. Unsupported transports return NNG_ENOTSUP.
+   */
+  int bind(const nng_sockaddr &local_address) noexcept;
   /// Starts the dialer.
   int start(int flags = NNG_FLAG_NONBLOCK) noexcept;
   /// Starts the dialer asynchronously and reports the first connection result
@@ -110,8 +117,6 @@ public:
   int set_ms(const char *name, nng_duration value) noexcept;
   /// Gets a duration dialer option in milliseconds.
   int get_ms(const char *name, nng_duration *value) const noexcept;
-  /// Sets a socket address dialer option.
-  int set_addr(const char *name, const nng_sockaddr *value) noexcept;
   /// Sets the TLS configuration for this dialer.
   int set_tls(nng_tls_config *value) noexcept;
   /// Gets the TLS configuration for this dialer.

@@ -15,12 +15,6 @@
 #include <type_traits>
 #include <utility>
 
-#ifndef RAPIDJSON_NOMEMBERITERATORCLASS
-#define RAPIDJSON_NOMEMBERITERATORCLASS // disable struct std::iterator is
-                                        // deprecated
-                                        // [-Wdeprecated-declarations]
-#endif
-
 #include <rapidjson/document.h>
 #include <rapidjson/filereadstream.h>
 #include <rapidjson/prettywriter.h>

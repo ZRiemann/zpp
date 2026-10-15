@@ -30,6 +30,13 @@ Use Org mode for repository documentation:
 
 ** Build and Test
 
+The JSON wrapper uses RapidJSON's default member iterator configuration.
+Do not change ABI-affecting RapidJSON macros in individual headers or source
+files: mixing raw RapidJSON includes with a different wrapper configuration
+can cause object member lookup to crash across translation units. Rebuild zpp
+and its JSON consumers after changing this configuration. The important JSONL
+logging tests also exercise raw RapidJSON alongside the wrapper in one binary.
+
 Core verification:
 
 #+begin_src sh

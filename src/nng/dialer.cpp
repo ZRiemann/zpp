@@ -243,9 +243,9 @@ int dialer::get_ms(const char *name, nng_duration *value) const noexcept {
   return rv;
 }
 
-int dialer::set_addr(const char *name, const nng_sockaddr *value) noexcept {
-  const auto rv = nng_dialer_set_addr(dialer_, name, value);
-  nng2opt_err(cmp_dialer, act_set_addr, rv, name);
+int dialer::bind(const nng_sockaddr &local_address) noexcept {
+  const auto rv = nng_dialer_bind(dialer_, &local_address);
+  nng2err(cmp_dialer, act_bind, rv);
   return rv;
 }
 
