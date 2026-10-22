@@ -50,3 +50,12 @@ See [[file:../../LICENSE][LICENSE]].
 * Current build contract
 
 See [[file:../../BUILD.org][Unified build entry, defaults and verification scope]].
+
+** Asynchronous logging
+
+With =config::async=true=, normal and important loggers discard new records when
+the shared queue is full instead of waiting for space. Explicit flush requests
+may also drop when full. Stop/join producers before =shutdown()=, which drains
+accepted records, joins the worker and finally flushes sinks synchronously.
+Formatting, allocation and queue mutex contention still occur; this is not a
+lock-free or hard-real-time guarantee. The default synchronous mode is unchanged.

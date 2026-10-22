@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <future>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -15,6 +18,8 @@
 #include <zpp/spd_log.h>
 #include <zpp/spdlog.h>
 #include <zpp/system/tid.h>
+
+#include <spdlog/sinks/sink.h>
 
 namespace {
 
@@ -564,6 +569,86 @@ TEST(LoggingTest, AsyncImportantJsonlPreservesThreadIdAndQueueOrder) {
   EXPECT_EQ(important_doc["tid"].GetUint64(),
             static_cast<std::uint64_t>(worker_tid));
 
+  std::filesystem::remove(runtime_path);
+  std::filesystem::remove(important_path);
+}
+
+namespace {
+/// Pauses the first record; exposes data only when the sink is flushed.
+class paused_logging_sink final : public spdlog::sinks::sink {
+public:
+  explicit paused_logging_sink(std::shared_future<void> resume)
+      : resume_(std::move(resume)) {}
+  std::promise<void> entered;
+  std::vector<std::string> messages;
+  std::vector<std::string> flushed_messages;
+  void log(const spdlog::details::log_msg &msg) override {
+    if (messages.empty()) {
+      entered.set_value();
+      resume_.wait();
+    }
+    messages.emplace_back(msg.payload.data(), msg.payload.size());
+  }
+  void flush() override { flushed_messages = messages; }
+  void set_pattern(const std::string &) override {}
+  void set_formatter(std::unique_ptr<spdlog::formatter>) override {}
+
+private:
+  std::shared_future<void> resume_;
+};
+} // namespace
+
+TEST(LoggingTest, FullAsyncQueueDropsNewRecordsAndFlushWithoutWaiting) {
+  const auto runtime_path =
+      std::filesystem::current_path() / "zpp_nonblocking_runtime_test.log";
+  const auto important_path =
+      std::filesystem::current_path() / "zpp_nonblocking_important_test.jsonl";
+  std::filesystem::remove(important_path);
+  auto cfg = file_config(runtime_path);
+  cfg.async = true;
+  cfg.queue_size = 1;
+  cfg.flush_level = spdlog::level::off;
+  cfg.important_file.enabled = true;
+  cfg.important_file.file_name = important_path.string();
+  std::promise<void> resume;
+  auto sink =
+      std::make_shared<paused_logging_sink>(resume.get_future().share());
+  auto entered = sink->entered.get_future();
+  z::log::init(cfg);
+  auto retained_logger = g_spd_log;
+  retained_logger->sinks().push_back(sink);
+  spd_inf("accepted-first");
+  const bool paused =
+      entered.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+  if (!paused) {
+    resume.set_value();
+    z::log::shutdown();
+    FAIL() << "logging worker did not reach the paused sink";
+  }
+  spd_inf("accepted-second"); // The only queue slot is now occupied.
+  auto producer = std::async(std::launch::async, [] {
+    spd_war("discarded-warn");
+    spd_err("discarded-error");
+    spd_imp("discarded-important");
+    g_spd_log->flush();
+  });
+  const bool returned =
+      producer.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+  resume.set_value(); // Always unblock the worker before checking the result.
+  producer.get();
+  z::log::shutdown();
+
+  EXPECT_TRUE(returned);
+  ASSERT_EQ(sink->messages.size(), 2U);
+  EXPECT_NE(sink->messages[0].find("accepted-first"), std::string::npos);
+  EXPECT_NE(sink->messages[1].find("accepted-second"), std::string::npos);
+  EXPECT_EQ(sink->flushed_messages, sink->messages);
+  const auto content = read_file(runtime_path); // Logger still owns the file.
+  EXPECT_NE(content.find("accepted-first"), std::string::npos);
+  EXPECT_NE(content.find("accepted-second"), std::string::npos);
+  EXPECT_EQ(content.find("discarded-"), std::string::npos);
+  EXPECT_TRUE(read_file(important_path).empty());
+  retained_logger.reset();
   std::filesystem::remove(runtime_path);
   std::filesystem::remove(important_path);
 }

@@ -663,7 +663,7 @@ void init(const config &cfg) {
         std::make_shared<spdlog::details::thread_pool>(cfg.queue_size, 1);
     g_spd_log = std::make_shared<spdlog::async_logger>(
         cfg.logger_name, sinks.runtime_sinks.begin(), sinks.runtime_sinks.end(),
-        g_spd_pool, spdlog::async_overflow_policy::block);
+        g_spd_pool, spdlog::async_overflow_policy::discard_new);
   } else {
     g_spd_pool.reset();
     g_spd_log = std::make_shared<spdlog::logger>(cfg.logger_name,
@@ -677,7 +677,7 @@ void init(const config &cfg) {
     if (cfg.async) {
       g_spd_important_log = std::make_shared<spdlog::async_logger>(
           cfg.logger_name + ".important", std::move(direct_sink), g_spd_pool,
-          spdlog::async_overflow_policy::block);
+          spdlog::async_overflow_policy::discard_new);
     } else {
       g_spd_important_log = std::make_shared<spdlog::logger>(
           cfg.logger_name + ".important", std::move(direct_sink));
@@ -708,7 +708,14 @@ void shutdown() noexcept {
       important_logger->flush();
     }
     spdlog::shutdown();
-    pool.reset();
+    if (pool) {
+      pool.reset();
+      // Async flush requests can drop; flush sinks directly after joining.
+      if (logger)
+        spdlog::logger(*logger).flush();
+      if (important_logger)
+        spdlog::logger(*important_logger).flush();
+    }
     g_spd_log = make_fallback_logger();
     g_spd_important_log = make_fallback_logger();
   } catch (...) {

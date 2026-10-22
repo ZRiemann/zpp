@@ -12,6 +12,17 @@ establish acceptance or deployment status.
 
 * Release History
 
+** v1.2.2 - 2026-10-22T06:02:43Z
+:PROPERTIES:
+:CUSTOM_ID: v1.2.2
+:END:
+*** Changes
+- Use non-blocking overflow handling for asynchronous runtime and important loggers, and synchronously flush sinks after the worker drains during shutdown.
+- Add regression coverage for full-queue record and flush dropping, and document asynchronous logging behavior in English and Chinese.
+
+*** Verification
+- Add focused logging coverage; no tests or builds were run for this commit.
+
 ** v1.2.1 - 2026-10-15T06:21:38Z
 *** Changes
 - Extend HPX execution regression coverage for reusable shared futures, move-only values, pending scheduler-aware futures, exceptions, and explicit stopped-completion handling.

@@ -48,3 +48,10 @@ cd "$ZETAX_ROOT/zpp"
 * Current build contract
 
 See [[file:../../BUILD.org][Unified build entry, defaults and verification scope]].
+
+** 异步日志
+
+设置 =config::async=true= 后，普通与 important 日志在共享队列满时丢弃新记录，
+不等待空位；显式 flush 请求在队列满时也可能被丢弃。应先停止并 join 生产者，
+再调用 =shutdown()= 排空已接收记录、join worker，最后同步刷新 sinks。
+格式化、分配和队列互斥竞争仍然存在，不保证无锁或严格实时延迟。默认同步模式不变。

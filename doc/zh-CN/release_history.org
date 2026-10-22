@@ -10,6 +10,17 @@ committer time，通常取根目录 =VERSION= 首次引入该版本的提交时�
 
 * 发布历史
 
+** v1.2.2 - 2026-10-22T06:02:43Z
+:PROPERTIES:
+:CUSTOM_ID: v1.2.2
+:END:
+*** 变更内容
+- 异步 runtime 与 important logger 在队列满时改为非阻塞溢出处理；shutdown 排空 worker 后同步刷新 sinks。
+- 新增队列满时记录与 flush 丢弃的回归覆盖，并在中英文文档中说明异步日志行为。
+
+*** 验证
+- 新增日志聚焦覆盖；本次提交未运行测试或构建。
+
 ** v1.2.1 - 2026-10-15T06:21:38Z
 *** 变更内容
 - 扩展 HPX execution 回归覆盖，包括 shared future 重复使用、move-only 值、携带 scheduler 的未完成 future、异常和显式 stopped completion 处理。
