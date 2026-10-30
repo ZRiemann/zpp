@@ -12,6 +12,25 @@ establish acceptance or deployment status.
 
 * Release History
 
+** v1.3.0 - 2026-10-30T01:34:31Z
+:PROPERTIES:
+:CUSTOM_ID: v1.3.0
+:END:
+*** Changes
+- Adapt NNG device cleanup to determine socket ownership from completed socket state, and clarify asynchronous start completion behavior.
+- Add optional protocol counter summaries and a pipe transport scheme accessor.
+- Check NNG 2.x headers and required symbols during module configuration and downstream package discovery.
+- Document the NNG dependency baseline and API behavior in English and Chinese.
+
+*** Compatibility and Upgrade Notes
+- The supported NNG baseline is the Forge-installed 2.2.0-dev build; older versions are not covered.
+- Pipe scheme strings are borrowed from NNG. Protocol socket counters are cumulative protocol events and do not confirm peer application delivery.
+
+*** Verification
+- Build the NNG module and test target in an isolated Release build; 16 focused device, pipe and statistics tests passed.
+- Install to a temporary prefix and build a downstream consumer. A simulated NNG package missing required symbols was rejected during configuration.
+- The existing Release build directory could not reconfigure because its HPX source and installed package commits differ. No full build, Debug, sanitizer or other-platform checks were run.
+
 ** v1.2.2 - 2026-10-22T06:02:43Z
 :PROPERTIES:
 :CUSTOM_ID: v1.2.2

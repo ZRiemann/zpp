@@ -10,6 +10,25 @@ committer time，通常取根目录 =VERSION= 首次引入该版本的提交时�
 
 * 发布历史
 
+** v1.3.0 - 2026-10-30T01:34:31Z
+:PROPERTIES:
+:CUSTOM_ID: v1.3.0
+:END:
+*** 变更内容
+- 按异步操作完成后的 socket 状态适配 NNG device 资源清理，并明确异步 start 的完成语义。
+- 新增可选协议计数摘要和 pipe transport scheme 查询接口。
+- 在模块配置和下游包查找时检查 NNG 2.x 头文件及必需符号。
+- 更新中英文文档中的 NNG 依赖基线和接口说明。
+
+*** 兼容性与升级说明
+- 支持基线为 Forge 安装的 NNG 2.2.0-dev；未覆盖更旧版本。
+- pipe scheme 字符串由 NNG 借用提供。socket 协议计数是累计协议事件，不能确认对端应用已收到消息。
+
+*** 验证说明
+- 在独立 Release 构建目录构建 NNG 模块和测试目标；16 项 device、pipe 与统计聚焦测试通过。
+- 安装到临时前缀并构建下游消费者。模拟缺少必需符号的 NNG 包在配置阶段被拒绝。
+- 现有 Release 构建目录因 HPX 源码与已安装包的提交不一致而无法重新配置。未运行完整构建、Debug、sanitizer 或其他平台检查。
+
 ** v1.2.2 - 2026-10-22T06:02:43Z
 :PROPERTIES:
 :CUSTOM_ID: v1.2.2

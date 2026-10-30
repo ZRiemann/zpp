@@ -1,6 +1,7 @@
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME zpp_nng)
 
 find_package(nng CONFIG REQUIRED)
+include(${CMAKE_CURRENT_SOURCE_DIR}/zpp_nng_check.cmake)
 
 file(GLOB_RECURSE ZPP_NNG_SOURCES CONFIGURE_DEPENDS "*.cpp" "*.c")
 add_library(zpp_nng STATIC
@@ -63,6 +64,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/zpp_nngConfig.cmake
 "endif()\n"
 "find_dependency(zpp CONFIG)\n"
 "find_dependency(nng CONFIG)\n"
+"include(\"\${CMAKE_CURRENT_LIST_DIR}/zpp_nng_check.cmake\")\n"
 "include(\"\${CMAKE_CURRENT_LIST_DIR}/zpp_nngTargets.cmake\")\n"
 "unset(_zpp_nng_deps_dir)\n"
 "unset(_zpp_nng_deps_build_type)\n"
@@ -72,6 +74,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/zpp_nngConfig.cmake
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/zpp_nngConfig.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/zpp_nngConfigVersion.cmake
+    ${CMAKE_CURRENT_SOURCE_DIR}/zpp_nng_check.cmake
     DESTINATION lib/cmake/zpp_nng
 )
 

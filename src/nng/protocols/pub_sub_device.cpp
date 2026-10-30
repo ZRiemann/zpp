@@ -210,28 +210,37 @@ z::err_t pub_sub_device::start() {
 }
 
 void pub_sub_device::stop() {
-  bool device_owned_sockets{false};
   if (aio_) {
     aio_.cancel();
     aio_.wait();
-    const nng_err result = aio_.result();
-    device_owned_sockets = result == NNG_OK || result == NNG_ECANCELED;
     aio_.close();
   }
-  if (device_owned_sockets) {
+  // After the AIO and its callback finish, device-owned sockets have been
+  // closed. Startup failures leave the sockets with this object instead.
+  const auto was_closed = [](const socket &owner) {
+    if (!owner.valid()) {
+      return false;
+    }
+    bool raw{};
+    const auto result = nng_socket_raw(owner.get(), &raw);
+    return result == NNG_ECLOSED || result == NNG_ENOENT;
+  };
+  if (was_closed(front_)) {
     for (auto &endpoint_listener : ingress_listeners_) {
       (void)endpoint_listener.release();
     }
     for (auto &endpoint_dialer : ingress_dialers_) {
       (void)endpoint_dialer.release();
     }
+    (void)front_.release();
+  }
+  if (was_closed(back_)) {
     for (auto &endpoint_listener : egress_listeners_) {
       (void)endpoint_listener.release();
     }
     for (auto &endpoint_dialer : egress_dialers_) {
       (void)endpoint_dialer.release();
     }
-    (void)front_.release();
     (void)back_.release();
   }
   ingress_listeners_.clear();

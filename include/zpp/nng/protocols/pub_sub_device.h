@@ -45,7 +45,8 @@ public:
                      const transport_options *transport_config = nullptr,
                      const dialer_options *dialer_config = nullptr,
                      const listener_options *listener_config = nullptr);
-  /// Starts prepared endpoints and the asynchronous raw device.
+  /// Starts endpoints and submits the raw device operation. Completion and
+  /// asynchronous failures are reported by the device callback.
   z::err_t start();
   /// Stops sockets and AIO.
   void stop();
@@ -55,6 +56,7 @@ public:
   const std::vector<endpoint> &egress_endpoints() const noexcept;
 
 private:
+  friend struct pub_sub_device_test_access;
   static void on_event(void *arg) noexcept;
 
   std::string name_;

@@ -285,7 +285,8 @@ struct stat_record {
   std::string string_value;
 };
 
-/// Best-effort summary of common socket statistics.
+/// Best-effort socket statistics. Protocol counters are cumulative events;
+/// socket traffic is distinct from pipe traffic and does not confirm delivery.
 struct socket_stats_summary {
   /// Socket identifier.
   std::optional<std::uint64_t> id;
@@ -309,6 +310,34 @@ struct socket_stats_summary {
   std::optional<std::uint64_t> tx_bytes;
   /// Received byte count.
   std::optional<std::uint64_t> rx_bytes;
+  /// Request retransmissions.
+  std::optional<std::uint64_t> tx_retry;
+  /// Received replies without a matching request or survey.
+  std::optional<std::uint64_t> rx_nomatch;
+  /// Malformed incoming messages.
+  std::optional<std::uint64_t> rx_malformed;
+  /// Incoming messages dropped after exceeding the hop limit.
+  std::optional<std::uint64_t> ttl_drop;
+  /// Outgoing messages or copies discarded by the protocol.
+  std::optional<std::uint64_t> tx_drop;
+  /// Malformed outgoing messages.
+  std::optional<std::uint64_t> tx_malformed;
+  /// Sends handed directly to a pipe.
+  std::optional<std::uint64_t> tx_direct;
+  /// Sends placed in the socket buffer.
+  std::optional<std::uint64_t> tx_queued;
+  /// Send operations deferred for a pipe or buffer space.
+  std::optional<std::uint64_t> tx_blocked;
+  /// Receives delivered directly to a waiting operation.
+  std::optional<std::uint64_t> rx_direct;
+  /// Receives held on a pipe until a receiver is available.
+  std::optional<std::uint64_t> rx_queued;
+  /// Sends discarded because no pipe was connected.
+  std::optional<std::uint64_t> tx_nopipe;
+  /// Incoming messages discarded by the protocol.
+  std::optional<std::uint64_t> rx_discard;
+  /// Connections rejected because a pair socket already has a peer.
+  std::optional<std::uint64_t> already;
 };
 
 /// Best-effort summary of common listener and dialer statistics.
@@ -399,6 +428,20 @@ inline socket_stats_summary summarize_socket(stat_view socket_scope) {
   summary.rx_msgs = stat_numeric_child(socket_scope, "rx_msgs");
   summary.tx_bytes = stat_numeric_child(socket_scope, "tx_bytes");
   summary.rx_bytes = stat_numeric_child(socket_scope, "rx_bytes");
+  summary.tx_retry = stat_numeric_child(socket_scope, "tx_retry");
+  summary.rx_nomatch = stat_numeric_child(socket_scope, "rx_nomatch");
+  summary.rx_malformed = stat_numeric_child(socket_scope, "rx_malformed");
+  summary.ttl_drop = stat_numeric_child(socket_scope, "ttl_drop");
+  summary.tx_drop = stat_numeric_child(socket_scope, "tx_drop");
+  summary.tx_malformed = stat_numeric_child(socket_scope, "tx_malformed");
+  summary.tx_direct = stat_numeric_child(socket_scope, "tx_direct");
+  summary.tx_queued = stat_numeric_child(socket_scope, "tx_queued");
+  summary.tx_blocked = stat_numeric_child(socket_scope, "tx_blocked");
+  summary.rx_direct = stat_numeric_child(socket_scope, "rx_direct");
+  summary.rx_queued = stat_numeric_child(socket_scope, "rx_queued");
+  summary.tx_nopipe = stat_numeric_child(socket_scope, "tx_nopipe");
+  summary.rx_discard = stat_numeric_child(socket_scope, "rx_discard");
+  summary.already = stat_numeric_child(socket_scope, "already");
   return summary;
 }
 

@@ -21,12 +21,39 @@
 #include <zpp/nng/listener.h>
 #include <zpp/nng/log.h>
 #include <zpp/nng/nng.h>
+#include <zpp/nng/pipe.h>
 #include <zpp/nng/protocols/pub_sub_device.h>
 #include <zpp/nng/protocols/publisher.h>
 #include <zpp/nng/protocols/subscriber.h>
 #include <zpp/nng/socket.h>
 #include <zpp/nng/statistics.h>
 #include <zpp/spdlog.h>
+
+namespace z::nng {
+// Exercises failure completion without adding public device controls.
+struct pub_sub_device_test_access {
+  static nng_socket front(const pub_sub_device &device) {
+    return device.front_.get();
+  }
+  static nng_socket back(const pub_sub_device &device) {
+    return device.back_.get();
+  }
+  static nng_err submit_invalid(pub_sub_device &device, nng_socket cooked) {
+    const auto result = device.aio_.create(&pub_sub_device::on_event, &device);
+    if (result != NNG_OK) {
+      return result;
+    }
+    nng_device_aio(device.aio_.get(), device.front_.get(), cooked);
+    device.aio_.wait();
+    return device.aio_.result();
+  }
+  static nng_err abort(pub_sub_device &device, nng_err result) {
+    device.aio_.abort(result);
+    device.aio_.wait();
+    return device.aio_.result();
+  }
+};
+} // namespace z::nng
 
 namespace {
 
@@ -39,6 +66,9 @@ public:
 
   void on_pipe_add_post(z::nng::pipe &pipe) override {
     z::nng::socket::on_pipe_add_post(pipe);
+    const char *scheme = nullptr;
+    scheme_is_ipc = pipe.get_scheme(scheme) == NNG_OK && scheme != nullptr &&
+                    std::string_view{scheme} == "ipc";
     ++add_post_count;
   }
 
@@ -50,6 +80,7 @@ public:
   std::atomic<int> add_pre_count{0};
   std::atomic<int> add_post_count{0};
   std::atomic<int> remove_post_count{0};
+  std::atomic<bool> scheme_is_ipc{false};
 };
 
 /// Managed subscriber used by PUB/SUB runtime integration tests.
@@ -510,10 +541,19 @@ TEST(NngRuntime, SocketPipeNotifyDispatchesCallbacks) {
 
   EXPECT_TRUE(wait_for_count(listener.add_pre_count, 1));
   EXPECT_TRUE(wait_for_count(listener.add_post_count, 1));
+  EXPECT_TRUE(listener.scheme_is_ipc.load());
 
   dialer.close();
   EXPECT_TRUE(wait_for_count(listener.remove_post_count, 1));
   EXPECT_EQ(listener.pipe_notify(false), 0);
+}
+
+TEST(NngRuntime, InvalidPipeSchemeReportsError) {
+  z::nng::nng runtime;
+  z::nng::pipe pipe;
+  const char *scheme = nullptr;
+  EXPECT_NE(pipe.get_scheme(scheme), NNG_OK);
+  EXPECT_EQ(scheme, nullptr);
 }
 
 TEST(NngRuntime, PipeLifecycleImportantLogIsIndependentOfDebugLevel) {
@@ -765,6 +805,75 @@ TEST(NngPubSubDevice, RollsBackWhenAnEndpointCannotStart) {
   device.stop();
 }
 
+TEST(NngPubSubDevice, RepeatedStopAndReconfigure) {
+  z::nng::nng runtime;
+  z::nng::pub_sub_device device;
+  const auto ingress = unique_inproc_url("device-restart-in", &device);
+  const auto egress = unique_inproc_url("device-restart-out", &device);
+  for (int i = 0; i < 2; ++i) {
+    ASSERT_EQ(device.configure("restart",
+                               {{ingress, z::nng::transport::inproc,
+                                 z::nng::endpoint_role::listen}},
+                               {{egress, z::nng::transport::inproc,
+                                 z::nng::endpoint_role::listen}}),
+              z::ERR_OK);
+    ASSERT_EQ(device.start(), z::ERR_OK);
+    device.stop();
+    device.stop();
+    EXPECT_TRUE(device.ingress_endpoints().empty());
+    EXPECT_TRUE(device.egress_endpoints().empty());
+  }
+}
+
+TEST(NngPubSubDevice, FailedDeviceSubmissionLeavesSocketCleanupToWrapper) {
+  z::nng::nng runtime;
+  z::nng::pub_sub_device device;
+  const auto ingress = unique_inproc_url("device-failed-in", &device);
+  const auto egress = unique_inproc_url("device-failed-out", &device);
+  ASSERT_EQ(
+      device.configure(
+          "failed-submission",
+          {{ingress, z::nng::transport::inproc, z::nng::endpoint_role::listen}},
+          {{egress, z::nng::transport::inproc, z::nng::endpoint_role::listen}}),
+      z::ERR_OK);
+  const auto front = z::nng::pub_sub_device_test_access::front(device);
+  const auto back = z::nng::pub_sub_device_test_access::back(device);
+  z::nng::socket cooked;
+  ASSERT_EQ(cooked.pair0_open(), NNG_OK);
+  EXPECT_EQ(
+      z::nng::pub_sub_device_test_access::submit_invalid(device, cooked.get()),
+      NNG_EINVAL);
+  bool raw{};
+  EXPECT_EQ(nng_socket_raw(front, &raw), NNG_OK);
+  EXPECT_EQ(nng_socket_raw(back, &raw), NNG_OK);
+  device.stop();
+  EXPECT_EQ(nng_socket_raw(front, &raw), NNG_ECLOSED);
+  EXPECT_EQ(nng_socket_raw(back, &raw), NNG_ECLOSED);
+}
+
+TEST(NngPubSubDevice, AsyncErrorClosesDeviceOwnedSockets) {
+  z::nng::nng runtime;
+  z::nng::pub_sub_device device;
+  const auto ingress = unique_inproc_url("device-error-in", &device);
+  const auto egress = unique_inproc_url("device-error-out", &device);
+  ASSERT_EQ(
+      device.configure(
+          "async-error",
+          {{ingress, z::nng::transport::inproc, z::nng::endpoint_role::listen}},
+          {{egress, z::nng::transport::inproc, z::nng::endpoint_role::listen}}),
+      z::ERR_OK);
+  const auto front = z::nng::pub_sub_device_test_access::front(device);
+  const auto back = z::nng::pub_sub_device_test_access::back(device);
+  ASSERT_EQ(device.start(), z::ERR_OK);
+  EXPECT_EQ(z::nng::pub_sub_device_test_access::abort(device, NNG_ETIMEDOUT),
+            NNG_ETIMEDOUT);
+  device.stop();
+  bool raw{};
+  EXPECT_EQ(nng_socket_raw(front, &raw), NNG_ECLOSED);
+  EXPECT_EQ(nng_socket_raw(back, &raw), NNG_ECLOSED);
+  device.stop();
+}
+
 TEST(NngPubSubDevice, ForwardsPublisherMessagesToSubscriber) {
   z::nng::nng runtime;
   z::nng::publisher publisher;
@@ -973,6 +1082,8 @@ TEST(NngRuntime, StatisticsFindsSocketAndSummarizesCommonFields) {
   EXPECT_TRUE(summary.pipes.has_value());
   EXPECT_TRUE(summary.tx_msgs.has_value());
   EXPECT_TRUE(summary.rx_msgs.has_value());
+  EXPECT_TRUE(summary.already.has_value());
+  EXPECT_FALSE(summary.tx_retry.has_value());
 }
 
 TEST(NngRuntime, StatisticsCounterDeltaShowsConnectionEvents) {
@@ -1008,6 +1119,13 @@ TEST(NngRuntime, StatisticsCounterDeltaShowsConnectionEvents) {
   z::nng::stats_snapshot after;
   require_stats_snapshot(after);
   const auto current = z::nng::flatten_stats(after.root());
+  const auto sent = z::nng::summarize_socket(after, sender.get());
+  const auto received = z::nng::summarize_socket(after, receiver.get());
+  ASSERT_TRUE(sent.tx_msgs.has_value());
+  ASSERT_TRUE(received.rx_msgs.has_value());
+  EXPECT_GE(*sent.tx_msgs, 1U);
+  EXPECT_GE(*received.rx_msgs, 1U);
+  EXPECT_FALSE(sent.tx_retry.has_value());
   const auto deltas = z::nng::counter_delta(previous, current);
 
   const auto has_connection_delta =
@@ -1016,6 +1134,37 @@ TEST(NngRuntime, StatisticsCounterDeltaShowsConnectionEvents) {
                record.numeric_value.value_or(0) > 0;
       });
   EXPECT_TRUE(has_connection_delta);
+}
+
+TEST(NngRuntime, StatisticsSummarizesPipelineProtocolCounters) {
+  z::nng::nng runtime;
+  z::nng::socket sender;
+  z::nng::socket receiver;
+  const auto url = unique_inproc_url("stats-pipeline", &sender);
+  ASSERT_EQ(sender.push0_open(), NNG_OK);
+  ASSERT_EQ(receiver.pull0_open(), NNG_OK);
+  ASSERT_EQ(receiver.listen({url, z::nng::transport::inproc,
+                             z::nng::endpoint_role::listen}),
+            z::ERR_OK);
+  ASSERT_EQ(sender.dial(
+                {url, z::nng::transport::inproc, z::nng::endpoint_role::dial}),
+            z::ERR_OK);
+  constexpr std::string_view payload{"pipeline-stats"};
+  ASSERT_TRUE(send_nonblocking(sender.get(), payload));
+  ASSERT_TRUE(recv_nonblocking(receiver.get(), payload));
+
+  z::nng::stats_snapshot snapshot;
+  require_stats_snapshot(snapshot);
+  const auto push = z::nng::summarize_socket(snapshot, sender.get());
+  const auto pull = z::nng::summarize_socket(snapshot, receiver.get());
+  ASSERT_TRUE(push.tx_direct.has_value());
+  ASSERT_TRUE(push.tx_queued.has_value());
+  ASSERT_TRUE(pull.rx_direct.has_value());
+  ASSERT_TRUE(pull.rx_queued.has_value());
+  EXPECT_GE(*push.tx_direct + *push.tx_queued, 1U);
+  EXPECT_GE(*pull.rx_direct + *pull.rx_queued, 1U);
+  EXPECT_FALSE(push.tx_retry.has_value());
+  EXPECT_FALSE(pull.tx_direct.has_value());
 }
 
 TEST(NngRuntime, StatisticsFlattenCopiesValuesBeyondSnapshotLifetime) {

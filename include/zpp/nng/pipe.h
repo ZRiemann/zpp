@@ -57,6 +57,8 @@ public:
   int get_size(const char *opt, std::size_t &val) const noexcept;
   /// Gets a borrowed string pipe option.
   int get_string(const char *opt, const char *&val) const noexcept;
+  /// Gets the transport scheme borrowed from NNG while the pipe is alive.
+  int get_scheme(const char *&value) const noexcept;
   /// Copies a string pipe option into a caller-provided buffer.
   int get_strcpy(const char *opt, char *val, std::size_t len) const noexcept;
   /// Gets a newly allocated string pipe option; free it with nng_strfree.

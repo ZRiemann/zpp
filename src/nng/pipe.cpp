@@ -80,6 +80,10 @@ int pipe::get_size(const char *opt, std::size_t &val) const noexcept {
   return rv;
 }
 
+int pipe::get_scheme(const char *&value) const noexcept {
+  return nng_pipe_get_scheme(pipe_, &value);
+}
+
 int pipe::get_string(const char *opt, const char *&val) const noexcept {
   const auto rv = nng_pipe_get_string(pipe_, opt, &val);
   if (rv == 0) {

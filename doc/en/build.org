@@ -42,12 +42,20 @@ tests and examples are not implicitly included in build.
 =run= only launches existing outputs. =dev= builds and runs once. See
 [[file:../../BUILD.org][BUILD.org]] for defaults, installation scope and cleanup impact.
 
-** NNG 2.0 RC Migration
+** NNG dependency and API
 
-The Forge NNG source is pinned to =v2.0.0-rc.1= at
-=8fde97db953012882298254bc4753d53e9155bb6=. Install the updated NNG before
-building or testing =zpp_nng=. See the
-[[file:../../../zeta_forge/doc/nng_upgrade_cn.org][workspace upgrade sequence]].
+The tested dependency baseline is the Forge NNG =2.2.0-dev= installation.
+Configure and installed-package discovery check NNG 2.x headers and link the
+required =nng_dialer_bind= and =nng_pipe_get_scheme= symbols. The development
+version is not a formal 2.2 release; older versions are not supported by this
+baseline. Install NNG through Forge before building =zpp_nng=.
+
+=pub_sub_device::start= submits asynchronous forwarding; completion failures
+are reported by its callback. Stop cancels and waits before resource cleanup.
+=pipe::get_scheme= returns an NNG-borrowed string, valid while the pipe lives.
+Socket protocol statistics are cumulative protocol events, distinct from pipe
+transport counters, and do not acknowledge application delivery. Counters not
+exposed by a protocol are absent from the optional summary fields.
 
 =dialer::set_addr= is replaced by
 =int bind(const nng_sockaddr &local_address) noexcept=, matching upstream
